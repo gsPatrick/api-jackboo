@@ -1,9 +1,14 @@
 // src/Jobs/processor.js
+
+// --- CÓDIGO ORIGINAL (DESATIVADO TEMPORARIAMENTE) ---
+// Comentando todo o conteúdo do arquivo para impedir a criação do Worker
+// e a tentativa de conexão com o Redis.
+
+/*
 const { Worker } = require('bullmq');
 const BookCreationService = require('../Features/Content/BookCreation.service');
 require('dotenv').config();
 
-// CORREÇÃO: Usamos a mesma lógica do queue.js para passar a URL completa.
 const redisConnection = process.env.REDIS_URL;
 
 if (!redisConnection) {
@@ -22,7 +27,7 @@ const bookGenerationWorker = new Worker('bookGeneration', async job => {
     throw error;
   }
 }, { 
-  connection: redisConnection, // A mágica acontece aqui também!
+  connection: redisConnection,
   concurrency: 2 
 });
 
@@ -37,3 +42,6 @@ bookGenerationWorker.on('failed', (job, err) => {
 console.log('🚀 Worker de geração de livros iniciado e aguardando jobs...');
 
 module.exports = bookGenerationWorker;
+*/
+
+console.log('[AVISO] Worker do Redis está desativado para teste.');

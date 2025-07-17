@@ -1,17 +1,25 @@
 {
   "development": {
-    "username": "postgres",
-    "password": "sua_senha_secreta",
-    "database": "jackboo_db_dev",
-    "host": "127.0.0.1",
-    "dialect": "postgres"
+    "username": "jackboodb",
+    "password": "jackboodb",
+    "database": "jackboodb",
+    "host": "geral_jackboodb",
+    "port": 5432,
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": false
+    }
   },
   "test": {
-    "username": "postgres",
-    "password": "sua_senha_secreta",
-    "database": "jackboo_db_test",
-    "host": "127.0.0.1",
-    "dialect": "postgres"
+    "username": "jackboodb",
+    "password": "jackboodb",
+    "database": "jackboodb_test",
+    "host": "geral_jackboodb",
+    "port": 5432,
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": false
+    }
   },
   "production": {
     "use_env_variable": "DATABASE_URL",

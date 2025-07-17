@@ -2,16 +2,16 @@
 const { Queue } = require('bullmq');
 require('dotenv').config();
 
-// CORREÇÃO: Passamos a URL completa diretamente. A biblioteca sabe como interpretá-la.
+// --- CÓDIGO ORIGINAL (DESATIVADO TEMPORARIAMENTE) ---
+/*
 const redisConnection = process.env.REDIS_URL;
 
 if (!redisConnection) {
   throw new Error('REDIS_URL não está definida no arquivo .env');
 }
 
-// Criamos uma fila chamada 'bookGeneration'
 const bookGenerationQueue = new Queue('bookGeneration', {
-  connection: redisConnection, // A mágica acontece aqui!
+  connection: redisConnection,
   defaultJobOptions: {
     attempts: 3, 
     backoff: {
@@ -22,5 +22,22 @@ const bookGenerationQueue = new Queue('bookGeneration', {
     removeOnFail: 1000, 
   },
 });
+*/
+// --- FIM DO CÓDIGO ORIGINAL ---
+
+
+// --- NOVO CÓDIGO (SIMULAÇÃO SEM REDIS) ---
+// Criamos uma fila falsa que tem o método 'add', mas ele não faz nada.
+// Isso impede que a aplicação quebre ao chamar `bookGenerationQueue.add()`.
+console.log('[AVISO] Conexão com Redis desativada para teste. A geração de livros em segundo plano não funcionará.');
+
+const bookGenerationQueue = {
+  add: async (name, data) => {
+    console.log(`[Fila Falsa] Trabalho '${name}' recebido, mas não será adicionado à fila. Dados:`, data);
+    return Promise.resolve();
+  }
+};
+// --- FIM DO NOVO CÓDIGO ---
+
 
 module.exports = { bookGenerationQueue };
