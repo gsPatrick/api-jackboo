@@ -4,9 +4,9 @@ class OpenAISetting extends Model {
   static init(sequelize) {
     super.init({
       type: {
-        type: DataTypes.ENUM('character_drawing', 'coloring_book_page', 'story_book_illustration'),
+        type: DataTypes.STRING, // Isso é bom, aceita qualquer string
         allowNull: false,
-        unique: true,
+        unique: true, // ESTE É O PONTO CRÍTICO
         comment: 'Tipo de geração de imagem, ex: desenho de personagem, página de colorir, ilustração de livro de história.'
       },
       basePromptText: {

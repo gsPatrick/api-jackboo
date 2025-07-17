@@ -1,6 +1,21 @@
 const { OpenAISetting, GeneratedImageLog, AdminAsset, OpenAISettingAsset, sequelize } = require('../../models'); // Importar AdminAsset e OpenAISettingAsset
+const SYSTEM_AI_TYPES = [
+  'character_drawing',
+  'coloring_book_page',
+  'story_book_illustration',
+  'story_intro',
+  'story_page_illustration',
+  'story_page_text',
+  'special_jack_friends', // CORRIGIDO: Nome do tipo da página especial, usei o nome do service BookStructureService
+  'back_cover', // Adicionado, pode ser igual ao story_cover ou coloring_cover
+  'story_cover',
+  'coloring_cover',
+];
 
 class AdminOpenAISettingService {
+  
+  
+  
   /**
    * Lista todas as configurações da OpenAI.
    */
@@ -14,16 +29,20 @@ class AdminOpenAISettingService {
   /**
    * Busca uma configuração por tipo.
    */
-  async findSettingByType(type) {
+ async findSettingByType(type) {
     const setting = await OpenAISetting.findOne({
         where: { type },
         include: [{ model: AdminAsset, as: 'baseAssets' }] // Incluir os assets associados
     });
+    // Se não encontrar, lança um erro, como já está.
+    // Isso é importante porque se o frontend pedir um tipo que não existe (ex: "Criar personagem"),
+    // ele vai falhar. O frontend será atualizado para enviar os tipos corretos.
     if (!setting) {
       throw new Error(`Configuração OpenAI para o tipo "${type}" não encontrada.`);
     }
     return setting;
   }
+
 
   /**
    * Cria ou atualiza uma configuração da OpenAI.
@@ -31,11 +50,15 @@ class AdminOpenAISettingService {
    * @param {object} data - Dados da configuração (basePromptText, model, size, quality, style, isActive).
    * @param {Array<number>} [baseAssetIds] - IDs dos AdminAssets a serem associados.
    */
-  async createOrUpdateSetting(type, data, baseAssetIds = []) {
-    // Validações básicas
-    if (!data.basePromptText || !data.model || !data.size || !data.quality || !data.style) {
-      throw new Error('Campos obrigatórios (basePromptText, model, size, quality, style) não foram fornecidos.');
+async createOrUpdateSetting(type, data, baseAssetIds = []) {
+    // Validações básicas, agora incluindo 'name'
+    if (!data.name || !data.basePromptText || !data.model || !data.size || !data.quality || !data.style) {
+      throw new Error('Campos obrigatórios (name, basePromptText, model, size, quality, style) não foram fornecidos.');
     }
+    
+    // Validar se o 'type' fornecido é um dos tipos de sistema esperados, se você quer essa restrição.
+    // Se a coluna 'type' for UNIQUE, você não pode criar um novo 'type' se ele já existe.
+    // O findOrCreate abaixo já trata isso.
 
     // Verificar se os baseAssetIds existem
     if (baseAssetIds && baseAssetIds.length > 0) {
@@ -47,31 +70,39 @@ class AdminOpenAISettingService {
 
     let settingResult;
     await sequelize.transaction(async (t) => {
+        // Encontra ou cria a configuração.
+        // O `type` é a chave primária/única de busca.
+        // Se `type` já existir, ele atualiza. Se não, ele cria.
         const [setting, created] = await OpenAISetting.findOrCreate({
             where: { type },
-            defaults: data,
+            defaults: { ...data, type: type }, // Garante que o tipo da URL seja o usado
             transaction: t,
         });
 
         if (!created) {
-            await setting.update(data, { transaction: t });
+            // Se não foi criado (já existia), atualiza os dados
+            // NOTA: O 'type' não é atualizável, então remova-o dos dados para update.
+            const updateData = { ...data };
+            delete updateData.type; 
+            await setting.update(updateData, { transaction: t });
         }
 
         // Gerenciar a tabela pivô OpenAISettingAsset
-        await OpenAISettingAsset.destroy({ where: { openAISettingId: setting.id }, transaction: t });
-        if (baseAssetIds && baseAssetIds.length > 0) {
-            const settingAssetsToCreate = baseAssetIds.map(assetId => ({
-                openAISettingId: setting.id,
-                adminAssetId: assetId,
-            }));
-            await OpenAISettingAsset.bulkCreate(settingAssetsToCreate, { transaction: t });
+        // Usamos o setBaseAssets do Sequelize.
+        if (baseAssetIds && Array.isArray(baseAssetIds)) {
+            const assets = await AdminAsset.findAll({ where: { id: baseAssetIds }, transaction: t });
+            await setting.setBaseAssets(assets, { transaction: t });
+        } else {
+            // Se baseAssetIds for vazio ou nulo, limpa as associações existentes
+            await setting.setBaseAssets([], { transaction: t });
         }
-        settingResult = setting;
+        settingResult = setting; // Armazena o resultado da transação
     });
 
-    // Retorna a configuração com os assets associados para o preview
+    // Retorna a configuração completa com os assets associados para o frontend
     return this.findSettingByType(type);
   }
+
 
   /**
    * Deleta uma configuração da OpenAI.
