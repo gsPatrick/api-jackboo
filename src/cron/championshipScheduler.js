@@ -1,92 +1,89 @@
-const contentService = require('./Content.service');
+// src/Schedulers/championshipScheduler.js
+const cron = require('node-cron');
+const { Championship } = require('../models');
+const { Op } = require('sequelize');
+const AdminChampionshipsService = require('../Features-Admin/Championships/AdminChampionships.service');
+const { isAfter, set } = require('date-fns');
 
-class ContentController {
+class ChampionshipScheduler {
+  /**
+   * Inicia todos os agendamentos relacionados aos campeonatos.
+   * Deve ser chamado na inicialização do servidor.
+   */
+  static start() {
+    console.log('⏰ Agendador de Campeonatos iniciado.');
 
-  async createCharacter(req, res) {
+    // Roda a cada 5 minutos para atualizar os status dos campeonatos.
+    cron.schedule('*/5 * * * *', this.updateChampionshipStatuses);
+
+    // Roda uma vez por dia (às 03:00 da manhã) para recalcular os prêmios disponíveis.
+    cron.schedule('0 3 * * *', this.updateAvailablePrizes);
+  }
+
+  /**
+   * Tarefa principal que transiciona o status dos campeonatos de forma automática.
+   */
+  static async updateChampionshipStatuses() {
+    console.log('[Scheduler] Executando verificação de status dos campeonatos...');
+    const now = new Date();
+
     try {
-      const character = await contentService.createCharacter(req.user.id, req.body, req.file);
-      res.status(201).json(character);
+      // 1. Abre campeonatos para submissão ('upcoming' -> 'open_for_submissions')
+      const upcomingChampionships = await Championship.findAll({
+        where: { status: 'upcoming', startDate: { [Op.lte]: now } }
+      });
+      for (const champ of upcomingChampionships) {
+        console.log(`[Scheduler] Abrindo campeonato "${champ.name}" (ID: ${champ.id}) para submissões.`);
+        await champ.update({ status: 'open_for_submissions' });
+      }
+
+      // 2. Abre campeonatos para votação ('open_for_submissions' -> 'voting')
+      // A regra de negócio é que a votação começa no dia 26 do mês de encerramento.
+      const submissionChampionships = await Championship.findAll({
+        where: { status: 'open_for_submissions' }
+      });
+      for (const champ of submissionChampionships) {
+        // Define a data de início da votação para o dia 26 às 00:00.
+        const votingStartDate = set(new Date(champ.endDate), { date: 26, hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
+        if (isAfter(now, votingStartDate)) {
+          console.log(`[Scheduler] Abrindo campeonato "${champ.name}" (ID: ${champ.id}) para votação.`);
+          await champ.update({ status: 'voting' });
+        }
+      }
+
+      // 3. Fecha campeonatos ('voting' -> 'closed') e dispara o cálculo de scores
+      const votingChampionships = await Championship.findAll({
+        where: { status: 'voting', endDate: { [Op.lte]: now } }
+      });
+      for (const champ of votingChampionships) {
+        console.log(`[Scheduler] Fechando campeonato "${champ.name}" (ID: ${champ.id}) e calculando scores.`);
+        await champ.update({ status: 'closed' });
+        // Dispara o cálculo de scores automaticamente assim que o campeonato fecha para votação.
+        // A determinação dos vencedores ainda é um passo manual para o admin.
+        await AdminChampionshipsService.calculateFinalScores(champ.id);
+      }
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      console.error('[Scheduler] Erro ao atualizar status dos campeonatos:', error);
     }
   }
 
-  async getMyCharacters(req, res) {
+  /**
+   * Tarefa diária para atualizar a contagem de prêmios disponíveis com base nas vendas.
+   */
+  static async updateAvailablePrizes() {
+    console.log('[Scheduler] Executando tarefa diária de atualização de prêmios...');
     try {
-      const characters = await contentService.findCharactersByUser(req.user.id);
-      res.status(200).json(characters);
+      const activeChampionships = await Championship.findAll({
+        where: { status: { [Op.in]: ['open_for_submissions', 'voting'] } }
+      });
+      for (const champ of activeChampionships) {
+        console.log(`[Scheduler] Atualizando prêmios para o campeonato "${champ.name}" (ID: ${champ.id}).`);
+        await AdminChampionshipsService.calculateAvailablePrizes(champ.id);
+      }
     } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  }
-
-  async createBook(req, res) {
-    try {
-      const book = await contentService.createBook(req.user.id, req.body);
-      res.status(201).json(book);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
-    }
-  }
-
-  async getMyBooks(req, res) {
-    try {
-      const books = await contentService.findBooksByUser(req.user.id);
-      res.status(200).json(books);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  }
-
-  async deleteCharacter(req, res) {
-    try {
-      const { id } = req.params;
-      await contentService.deleteCharacter(id, req.user.id);
-      res.status(204).send();
-    } catch (error) {
-      res.status(404).json({ message: error.message });
-    }
-  }
-
-  // --- Métodos para Royalties ---
-  async getMyRoyalties(req, res) {
-    try {
-      const royalties = await contentService.findRoyaltiesByUser(req.user.id);
-      res.status(200).json(royalties);
-    } catch (error) {
-      res.status(500).json({ message: 'Erro ao buscar seus royalties.', error: error.message });
-    }
-  }
-
-  async requestPayout(req, res) { // Implementação do método que faltava
-    try {
-      const { royaltyIds } = req.body;
-      const result = await contentService.requestRoyaltyPayout(req.user.id, royaltyIds);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
-    }
-  }
-
-  // --- Métodos para Badges ---
-  async getMyBadges(req, res) {
-    try {
-      const badges = await contentService.findBadgesByUser(req.user.id);
-      res.status(200).json(badges);
-    } catch (error) {
-      res.status(500).json({ message: 'Erro ao buscar seus selos.', error: error.message });
-    }
-  }
-
-  // --- Métodos para Histórico de Pagamentos de Assinatura ---
-  async getMySubscriptionPayments(req, res) { // Implementação do método que faltava
-    try {
-      const payments = await contentService.findSubscriptionPaymentHistoryByUser(req.user.id);
-      res.status(200).json(payments);
-    } catch (error) {
-      res.status(500).json({ message: 'Erro ao buscar histórico de pagamentos de assinatura.', error: error.message });
+      console.error('[Scheduler] Erro ao atualizar prêmios disponíveis:', error);
     }
   }
 }
 
-module.exports = new ContentController();
+module.exports = ChampionshipScheduler;

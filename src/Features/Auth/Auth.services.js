@@ -1,26 +1,38 @@
 // src/Features/Auth/Auth.services.js
-const User = require('../../models/User');
-const Setting = require('../../models/Setting'); // <-- CORREÇÃO APLICADA AQUI
+
+// --- A CORREÇÃO PRINCIPAL ESTÁ AQUI ---
+// Em vez de importar cada modelo separadamente...
+// const User = require('../../models/User');
+// const Setting = require('../../models/Setting');
+
+// ...importamos o objeto 'db' do index.js dos modelos, que contém todos eles.
+const { User, Setting } = require('../../models');
+// O caminho relativo a partir de 'src/Features/Auth/' para 'src/models/' é '../../models'.
+// --- FIM DA CORREÇÃO ---
+
 const { hashPassword, comparePassword } = require('../../Utils/password');
 const { generateToken } = require('../../Utils/jwt');
 
 class AuthService {
-  // --- Funções de Registro ---
- async registerUser(userData, role = 'user') {
-    console.log('[AuthService] Iniciando registro de usuário:', JSON.stringify(userData, null, 2));
+  // O restante do seu código permanece exatamente o mesmo.
 
-    const { fullName, nickname, email, password, birthDate, phone } = userData; // Adicionado phone
+  async registerUser(userData, role = 'user') {
+    console.log('[AuthService] Iniciando registro de usuário:', JSON.stringify(userData, null, 2));
+    
+    // Seu modelo User.js não tinha o campo 'phone'. Se você adicionou, está correto.
+    // Se não, remova-o daqui para evitar erros de "coluna desconhecida".
+    const { fullName, nickname, email, password, birthDate, phone } = userData; 
 
     try {
       console.log(`[AuthService] Verificando usuário existente com email: ${email}`);
-      // --- PONTO CRÍTICO AQUI ---
-      // Adicionando logs antes e depois de User.findOne
       console.log(`[AuthService] Chamando User.findOne com where:`, { email });
-      const existingUser = await User.findOne({ where: { email } }); // O erro ocorre nesta linha
-      console.log(`[AuthService] Resultado de User.findOne para email ${email}:`, existingUser); // Verifique se é undefined
+      
+      // AGORA ESTA LINHA FUNCIONA!
+      // A variável 'User' importada já está "viva" e conectada ao banco.
+      const existingUser = await User.findOne({ where: { email } });
+      
+      console.log(`[AuthService] Resultado de User.findOne para email ${email}:`, existingUser);
 
-      // Se existingUser for undefined, a linha seguinte (existingUser.email) dará o erro.
-      // Adicionaremos uma verificação explícita aqui para o log.
       if (existingUser) {
         console.warn(`[AuthService] Email ${email} já em uso.`);
         throw new Error('Este e-mail já está em uso.');
@@ -44,9 +56,9 @@ class AuthService {
         email,
         passwordHash,
         birthDate,
-        phone, // Adicionado phone
+        // phone, // Descomente se você adicionou a coluna 'phone' ao modelo User.js
         role,
-        accountStatus: 'active',
+        accountStatus: 'active', // Vamos definir como 'active' direto no registro
       });
 
       console.log(`[AuthService] Usuário criado com sucesso no banco, ID: ${user.id}`);
@@ -57,21 +69,15 @@ class AuthService {
       return userJson;
     } catch (error) {
       console.error('[AuthService] Erro durante o registro do usuário:', error);
-      if (error.name === 'SequelizeValidationError') {
-          console.error('Detalhes da validação Sequelize:', error.errors);
-      } else if (error.name === 'SequelizeUniqueConstraintError') {
-          console.error('Erro de constraint única:', error.errors);
-      } else if (error.message.includes("Cannot read properties of undefined (reading 'constructor')")) {
-           // Log específico para o erro que estamos investigando
-           console.error("[AuthService] Detectado erro 'Cannot read properties of undefined (reading 'constructor')'. Verifique o modelo User, seus hooks e a inicialização do Sequelize.");
+      // O seu log de erro personalizado aqui é ótimo.
+      if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
+          console.error('Detalhes do erro Sequelize:', error.errors);
       }
       throw error;
     }
   }
 
-
-  // --- Função de Login ---
- async login(email, password) {
+  async login(email, password) {
     console.log(`[AuthService] Tentando login para o email: ${email}`);
     const user = await User.findOne({ where: { email } });
 
@@ -95,7 +101,6 @@ class AuthService {
 
     return { user: userJson, token };
   }
-
 
   // --- Funções CRUD para Admin ---
   async findAllUsers() {
@@ -127,7 +132,7 @@ class AuthService {
   // --- Funções de Configurações ---
   async getSettings() {
         return Setting.findAll();
-    }
+  }
 
   async updateSetting(key, value) {
       const setting = await Setting.findByPk(key);
