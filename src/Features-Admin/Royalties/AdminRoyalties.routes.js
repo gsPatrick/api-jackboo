@@ -1,25 +1,21 @@
+// src/Features-Admin/Royalties/AdminRoyalties.routes.js
 const { Router } = require('express');
-const addressController = require('../../Features/Address/Address.controller');
-const { isAuthenticated } = require('../../Features/Auth/Auth.middleware');
+const adminRoyaltiesController = require('./AdminRoyalties.controller');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
 
-// Todas as rotas de endereço exigem autenticação
-router.use(isAuthenticated);
+// Protege todas as rotas de gerenciamento de royalties do admin
+router.use(isAuthenticated, isAdmin);
 
-// POST /api/addresses - Cria um novo endereço
-router.post('/', addressController.createAddress);
+// GET /api/admin/royalties - Lista todos os royalties, com filtros (ex: /?status=pending)
+router.get('/', adminRoyaltiesController.listRoyalties);
 
-// GET /api/addresses - Lista todos os endereços do usuário logado
-router.get('/', addressController.getMyAddresses);
+// POST /api/admin/royalties/mark-as-paid - Marca um ou mais royalties como pagos
+// O corpo da requisição deve ser: { "royaltyIds": [1, 2, 3] }
+router.post('/mark-as-paid', adminRoyaltiesController.markAsPaid);
 
-// PUT /api/addresses/:id - Atualiza um endereço específico
-router.put('/:id', addressController.updateAddress);
-
-// DELETE /api/addresses/:id - Deleta um endereço específico
-router.delete('/:id', addressController.deleteAddress);
-
-// POST /api/addresses/:id/set-primary - Define um endereço como primário
-router.post('/:id/set-primary', addressController.setPrimaryAddress);
+// GET /api/admin/royalties/pending-total/:authorId - Pega o total pendente para um autor específico
+router.get('/pending-total/:authorId', adminRoyaltiesController.getPendingTotal);
 
 module.exports = router;

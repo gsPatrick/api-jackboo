@@ -1,3 +1,4 @@
+// src/models/BookVariation.js
 const { Model, DataTypes } = require('sequelize');
 
 class BookVariation extends Model {
@@ -26,11 +27,6 @@ class BookVariation extends Model {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      contentJson: {
-        type: DataTypes.JSONB,
-        allowNull: true,
-        comment: 'Armazena o conteúdo específico desta variação. Ex: os 10 capítulos da história ou as URLs das imagens para colorir.'
-      },
       pageCount: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -46,7 +42,9 @@ class BookVariation extends Model {
         allowNull: false,
         comment: 'Permite desativar uma variação específica sem apagar o livro.'
       },
-        contentJson: {
+      // CORREÇÃO APLICADA AQUI: O campo 'contentJson' duplicado foi removido.
+      // Esta é a versão correta que foi mantida.
+      contentJson: {
         type: DataTypes.JSONB,
         allowNull: true,
         // AGORA ARMAZENA O RESULTADO FINAL. Ex: { "pdfUrl": "/uploads/books/final-book.pdf" }
@@ -60,7 +58,6 @@ class BookVariation extends Model {
 
   static associate(models) {
     this.belongsTo(models.Book, { foreignKey: 'bookId', as: 'book' });
-    // Uma variação de livro pode estar em múltiplos itens de pedido
     this.hasMany(models.OrderItem, { foreignKey: 'bookVariationId', as: 'orderItems' });
   }
 }

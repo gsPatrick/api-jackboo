@@ -1,4 +1,6 @@
-const User = require('../../models/User'); // Ajuste o caminho
+// src/Features/Auth/Auth.services.js
+const User = require('../../models/User');
+const Setting = require('../../models/Setting'); // <-- CORREÇÃO APLICADA AQUI
 const { hashPassword, comparePassword } = require('../../Utils/password');
 const { generateToken } = require('../../Utils/jwt');
 
@@ -7,7 +9,6 @@ class AuthService {
   async registerUser(userData, role = 'user') {
     const { fullName, nickname, email, password, birthDate } = userData;
 
-    // Verifica se email ou nickname já existem
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       throw new Error('Este e-mail já está em uso.');
@@ -26,10 +27,9 @@ class AuthService {
       passwordHash,
       birthDate,
       role,
-      accountStatus: 'active', // Ativa a conta diretamente no registro
+      accountStatus: 'active',
     });
 
-    // Remove o hash da senha do objeto retornado
     const userJson = user.toJSON();
     delete userJson.passwordHash;
 
@@ -70,7 +70,6 @@ class AuthService {
 
   async updateUser(id, updateData) {
     const user = await this.findUserById(id);
-    // Impede a alteração da senha por esta rota
     if (updateData.password || updateData.passwordHash) {
         delete updateData.password;
         delete updateData.passwordHash;
@@ -85,21 +84,20 @@ class AuthService {
     return { message: 'Usuário deletado com sucesso.' };
   }
 
-
-   async getSettings() {
+  // --- Funções de Configurações ---
+  async getSettings() {
         return Setting.findAll();
     }
 
-    async updateSetting(key, value) {
-        const setting = await Setting.findByPk(key);
-        if (!setting) {
-            throw new Error(`Configuração com a chave '${key}' não encontrada.`);
-        }
-        setting.value = value;
-        await setting.save();
-        return setting;
-    }
+  async updateSetting(key, value) {
+      const setting = await Setting.findByPk(key);
+      if (!setting) {
+          throw new Error(`Configuração com a chave '${key}' não encontrada.`);
+      }
+      setting.value = value;
+      await setting.save();
+      return setting;
+  }
 }
-
 
 module.exports = new AuthService();

@@ -1,5 +1,6 @@
+// src/models/Submission.js
 const { Model, DataTypes } = require('sequelize');
-const { deleteFile } = require('../Utils/fileHelper'); // <-- IMPORTAR
+const { deleteFile } = require('../Utils/fileHelper'); 
 
 class Submission extends Model {
   static init(sequelize) {
@@ -64,15 +65,18 @@ class Submission extends Model {
     this.belongsTo(models.User, { foreignKey: 'userId', as: 'submitter' });
     this.belongsTo(models.Championship, { foreignKey: 'championshipId', as: 'championship' });
     this.hasMany(models.Vote, { foreignKey: 'submissionId', as: 'votes' });
-    this.hasMany(models.UserBadge, { foreignKey: 'submissionId', as: 'userBadges' }); // Para rastrear selos ganhos por esta submissão
+    this.hasMany(models.UserBadge, { foreignKey: 'submissionId', as: 'userBadges' });
   }
+
   static addHooks(models) {
-    this.afterDestroy(async (character, options) => {
-      console.log(`[Hook] Deletando arquivos para o personagem ${character.id}`);
-      await deleteFile(character.originalDrawingUrl);
-      await deleteFile(character.generatedCharacterUrl);
+    this.afterDestroy(async (submission, options) => {
+      console.log(`[Hook] Deletando arquivo para a submissão ${submission.id}`);
+      if (submission.drawingUrl) {
+        await deleteFile(submission.drawingUrl);
+      }
     });
   }
 }
 
-module.exports = Character;
+// CORREÇÃO APLICADA AQUI:
+module.exports = Submission; 

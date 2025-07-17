@@ -2,22 +2,24 @@
 const { Queue } = require('bullmq');
 require('dotenv').config();
 
-const redisConnection = {
-  host: process.env.REDIS_URL.split(':')[1].replace('//', ''),
-  port: process.env.REDIS_URL.split(':')[2],
-};
+// CORREÇÃO: Passamos a URL completa diretamente. A biblioteca sabe como interpretá-la.
+const redisConnection = process.env.REDIS_URL;
+
+if (!redisConnection) {
+  throw new Error('REDIS_URL não está definida no arquivo .env');
+}
 
 // Criamos uma fila chamada 'bookGeneration'
 const bookGenerationQueue = new Queue('bookGeneration', {
-  connection: redisConnection,
+  connection: redisConnection, // A mágica acontece aqui!
   defaultJobOptions: {
-    attempts: 3, // Tenta reprocessar o job 3 vezes em caso de falha
+    attempts: 3, 
     backoff: {
       type: 'exponential',
-      delay: 5000, // Atraso de 5s para a primeira tentativa, depois exponencialmente maior
+      delay: 5000, 
     },
-    removeOnComplete: true, // Remove o job da fila quando completado com sucesso
-    removeOnFail: 1000, // Mantém os 1000 jobs que falharam para análise
+    removeOnComplete: true,
+    removeOnFail: 1000, 
   },
 });
 
