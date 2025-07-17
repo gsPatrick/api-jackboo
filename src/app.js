@@ -1,23 +1,20 @@
+// src/app.js
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors'); // <-- 1. Importar o pacote CORS
+const cors = require('cors');
 const mainRouter = require('./Routes/index');
 
 const app = express();
 
-// --- CONFIGURAÇÃO DO CORS ---
-// Habilita o CORS para todas as origens e rotas.
-// Isso permite que seu frontend (ex: em localhost:3000)
-// faça requisições para sua API (ex: em localhost:3333).
-// É importante que esta linha venha ANTES das suas rotas.
-app.use(cors()); // <-- 2. Usar o middleware para habilitar
+// A inicialização do banco de dados NÃO pertence a este arquivo.
+// Ela é gerenciada pelo server.js.
+// REMOVA a linha: const database = require('./src/database/index');
 
-// Middleware para interpretar o corpo das requisições como JSON
+app.use(cors());
 app.use(express.json());
 
-// Serve arquivos estáticos da pasta 'uploads' (para desenhos, capas, etc.)
+// Servir arquivos estáticos
 app.use('/uploads', express.static('uploads'));
-// Serve arquivos estáticos da pasta 'public' (para imagens de selos, etc.)
 app.use('/images', express.static('public/images'));
 
 // Roteador principal da API

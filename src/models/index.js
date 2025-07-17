@@ -1,55 +1,47 @@
-// src/database/index.js
-const { Sequelize } = require('sequelize');
-const dbConfig = require('../../config/config.json');
+// src/models/index.js
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
+const Sequelize = require('sequelize');
+const process = require('process');
+const basename = path.basename(__filename);
+const env = process.env.NODE_ENV || 'development';
+const config = require(__dirname + '/../../config/config.json')[env];
+const db = {};
 
-class Database {
-  constructor() {
-    this.connection = new Sequelize(dbConfig.development);
-    this.models = {};
-  }
-
-  initModels() {
-    const modelsPath = path.resolve(__dirname, '../../models');
-
-    fs.readdirSync(modelsPath)
-      .filter(file => file.endsWith('.js') && file !== 'index.js' && !file.endsWith('.map')) // Adicionado filtro para .map
-      .forEach(file => {
-        const modelDefinition = require(path.join(modelsPath, file));
-        const model = modelDefinition.init(this.connection);
-        this.models[model.name] = model;
-      });
-
-    Object.values(this.models)
-      .filter(model => typeof model.associate === 'function')
-      .forEach(model => model.associate(this.models));
-    
-    console.log('🐘 Models carregados e associados.');
-  }
-
-  // NOVO MÉTODO PARA CONTROLAR A INICIALIZAÇÃO
-  async connect() {
-    try {
-      // 1. Testa a conexão
-      await this.connection.authenticate();
-      console.log('🔗 Conexão com o banco de dados estabelecida com sucesso.');
-
-      // 2. Inicializa os models
-      this.initModels();
-
-      // 3. Sincroniza o banco de dados
-      // alter: true é ótimo para desenvolvimento, mas use migrations para produção.
-      await this.connection.sync({ alter: true });
-      console.log('✅ Banco de dados sincronizado com sucesso.');
-
-    } catch (error) {
-      console.error('❌ Falha ao conectar ou sincronizar o banco de dados:', error);
-      // Lança o erro para impedir que o servidor inicie
-      throw error;
-    }
-  }
+let sequelize;
+if (config.use_env_variable) {
+  sequelize = new Sequelize(process.env[config.use_env_variable], config);
+} else {
+  sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-// Exporta uma única instância da classe
-module.exports = new Database();
+fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (
+      file.indexOf('.') !== 0 &&
+      file !== basename &&
+      file.slice(-3) === '.js' &&
+      file.indexOf('.test.js') === -1
+    );
+  })
+  .forEach(file => {
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+    db[model.name] = model;
+  });
+
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+  if (db[modelName].addHooks) {
+    db[modelName].addHooks(db);
+  }
+});
+
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
+module.exports = db;

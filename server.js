@@ -1,23 +1,22 @@
 // server.js
 const app = require('./src/app');
-// Altere a importação para pegar o objeto 'db' inteiro.
-const db = require('./src/models');
+const db = require('./src/models'); // Importa o objeto db do diretório de modelos
 const ChampionshipScheduler = require('./src/Schedulers/championshipScheduler');
 
 const PORT = process.env.PORT || 3333;
 
 const startServer = async () => {
   try {
-    // Agora, use db.sequelize, que é a forma garantida de acessar a instância.
+    // Usa a instância 'sequelize' do objeto 'db' importado
     console.log('🔗 Testando conexão com o banco de dados...');
     await db.sequelize.authenticate();
     console.log('✅ Conexão estabelecida com sucesso.');
 
-    // Use `alter: true` para desenvolvimento. Considere migrations para produção.
+    // Sincroniza o banco de dados
     await db.sequelize.sync({ alter: true });
     console.log('🔄 Banco de dados sincronizado.');
 
-    // Inicia o agendador
+    // Inicia o agendador de tarefas
     ChampionshipScheduler.start();
 
     // Inicia o servidor Express
