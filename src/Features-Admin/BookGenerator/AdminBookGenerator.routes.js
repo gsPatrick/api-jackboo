@@ -1,7 +1,7 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.routes.js
 const { Router } = require('express');
 const controller = require('./AdminBookGenerator.controller');
-const { isAuthenticated, isAdmin } = require('../../Features/Auth/auth.middleware');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
 router.use(isAuthenticated, isAdmin);

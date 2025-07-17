@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const adminChampionshipsController = require('./AdminChampionships.controller');
-const { isAuthenticated, isAdmin } = require('../../Features/Auth/auth.middleware');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
 

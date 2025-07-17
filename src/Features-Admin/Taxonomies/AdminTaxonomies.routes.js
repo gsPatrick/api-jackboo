@@ -1,7 +1,7 @@
 // src/Features-Admin/Taxonomies/AdminTaxonomies.routes.js
 const { Router } = require('express');
 const controller = require('./AdminTaxonomies.controller');
-const { isAuthenticated, isAdmin } = require('../../Features/Auth/auth.middleware');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
 router.use(isAuthenticated, isAdmin);
@@ -20,15 +20,7 @@ router.delete('/age-ratings/:id', controller.deleteAgeRating);
 
 // --- NOVO: Rotas para IA Settings (Usadas pelos Templates) ---
 // GET /api/admin/taxonomies/ai-settings
-router.get('/ai-settings', controller.listAiSettings); // Precisa implementar no controller/service
-// GET /api/admin/taxonomies/ai-settings/:id
-router.get('/ai-settings/:id', controller.getAiSettingById); // Precisa implementar
-// POST /api/admin/taxonomies/ai-settings
-router.post('/ai-settings', controller.createAiSetting); // Precisa implementar
-// PUT /api/admin/taxonomies/ai-settings/:id
-router.put('/ai-settings/:id', controller.updateAiSetting); // Precisa implementar
-// DELETE /api/admin/taxonomies/ai-settings/:id
-router.delete('/ai-settings/:id', controller.deleteAiSetting); // Precisa implementar
+
 
 router.get('/ai-settings', controller.listAllAiSettings);
 

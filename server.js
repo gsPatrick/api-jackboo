@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express'); // Mantém express aqui para configurar estáticos
 const app = require('./src/app');
-const { sequelize } = require('./src/models'); // Para sincronizar o DB na inicialização
+const { sequelize } = require('./models/index'); // Para sincronizar o DB na inicialização
 const path = require('path'); // Para caminhos estáticos
 
 const PORT = process.env.PORT || 3333;

@@ -7,10 +7,8 @@ const popularityRoutes = require('../Features/Popularity/Popularity.routes');
 const championshipRoutes = require('../Features/Championship/Championship.routes');
 const subscriptionRoutes = require('../Features/Subscription/Subscription.routes');
 const addressRoutes = require('../Features/Address/Address.routes');
-const webhookRoutes = require('../Features/Webhook/Webhook.routes');
 
 // Admin routes
-const adminBookRoutes = require('../Features-Admin/Books/AdminBooks.routes');
 const adminCharacterRoutes = require('../Features-Admin/Characters/AdminCharacters.routes');
 const adminTaxonomyRoutes = require('../Features-Admin/Taxonomies/AdminTaxonomies.routes');
 const adminChampionshipRoutes = require('../Features-Admin/Championships/AdminChampionships.routes');
@@ -35,10 +33,9 @@ router.use('/popularity', popularityRoutes);
 router.use('/championships', championshipRoutes);
 router.use('/subscriptions', subscriptionRoutes);
 router.use('/addresses', addressRoutes);
-router.use('/webhooks', webhookRoutes);
+
 
 // --- Rotas de Administração ---
-router.use('/admin/books', adminBookRoutes);
 router.use('/admin/characters', adminCharacterRoutes);
 router.use('/admin/taxonomies', adminTaxonomyRoutes);
 router.use('/admin/championships', adminChampionshipRoutes);
@@ -47,5 +44,6 @@ router.use('/admin/royalties', adminRoyaltiesRoutes);
 router.use('/admin/openai-settings', adminOpenAISettingRoutes);
 router.use('/admin/assets', adminAssetRoutes); // <-- NOVO: Adicionar rotas Admin de Assets
 router.use('/admin/generator', adminGeneratorRoutes); // <-- NOVO
+router.use('/admin/assets', adminAssetRoutes);
 
 module.exports = router;

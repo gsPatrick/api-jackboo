@@ -1,7 +1,7 @@
 // src/Features-Admin/BookTemplates/AdminBookTemplates.routes.js
 const { Router } = require('express');
-const controller = require('./AdminBookTemplates.controller');
-const { isAuthenticated, isAdmin } = require('../../Features/Auth/auth.middleware');
+const controller = require('./AdminBooks.controller');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
 

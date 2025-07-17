@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const adminCharactersController = require('./AdminCharacters.controller');
-const { isAuthenticated, isAdmin } = require('../../Features/Auth/auth.middleware');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 const { uploadAdminAsset } = require('../../Utils/multerConfig'); // <-- ATUALIZADO: Importar uploadAdminAsset
 
 const router = Router();

@@ -14,7 +14,7 @@ class Book extends Model {
         references: { model: 'books', key: 'id' } 
       },
       genre: { 
-        type: DataTypes.STRING, // Mudado para STRING para aceitar qualquer tema
+        type: DataTypes.STRING,
         allowNull: true 
       },
       storyPrompt: { 
@@ -44,7 +44,7 @@ class Book extends Model {
       },
       weight: { 
         type: DataTypes.FLOAT, 
-        allowNull: true, // Permitir nulo inicialmente
+        allowNull: true,
         comment: 'Peso em kg' 
       },
       length: { 
@@ -67,7 +67,8 @@ class Book extends Model {
         allowNull: true, 
         references: { model: 'print_formats', key: 'id' } 
       },
-      // bookTemplateId foi REMOVIDO
+      // REMOVIDO: O campo bookTemplateId foi removido pois o sistema de templates é obsoleto.
+      // bookTemplateId: { ... }
     }, {
       sequelize,
       tableName: 'books',
@@ -87,6 +88,7 @@ class Book extends Model {
     this.belongsTo(models.Book, { foreignKey: 'seriesParentId', as: 'seriesParent' });
     this.hasMany(models.BookVariation, { foreignKey: 'bookId', as: 'variations' });
     this.hasMany(models.Like, { foreignKey: 'bookId', as: 'likes' });
+    // REMOVIDO: A associação com BookTemplate foi removida.
   }
 }
 

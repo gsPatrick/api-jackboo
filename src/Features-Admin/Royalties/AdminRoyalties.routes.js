@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const addressController = require('./Address.controller');
+const addressController = require('../../Features/Address/Address.controller');
 const { isAuthenticated } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();

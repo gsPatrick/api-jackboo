@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const adminAssetController = require('./AdminAsset.controller');
-const { isAuthenticated, isAdmin } = require('../../Features/Auth/auth.middleware');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 const { uploadAdminAsset } = require('../../Utils/multerConfig'); // Para upload de assets do admin
 
 const router = Router();
@@ -12,7 +12,6 @@ router.use(isAuthenticated, isAdmin);
 router.get('/', adminAssetController.listAssets);
 
 // GET /api/admin/assets/:id - Pega detalhes de um asset específico
-router.get('/:id', adminAssetController.getAssetById);
 
 // POST /api/admin/assets - Cria um novo asset (com upload de arquivo)
 router.post('/', uploadAdminAsset.single('assetFile'), adminAssetController.createAsset);
@@ -23,7 +22,6 @@ router.put('/:id', adminAssetController.updateAsset);
 // DELETE /api/admin/assets/:id - Deleta um asset e seu arquivo físico
 router.delete('/:id', adminAssetController.deleteAsset);
 
-router.use('/admin/assets', adminAssetRoutes); // <-- NOVO
-
+// 🔴 REMOVIDO: router.use('/dmin/assets', adminAssetRoutes); — Isso causava erro
 
 module.exports = router;

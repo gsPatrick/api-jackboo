@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const adminOpenAISettingController = require('./AdminOpenAISetting.controller');
-const { isAuthenticated, isAdmin } = require('../../../Features/Auth/auth.middleware');
+const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
 

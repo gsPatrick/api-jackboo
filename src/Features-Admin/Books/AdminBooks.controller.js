@@ -1,5 +1,5 @@
 // src/Features-Admin/BookTemplates/AdminBookTemplates.controller.js
-const adminService = require('./AdminBookTemplates.service');
+const adminService = require('./AdminBooks.service');
 
 class AdminBookTemplatesController {
   // --- BookTemplate Controllers ---

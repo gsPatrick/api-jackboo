@@ -9,7 +9,6 @@ class BookPage extends Model {
         allowNull: false,
         comment: 'O número da página no livro final.'
       },
-      // NOVO CAMPO para identificar o tipo da página
       pageType: {
         type: DataTypes.STRING,
         allowNull: true, 
@@ -35,7 +34,8 @@ class BookPage extends Model {
         allowNull: true,
         comment: 'Detalhes do erro em caso de falha na geração.'
       },
-      // pageTemplateId foi REMOVIDO
+      // REMOVIDO: O campo pageTemplateId não é mais necessário.
+      // pageTemplateId: { ... }
     }, {
       sequelize,
       tableName: 'book_pages',
@@ -46,7 +46,7 @@ class BookPage extends Model {
 
   static associate(models) {
     this.belongsTo(models.Book, { foreignKey: 'bookId', as: 'book' });
-    // A associação com PageTemplate foi REMOVIDA
+    // REMOVIDO: A associação com PageTemplate foi removida.
   }
 }
 

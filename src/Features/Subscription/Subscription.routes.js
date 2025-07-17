@@ -4,6 +4,12 @@ const { isAuthenticated } = require('../Auth/Auth.middleware');
 
 const router = Router();
 
+console.log('initiateSubscription:', typeof subscriptionController.initiateSubscription);
+console.log('cancelSubscription:', typeof subscriptionController.cancelSubscription);
+console.log('getMySubscription:', typeof subscriptionController.getMySubscription);
+console.log('getUserSubscriptionPaymentHistory:', typeof subscriptionController.getUserSubscriptionPaymentHistory);
+
+
 // REMOVIDO: Rota pública para webhook de assinaturas do Mercado Pago (agora em /api/webhooks/mercadopago)
 // router.post('/webhook', subscriptionController.handleSubscriptionWebhook);
 
