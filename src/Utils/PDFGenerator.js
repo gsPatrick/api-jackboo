@@ -3,7 +3,7 @@ const { PDFDocument, rgb, PageSizes, cm } = require('pdf-lib'); // <-- Adicione 
 const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
-const { Book, BookPage, PrintFormat } = require('../../models'); // <-- Adicione PrintFormat
+const { Book, BookPage, PrintFormat } = require('../models'); // <-- Adicione PrintFormat
 
 const PDF_OUTPUT_DIR = path.join(__dirname, '../../uploads/final-books');
 
