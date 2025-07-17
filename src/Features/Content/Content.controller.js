@@ -51,15 +51,6 @@ class ContentController {
     }
   }
 
-  async requestPayout(req, res) {
-  try {
-    const result = await contentService.requestRoyaltyPayout(req.user.id, req.body);
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(400).json({ message: 'Erro ao solicitar saque.', error: error.message });
-  }
-}
-
   async createBook(req, res) {
     try {
       const book = await contentService.createBook(req.user.id, req.body);
@@ -79,7 +70,7 @@ class ContentController {
         }
     }
 
-    // --- NOVO: Métodos para Royalties ---
+    // --- Métodos para Royalties ---
     async getMyRoyalties(req, res) {
         try {
             const royalties = await contentService.findRoyaltiesByUser(req.user.id);
@@ -89,7 +80,19 @@ class ContentController {
         }
     }
 
-    // --- NOVO: Métodos para Badges ---
+    // NOVO: Controller para solicitar pagamento de royalties
+    async requestPayout(req, res) {
+      try {
+        // Espera-se que o corpo da requisição contenha um array de IDs
+        const { royaltyIds } = req.body;
+        const result = await contentService.requestRoyaltyPayout(req.user.id, royaltyIds);
+        res.status(200).json(result);
+      } catch (error) {
+        res.status(400).json({ message: error.message });
+      }
+    }
+
+    // --- Métodos para Badges ---
     async getMyBadges(req, res) {
         try {
             const badges = await contentService.findBadgesByUser(req.user.id);
@@ -97,6 +100,16 @@ class ContentController {
         } catch (error) {
             res.status(500).json({ message: 'Erro ao buscar seus selos.', error: error.message });
         }
+    }
+
+    // NOVO: Controller para buscar histórico de pagamentos de assinatura
+    async getMySubscriptionPayments(req, res) {
+      try {
+        const payments = await contentService.findSubscriptionPaymentHistoryByUser(req.user.id);
+        res.status(200).json(payments);
+      } catch (error) {
+        res.status(500).json({ message: 'Erro ao buscar seu histórico de pagamentos.', error: error.message });
+      }
     }
 }
 
