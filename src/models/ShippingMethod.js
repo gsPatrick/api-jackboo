@@ -1,17 +1,25 @@
-const { Model, DataTypes } = require('sequelize');
+'use strict';
+const { Model } = require('sequelize');
 
-class ShippingMethod extends Model {
-  static init(sequelize) {
-    super.init({
-      name: { type: DataTypes.STRING, allowNull: false }, // Ex: "Entrega Rápida JackBoo"
-      description: { type: DataTypes.STRING },
-      price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-      deliveryTime: { type: DataTypes.STRING, allowNull: false }, // Ex: "3-5 dias úteis"
-      isActive: { type: DataTypes.BOOLEAN, defaultValue: true }
-    }, {
-      sequelize,
-      tableName: 'shipping_methods',
-    });
+module.exports = (sequelize, DataTypes) => {
+  class ShippingMethod extends Model {
+    static associate(models) {
+      // No associations
+    }
   }
-}
-module.exports = ShippingMethod;
+
+  ShippingMethod.init({
+    name: { type: DataTypes.STRING, allowNull: false },
+    description: { type: DataTypes.STRING },
+    price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    deliveryTime: { type: DataTypes.STRING, allowNull: false },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true }
+  }, {
+    sequelize,
+    modelName: 'ShippingMethod',
+    tableName: 'shipping_methods',
+    timestamps: false, // Este modelo não tinha timestamps
+  });
+
+  return ShippingMethod;
+};

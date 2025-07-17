@@ -1,19 +1,20 @@
-// src/models/OpenAISettingAsset.js
+'use strict';
 const { Model } = require('sequelize');
 
-class OpenAISettingAsset extends Model {
-  static init(sequelize) {
-    super.init({}, {
-      sequelize,
-      tableName: 'openai_setting_assets',
-      timestamps: false,
-      underscored: true,
-    });
+module.exports = (sequelize, DataTypes) => {
+  class OpenAISettingAsset extends Model {
+    static associate(models) {
+      // Associações definidas no belongsToMany
+    }
   }
-  
-  static associate(models) {
-    // Definir as associações aqui pode ajudar em queries mais complexas, mas o principal é definido no belongsToMany
-  }
-}
 
-module.exports = OpenAISettingAsset;
+  OpenAISettingAsset.init({}, {
+    sequelize,
+    modelName: 'OpenAISettingAsset',
+    tableName: 'openai_setting_assets',
+    timestamps: false,
+    underscored: true,
+  });
+
+  return OpenAISettingAsset;
+};

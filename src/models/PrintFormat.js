@@ -1,34 +1,32 @@
-// src/models/PrintFormat.js
-const { Model, DataTypes } = require('sequelize');
+'use strict';
+const { Model } = require('sequelize');
 
-class PrintFormat extends Model {
-  static init(sequelize) {
-    super.init({
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-        comment: 'Nome do formato (ex: "Original Boobie Goods", "Cards").'
-      },
-      // Medidas em centímetros (cm)
-      coverWidth: { type: DataTypes.FLOAT, allowNull: false },
-      coverHeight: { type: DataTypes.FLOAT, allowNull: false },
-      pageWidth: { type: DataTypes.FLOAT, allowNull: false },
-      pageHeight: { type: DataTypes.FLOAT, allowNull: false },
-      margin: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 1.5 },
-      isActive: { type: DataTypes.BOOLEAN, defaultValue: true }
-    }, {
-      sequelize,
-      tableName: 'print_formats',
-      timestamps: true,
-      underscored: true
-    });
+module.exports = (sequelize, DataTypes) => {
+  class PrintFormat extends Model {
+    static associate(models) {
+      this.hasMany(models.Book, { foreignKey: 'printFormatId', as: 'books' });
+    }
   }
 
-  static associate(models) {
-    // Um formato pode ser usado por muitos livros
-    this.hasMany(models.Book, { foreignKey: 'printFormatId', as: 'books' });
-  }
-}
+  PrintFormat.init({
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    coverWidth: { type: DataTypes.FLOAT, allowNull: false },
+    coverHeight: { type: DataTypes.FLOAT, allowNull: false },
+    pageWidth: { type: DataTypes.FLOAT, allowNull: false },
+    pageHeight: { type: DataTypes.FLOAT, allowNull: false },
+    margin: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 1.5 },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true }
+  }, {
+    sequelize,
+    modelName: 'PrintFormat',
+    tableName: 'print_formats',
+    timestamps: true,
+    underscored: true
+  });
 
-module.exports = PrintFormat;
+  return PrintFormat;
+};

@@ -1,42 +1,43 @@
-const { Model, DataTypes } = require('sequelize');
+'use strict';
+const { Model } = require('sequelize');
 
-class Championship extends Model {
-  static init(sequelize) {
-    super.init({
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        comment: 'Ex: Campeonato de Desenho - Agosto/2024'
-      },
-      startDate: {
-        type: DataTypes.DATE,
-        allowNull: false,
-      },
-      endDate: {
-        type: DataTypes.DATE,
-        allowNull: false,
-      },
-      status: {
-        type: DataTypes.ENUM('upcoming', 'open_for_submissions', 'voting', 'closed', 'finished'),
-        defaultValue: 'upcoming',
-        allowNull: false,
-      },
-      availablePrizes: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-      }
-    }, {
-      sequelize,
-      tableName: 'championships',
-    });
+module.exports = (sequelize, DataTypes) => {
+  class Championship extends Model {
+    static associate(models) {
+      this.hasMany(models.Submission, { foreignKey: 'championshipId', as: 'submissions' });
+      this.hasMany(models.Badge, { foreignKey: 'championshipId', as: 'badges' });
+    }
   }
 
-  static associate(models) {
-    this.hasMany(models.Submission, { foreignKey: 'championshipId', as: 'submissions' });
-    // Um campeonato pode gerar vários tipos de selos (vencedor, finalista, etc.)
-    this.hasMany(models.Badge, { foreignKey: 'championshipId', as: 'badges' });
-  }
-}
+  Championship.init({
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    startDate: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    endDate: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM('upcoming', 'open_for_submissions', 'voting', 'closed', 'finished'),
+      defaultValue: 'upcoming',
+      allowNull: false,
+    },
+    availablePrizes: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    }
+  }, {
+    sequelize,
+    modelName: 'Championship',
+    tableName: 'championships',
+    timestamps: false, // Este modelo não tinha timestamps
+  });
 
-module.exports = Championship;
+  return Championship;
+};

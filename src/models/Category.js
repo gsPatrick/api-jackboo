@@ -1,31 +1,34 @@
-const { Model, DataTypes } = require('sequelize');
+'use strict';
+const { Model } = require('sequelize');
 
-class Category extends Model {
-  static init(sequelize) {
-    super.init({
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      slug: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      description: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
-    }, {
-      sequelize,
-      tableName: 'categories',
-    });
+module.exports = (sequelize, DataTypes) => {
+  class Category extends Model {
+    static associate(models) {
+      this.hasMany(models.Book, { foreignKey: 'categoryId', as: 'books' });
+    }
   }
 
-  static associate(models) {
-    this.hasMany(models.Book, { foreignKey: 'categoryId', as: 'books' });
-  }
-}
-
-module.exports = Category;
+  Category.init({
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    slug: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+  }, {
+    sequelize,
+    modelName: 'Category',
+    tableName: 'categories',
+    timestamps: false, // Este modelo não tinha timestamps
+  });
+  
+  return Category;
+};

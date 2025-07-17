@@ -1,45 +1,41 @@
-// src/models/SubscriptionPayment.js
-const { Model, DataTypes } = require('sequelize');
+'use strict';
+const { Model } = require('sequelize');
 
-class SubscriptionPayment extends Model {
-  static init(sequelize) {
-    super.init({
-      amount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        comment: 'Valor pago nesta transação.'
-      },
-      paymentDate: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        comment: 'Data em que o pagamento foi efetuado.'
-      },
-      status: {
-        type: DataTypes.ENUM('paid', 'failed'),
-        allowNull: false,
-        comment: 'Status do pagamento específico.'
-      },
-      gatewayPaymentId: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        comment: 'ID do pagamento no gateway (ex: Mercado Pago).'
-      },
-      invoiceUrl: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        comment: 'URL da fatura ou comprovante no gateway.'
-      }
-    }, {
-      sequelize,
-      tableName: 'subscription_payments',
-      timestamps: true,
-      underscored: true
-    });
+module.exports = (sequelize, DataTypes) => {
+  class SubscriptionPayment extends Model {
+    static associate(models) {
+      this.belongsTo(models.Subscription, { foreignKey: 'subscriptionId', as: 'subscription' });
+    }
   }
 
-  static associate(models) {
-    this.belongsTo(models.Subscription, { foreignKey: 'subscriptionId', as: 'subscription' });
-  }
-}
+  SubscriptionPayment.init({
+    amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+    },
+    paymentDate: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM('paid', 'failed'),
+      allowNull: false,
+    },
+    gatewayPaymentId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    invoiceUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    }
+  }, {
+    sequelize,
+    modelName: 'SubscriptionPayment',
+    tableName: 'subscription_payments',
+    timestamps: true,
+    underscored: true
+  });
 
-module.exports = SubscriptionPayment;
+  return SubscriptionPayment;
+};
