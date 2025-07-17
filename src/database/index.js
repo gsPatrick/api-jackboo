@@ -11,7 +11,7 @@ class Database {
   }
 
   initModels() {
-    const modelsPath = path.resolve(__dirname, '../../../models');
+    const modelsPath = path.resolve(__dirname, '../../models');
 
     fs.readdirSync(modelsPath)
       .filter(file => file.endsWith('.js') && file !== 'index.js' && !file.endsWith('.map')) // Adicionado filtro para .map

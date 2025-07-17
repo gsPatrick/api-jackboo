@@ -1,6 +1,6 @@
 // server.js
 const app = require('./src/app');
-const database = require('./src/database'); // Importa nossa instância da classe Database
+const database = require('./src/database/index'); // Importa nossa instância da classe Database
 
 const PORT = process.env.PORT || 3333;
 
