@@ -1,22 +1,25 @@
+
 // src/Generators/characterGenerator.js
 
 const { Character } = require('../models');
 const imageGenerationService = require('../OpenAI/services/imageGeneration.service');
+const { downloadAndSaveImage } = require('../OpenAI/utils/imageDownloader');
 
-// --- PROMPT FIXO E REFERÊNCIAS DE ESTILO ---
-const STYLE_REFERENCE_PROMPT = `Using the uploaded reference image [[IMAGE]] as the subject, generate a cartoon-style illustration that transforms it to match the exact visual style of Jack and his friends. Key style points:
+// --- PROMPT FIXO PARA GERAÇÃO DE PERSONAGEM ---
+// Este prompt é o coração da geração. Ele guia a IA para transformar
+// o desenho do usuário no estilo visual correto.
+const STYLE_REFERENCE_PROMPT = `Using the user-uploaded drawing as the primary subject, generate a clean, vector-style cartoon illustration. The goal is to transform the drawing to perfectly match the friendly and simple visual style of Jack and his friends. Key style points:
 
-• **Style:** Clean, vectorized children's cartoon.
-• **Outlines:** Consistent, clean, continuous black lines.
-• **Colors:** Flat, vibrant colors. No gradients or complex textures.
+• **Style:** Children's cartoon, vectorized look.
+• **Outlines:** Consistent, clean, and continuous black lines.
+• **Colors:** Flat, vibrant colors. Strictly no gradients or complex textures.
 • **Features:** Large, expressive eyes; small, rounded nose.
 • **Proportions:** Childlike (larger head, compact body).
 • **Expression:** Friendly and welcoming.
-• **Background:** Simple and cheerful—solid color or minimalist scene.
-• **Fidelity:** Preserve key features and posture of the original image.
-• **Resolution:** High-resolution PNG, transparent background is a plus.
+• **Background:** Simple and cheerful—a solid color or a minimalist, playful scene.
+• **Fidelity:** Preserve the main features and posture of the original drawing.
 
-**Crucial:** Strictly follow the line weight, color palette, facial proportions, and overall simplicity found in the reference style of Jack and his friends.`;
+**Crucial:** The final image must strictly follow the line weight, color palette, facial proportions, and overall simplicity of the Jack and friends' art style.`;
 
 /**
  * Gera um personagem a partir do desenho de um usuário.
@@ -29,41 +32,39 @@ async function generateCharacter(userId, file) {
         throw new Error('A imagem do desenho é obrigatória.');
     }
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
-    
-    // A IA precisa da URL da imagem de referência. Vamos adicionar isso ao prompt.
-    // Assumimos que o imageGenerationService pode lidar com um prompt e uma URL de imagem de referência.
-    const finalPrompt = STYLE_REFERENCE_PROMPT.replace('[[IMAGE]]', `(the user-uploaded drawing)`);
 
     // 1. Cria o registro do personagem no banco para obter um ID.
+    // Usamos um nome temporário que será atualizado depois.
     const character = await Character.create({
         userId,
-        name: "Meu Novo Amigo", // Nome temporário
+        name: "Meu Novo Amigo",
         originalDrawingUrl,
         generatedCharacterUrl: null, // Será preenchido em seguida
     });
 
     try {
-        // 2. Chama o serviço de IA para gerar a imagem estilizada.
-        // O `imageGenerationService` precisa ser adaptado para aceitar uma imagem de referência.
-        // Vamos assumir que ele agora tem um método `generateFromImagePrompt`.
-        const generatedCharacterUrl = await imageGenerationService.generateFromImagePrompt({
-            prompt: finalPrompt,
-            referenceImageUrl: originalDrawingUrl, // A imagem que o usuário enviou
-            // Adicionalmente, poderíamos passar as imagens do Jack e amigos aqui se a API da IA suportar múltiplas referências.
+        // 2. Chama a API da OpenAI para gerar a imagem estilizada.
+        const openAiUrl = await imageGenerationService.generateImage(STYLE_REFERENCE_PROMPT, {
+            // Nota: Se a API da OpenAI suportar envio de imagem de referência diretamente,
+            // poderíamos passar a `originalDrawingUrl` aqui. Por enquanto, o prompt textual é o guia.
         });
-        
-        // 3. Atualiza o personagem com a nova URL e um nome melhor.
+
+        // 3. Baixa a imagem gerada pela IA e a salva localmente no nosso servidor.
+        const generatedCharacterUrl = await downloadAndSaveImage(openAiUrl);
+
+        // 4. Atualiza o registro do personagem no banco com a URL da imagem gerada e um nome final.
         await character.update({
             generatedCharacterUrl,
             name: `Personagem #${character.id}`
         });
 
     } catch (error) {
-        console.error(`Falha ao gerar a imagem de IA para o personagem ${character.id}. O desenho original será usado.`, error);
-        // Se a geração falhar, usamos a imagem original como fallback.
+        console.error(`Falha ao gerar a imagem de IA para o personagem ${character.id}. O desenho original será usado como fallback.`, error);
+        // Se a geração falhar, garantimos que o usuário ainda tenha uma imagem (a original).
         await character.update({ generatedCharacterUrl: originalDrawingUrl });
     }
 
+    // Retorna o objeto completo do personagem para o frontend.
     return character;
 }
 
