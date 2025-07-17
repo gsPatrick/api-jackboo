@@ -1,6 +1,6 @@
 'use strict';
 const { Model } = require('sequelize');
-const { deleteFile } = require('../Utils/fileHelper');
+const { deleteFile } = require('../Utils/FileHelper');
 
 module.exports = (sequelize, DataTypes) => {
   class Character extends Model {
