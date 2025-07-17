@@ -1,49 +1,48 @@
 
-// src/OpenAI/services/imageGeneration.service.js
 const openaiService = require('./openai.service');
 const { downloadAndSaveImage } = require('../utils/imageDownloader');
-const { constructPrompt } = require('../utils/promptConstructor');
-const { OpenAISetting, GeneratedImageLog, AdminAsset } = require('../../models');
+const { GeneratedImageLog } = require('../../models');
 
 class ImageGenerationService {
 
   /**
-   * NOVO MÉTODO: Gera uma imagem usando o modelo multimodal GPT-4o.
-   * Este método pode "ver" imagens de referência.
-   * @param {Array<object>} messages - A estrutura de mensagens para a API, incluindo texto e imagens em base64.
-   * @param {object} [options={}] - Opções para log, como userId e a entidade associada.
-   * @returns {Promise<string>} A URL da imagem gerada e salva localmente.
+   * Orquestra a geração de imagem com visão: chama a IA, baixa a imagem e loga.
+   * @param {Array<object>} messages - A estrutura de mensagens para o GPT-4o.
+   * @param {object} [options={}] - Opções para log (userId, entity).
+   * @returns {Promise<string>} A URL LOCAL da imagem gerada e salva no nosso servidor.
    */
   async generateImageWithVision(messages, options = {}) {
     const { userId, entity } = options;
+    let openAiUrl = null;
     let localImageUrl = null;
     let status = 'failed';
     let errorDetails = null;
 
     try {
-      // 1. Chama o serviço da OpenAI (que acabamos de criar) para obter a URL da imagem.
-      // Este método interno agora lida com a chamada multimodal.
-      const openAiUrl = await openaiService.generateImageWithVision(messages);
+      // 1. Chama o openaiService para obter a URL COMPLETA da OpenAI.
+      console.log("[ImageGenerationService] Solicitando URL da OpenAI via openaiService...");
+      openAiUrl = await openaiService.generateImageWithVision(messages);
+      console.log("[ImageGenerationService] Recebida a URL da OpenAI:", openAiUrl);
 
-      // 2. Se a chamada for bem-sucedida, baixa a imagem e salva localmente.
+      // 2. Com a URL da internet em mãos, agora podemos baixar a imagem.
+      console.log("[ImageGenerationService] Baixando imagem para o armazenamento local...");
       localImageUrl = await downloadAndSaveImage(openAiUrl);
+      console.log("[ImageGenerationService] Imagem salva localmente em:", localImageUrl);
       status = 'success';
 
     } catch (error) {
       errorDetails = error.message;
-      console.error(`[AI Vision Generation] Erro na geração de imagem com visão:`, errorDetails);
-      // Relança o erro para que o chamador (characterGenerator) possa tratá-lo.
-      throw new Error(`Falha ao gerar imagem com visão: ${errorDetails}`);
+      console.error(`[ImageGenerationService] Erro durante a orquestração da geração com visão:`, errorDetails);
+      throw new Error(`Falha ao orquestrar a geração com visão: ${errorDetails}`);
     } finally {
       // 3. Loga a tentativa de geração no banco de dados.
       if (entity) {
-        // Extrai o prompt de texto para o log
         const textPrompt = messages.map(m =>
           Array.isArray(m.content) ? m.content.find(c => c.type === 'text')?.text : m.content
         ).filter(Boolean).join('\n---\n');
 
         await GeneratedImageLog.create({
-          type: 'character_vision_simplified', // Novo tipo para identificar o fluxo
+          type: 'character_vision_simplified',
           userId: userId,
           associatedEntityId: entity.id,
           associatedEntityType: entity.constructor.name,
@@ -51,49 +50,13 @@ class ImageGenerationService {
           generatedImageUrl: localImageUrl,
           status,
           errorDetails,
-          cost: 0.080, // Custo estimado para GPT-4o com imagem
+          cost: 0.080,
         });
+        console.log("[ImageGenerationService] Log de geração salvo no banco de dados.");
       }
     }
     
-    // Retorna a URL da imagem salva localmente.
-    return localImageUrl;
-  }
-
-
-  /**
-   * Método antigo, baseado em DALL-E direto. Mantido para compatibilidade ou uso futuro.
-   */
-  async generateImage(prompt, options = {}) {
-    const { userId, entity } = options;
-    let localImageUrl = null;
-    let status = 'failed';
-    let errorDetails = null;
-
-    try {
-      const openAiUrl = await openaiService.generateImage(prompt);
-      localImageUrl = await downloadAndSaveImage(openAiUrl);
-      status = 'success';
-    } catch (error) {
-      errorDetails = error.message;
-      console.error(`[AI Generation] Erro na geração de imagem:`, errorDetails);
-      throw new Error(`Falha ao gerar imagem: ${errorDetails}`);
-    } finally {
-      if (entity) {
-        await GeneratedImageLog.create({
-          type: 'character_generation_simplified',
-          userId: userId,
-          associatedEntityId: entity.id,
-          associatedEntityType: entity.constructor.name,
-          inputPrompt: prompt,
-          generatedImageUrl: localImageUrl,
-          status,
-          errorDetails,
-          cost: 0.040,
-        });
-      }
-    }
-    
+    // Retorna a URL LOCAL para o characterGenerator.
     return localImageUrl;
   }
 }

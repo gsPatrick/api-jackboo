@@ -11,27 +11,25 @@ class OpenAIService {
 
   /**
    * Gera uma imagem usando o modelo multimodal GPT-4o.
-   * Este método pode "ver" imagens de referência.
-   * @param {Array<object>} messages - A estrutura de mensagens para a API, incluindo texto e imagens em base64.
-   * @returns {string} URL da imagem gerada pela OpenAI.
+   * Este método é o ponto de entrada para a geração com visão.
+   * @param {Array<object>} messages - A estrutura de mensagens para a API, incluindo texto e imagens.
+   * @returns {string} A URL COMPLETA da imagem gerada pela OpenAI.
    */
   async generateImageWithVision(messages) {
     try {
-      // O GPT-4o vai analisar as imagens e o texto e gerar uma nova imagem internamente
-      // usando o DALL-E 3, mas tudo em uma única chamada.
+      console.log("[OpenAIService] Chamando a API chat.completions com GPT-4o para análise de imagem e prompt.");
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o", // Usando o modelo mais recente e capaz
+        model: "gpt-4o",
         messages: messages,
-        max_tokens: 1024, // Limite para a resposta textual, se houver
+        max_tokens: 1024,
       });
 
-      // A resposta do GPT-4o pode conter texto. Precisamos encontrar onde ele descreve
-      // a imagem que ele gerou ou o prompt que ele usou para gerar.
-      // A OpenAI está simplificando isso. Vamos assumir que a resposta pode conter um prompt refinado.
+      // O GPT-4o retorna um prompt de texto otimizado baseado na sua análise.
       const refinedPrompt = response.choices[0].message.content;
+      console.log("[OpenAIService] GPT-4o refinou o prompt para:", refinedPrompt);
 
-      // Agora, com o prompt refinado pelo GPT-4o, geramos a imagem com DALL-E.
-      // Este é o fluxo mais robusto e controlável.
+      // Com o prompt refinado, usamos o DALL-E para a geração final da imagem.
+      // A função generateImage() já retorna a URL completa da internet.
       return this.generateImage(refinedPrompt);
 
     } catch (error) {
@@ -42,39 +40,37 @@ class OpenAIService {
   }
 
   /**
-   * Gera uma imagem usando a API DALL-E (método antigo, agora usado pelo GPT-4o).
+   * Gera uma imagem usando a API DALL-E 3.
    * @param {string} prompt - O texto do prompt para a geração da imagem.
-   * @param {object} options - Opções de geração.
-   * @returns {string} URL da imagem gerada.
+   * @returns {string} A URL COMPLETA da imagem gerada pela OpenAI.
    */
   async generateImage(prompt, options = {}) {
-    const {
-      model = 'dall-e-3',
-      size = '1024x1024',
-      quality = 'standard',
-      style = 'vivid'
-    } = options;
-
     if (!prompt) {
       throw new Error('O prompt para geração de imagem não pode ser vazio.');
     }
 
     try {
+      console.log("[OpenAIService] Chamando a API images.generate com DALL-E 3.");
       const response = await this.openai.images.generate({
-        model: model,
+        model: 'dall-e-3',
         prompt: prompt,
         n: 1,
-        size: size,
-        quality: quality,
-        style: style,
+        size: '1024x1024',
+        quality: 'standard',
+        style: 'vivid',
         response_format: 'url',
       });
 
-      if (!response.data || response.data.length === 0 || !response.data[0].url) {
+      if (!response.data || !response.data[0].url) {
         throw new Error('Nenhuma imagem foi gerada pela OpenAI.');
       }
+      
+      const openAiUrl = response.data[0].url;
+      console.log("[OpenAIService] DALL-E retornou a URL da internet:", openAiUrl);
+      
+      // Retorna a URL completa da OpenAI, que será usada para o download.
+      return openAiUrl;
 
-      return response.data[0].url;
     } catch (error) {
       console.error('Erro ao chamar a API DALL-E da OpenAI:', error.response ? error.response.data : error.message);
       const errorMessage = error.response?.data?.error?.message || error.message;
