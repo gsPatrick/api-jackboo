@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const popularityController = require('./Popularity.controller');
-const { isAuthenticated } = require('../Auth/auth.middleware');
+const { isAuthenticated } = require('../Auth/Auth.middleware');
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const subscriptionController = require('./Subscription.controller');
-const { isAuthenticated } = require('../Auth/auth.middleware');
+const { isAuthenticated } = require('../Auth/Auth.middleware');
 
 const router = Router();
 

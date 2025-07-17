@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const contentController = require('./Content.controller');
-const { isAuthenticated, isSubscriber } = require('../Auth/auth.middleware');
+const { isAuthenticated, isSubscriber } = require('../Auth/Auth.middleware');
 const { uploadUserDrawing } = require('../../Utils/multerConfig'); // <-- ATUALIZADO: Importar uploadUserDrawing
 
 const router = Router();
