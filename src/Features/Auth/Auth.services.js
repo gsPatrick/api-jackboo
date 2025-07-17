@@ -6,7 +6,7 @@
 // const Setting = require('../../models/Setting');
 
 // ...importamos o objeto 'db' do index.js dos modelos, que contém todos eles.
-const { User, Setting } = require('../../models');
+const { User, Setting } = require('../../models/index');
 // O caminho relativo a partir de 'src/Features/Auth/' para 'src/models/' é '../../models'.
 // --- FIM DA CORREÇÃO ---
 
@@ -56,7 +56,7 @@ class AuthService {
         email,
         passwordHash,
         birthDate,
-        // phone, // Descomente se você adicionou a coluna 'phone' ao modelo User.js
+        phone, 
         role,
         accountStatus: 'active', // Vamos definir como 'active' direto no registro
       });
