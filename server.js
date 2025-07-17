@@ -1,18 +1,19 @@
 // server.js
+require('dotenv').config(); // Carrega variáveis de ambiente do arquivo .env
+
 const app = require('./src/app');
-const db = require('./src/models'); // Importa o objeto db do diretório de modelos
+const db = require('./src/models'); // Importa o objeto com sequelize e models
 const ChampionshipScheduler = require('./src/Schedulers/championshipScheduler');
 
 const PORT = process.env.PORT || 3333;
 
 const startServer = async () => {
   try {
-    // Usa a instância 'sequelize' do objeto 'db' importado
     console.log('🔗 Testando conexão com o banco de dados...');
     await db.sequelize.authenticate();
     console.log('✅ Conexão estabelecida com sucesso.');
 
-    // Sincroniza o banco de dados
+    // Sincroniza o banco de dados (em produção, prefira usar migrations)
     await db.sequelize.sync({ alter: true });
     console.log('🔄 Banco de dados sincronizado.');
 
@@ -26,7 +27,7 @@ const startServer = async () => {
 
   } catch (error) {
     console.error('🔥 Falha ao iniciar o servidor:', error);
-    process.exit(1); 
+    process.exit(1);
   }
 };
 

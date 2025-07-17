@@ -1,5 +1,5 @@
 'use strict';
-const { Model } = require('sequelize');
+const { Model, Op } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Vote extends Model {
@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
       {
         unique: true,
         fields: ['submissionId', 'userId'],
-        where: { userId: { [DataTypes.Op.ne]: null } } // Voto de usuário logado
+        where: { userId: { [Op.ne]: null } } // Voto de usuário logado
       },
       {
         unique: true,

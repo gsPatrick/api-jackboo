@@ -3,7 +3,7 @@
     "username": "jackboodb",
     "password": "jackboodb",
     "database": "jackboodb",
-    "host": "geral_jackboodb",
+    "host": "69.62.99.122",
     "port": 5432,
     "dialect": "postgres",
     "dialectOptions": {
@@ -13,8 +13,8 @@
   "test": {
     "username": "jackboodb",
     "password": "jackboodb",
-    "database": "jackboodb_test",
-    "host": "geral_jackboodb",
+    "database": "jackboodb",
+    "host": "69.62.99.122",
     "port": 5432,
     "dialect": "postgres",
     "dialectOptions": {
