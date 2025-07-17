@@ -20,7 +20,7 @@ async function imageToBase64(filePath) {
 }
 
 /**
- * Gera um personagem usando GPT-4o com uma referência de estilo única e um prompt direto.
+ * Gera um personagem usando GPT-4o com uma referência de estilo e seu prompt simplificado.
  * @param {number} userId - ID do usuário.
  * @param {object} userFile - O objeto do arquivo enviado pelo usuário (de Multer).
  * @returns {Promise<Character>} A instância do personagem.
@@ -39,42 +39,54 @@ async function generateCharacter(userId, userFile) {
     });
 
     try {
-        // 1. Definir o caminho para a ÚNICA imagem de referência: o Jack.
+        // 1. Definir o caminho para a imagem de referência do Jack.
         const jackStyleImagePath = path.join(__dirname, '..', '..', 'public', 'images', 'jack.png');
 
         // 2. Converter a imagem de estilo e a imagem do usuário para base64.
         const jackStyleBase64 = await imageToBase64(jackStyleImagePath);
         const userDrawingBase64 = await imageToBase64(userFile.path);
 
-        // 3. Construir a estrutura de mensagens SIMPLIFICADA para o GPT-4o.
+        // 3. Construir a estrutura de mensagens com seu prompt e uma instrução final clara.
         const messages = [
             {
                 role: "system",
-                content: "You are a specialized illustrator who transforms children's drawings into professional characters in a specific, consistent art style."
+                content: "You are a creative illustrator who transforms children's drawings into a specific cartoon style."
             },
             {
                 role: "user",
                 content: [
                     {
                         type: "text",
-                        text: "This is the 'Jack' character. This is the gold standard art style you must replicate exactly. Study its clean lines, flat colors, and simple hard-edged shading."
+                        // SEU PROMPT SIMPLIFICADO AQUI
+                        text: `
+Crie um personagem infantil no estilo do JackBoo:
+- arte vetorial 2D, traços suaves, contorno escuro.
+- proporções infantis, olhos grandes e expressivos.
+- cores vibrantes e sólidas.
+- expressão alegre, postura divertida.
+
+A imagem de referência do estilo JackBoo está anexada.
+A imagem a ser transformada é o desenho do usuário.
+
+**MANDATORY OUTPUT:**
+- The output MUST be a single, centered character image.
+- The background MUST be transparent.
+- **DO NOT** create character sheets, turnarounds, multiple views, or any text annotations. Just the final character.
+`
                     },
                     {
                         type: "image_url",
-                        image_url: { url: `data:image/png;base64,${jackStyleBase64}` }
-                    },
-                ]
-            },
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "text",
-                        text: "Now, take this user's drawing and transform it into a new character that looks like it belongs in the exact same universe as 'Jack'. Match the style perfectly. The final output must be only the character on a transparent background."
+                        image_url: { 
+                            url: `data:image/png;base64,${jackStyleBase64}`,
+                            detail: "low" // Usamos 'low' para a imagem de estilo, economiza tokens.
+                        }
                     },
                     {
                         type: "image_url",
-                        image_url: { url: `data:image/jpeg;base64,${userDrawingBase64}` }
+                        image_url: { 
+                            url: `data:image/jpeg;base64,${userDrawingBase64}`,
+                            detail: "high" // Usamos 'high' para a imagem do usuário, para capturar detalhes.
+                        }
                     },
                 ]
             }
