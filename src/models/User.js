@@ -25,7 +25,7 @@ class User extends Model {
         allowNull: false,
       },
       birthDate: {
-        type: DataTypes.DATEONLY,
+        type: DataTypes.STRING,
         allowNull: false,
       },
       avatarUrl: {
