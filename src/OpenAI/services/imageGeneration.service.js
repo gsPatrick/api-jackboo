@@ -1,4 +1,5 @@
 
+// src/OpenAI/services/imageGeneration.service.js
 const openaiService = require('./openai.service');
 const { downloadAndSaveImage } = require('../utils/imageDownloader');
 const { constructPrompt } = require('../utils/promptConstructor');
@@ -7,55 +8,51 @@ const { OpenAISetting, GeneratedImageLog, AdminAsset } = require('../../models')
 class ImageGenerationService {
 
   /**
-   * Método genérico para gerar uma imagem a partir de um prompt de texto.
-   * Usado agora pelo characterGenerator.
-   * @param {string} prompt - O prompt de texto final para a IA.
-   * @param {object} [options={}] - Opções como userId, associatedEntity.
-   * @returns {Promise<string>} A URL da imagem gerada pela OpenAI.
+   * NOVO MÉTODO: Gera uma imagem usando o modelo multimodal GPT-4o.
+   * Este método pode "ver" imagens de referência.
+   * @param {Array<object>} messages - A estrutura de mensagens para a API, incluindo texto e imagens em base64.
+   * @param {object} [options={}] - Opções para log, como userId e a entidade associada.
+   * @returns {Promise<string>} A URL da imagem gerada e salva localmente.
    */
-  async generateImage(prompt, options = {}) {
-    if (!prompt) {
-      throw new Error("O prompt para a geração de imagem não pode ser vazio.");
-    }
-    
+  async generateImageWithVision(messages, options = {}) {
     const { userId, entity } = options;
-    let openAiGeneratedUrl = null;
     let localImageUrl = null;
     let status = 'failed';
     let errorDetails = null;
 
     try {
-      // 1. Chama o serviço da OpenAI para obter a URL da imagem.
-      openAiGeneratedUrl = await openaiService.generateImage(prompt, {
-        model: 'dall-e-3', // Usando um padrão fixo para a geração simplificada
-        size: '1024x1024',
-        quality: 'standard',
-        style: 'vivid',
-      });
-      
-      // 2. Baixa a imagem e salva localmente.
-      localImageUrl = await downloadAndSaveImage(openAiGeneratedUrl);
+      // 1. Chama o serviço da OpenAI (que acabamos de criar) para obter a URL da imagem.
+      // Este método interno agora lida com a chamada multimodal.
+      const openAiUrl = await openaiService.generateImageWithVision(messages);
+
+      // 2. Se a chamada for bem-sucedida, baixa a imagem e salva localmente.
+      localImageUrl = await downloadAndSaveImage(openAiUrl);
       status = 'success';
 
     } catch (error) {
       errorDetails = error.message;
-      console.error(`[AI Generation] Erro na geração de imagem:`, errorDetails);
+      console.error(`[AI Vision Generation] Erro na geração de imagem com visão:`, errorDetails);
       // Relança o erro para que o chamador (characterGenerator) possa tratá-lo.
-      throw new Error(`Falha ao gerar imagem: ${errorDetails}`);
+      throw new Error(`Falha ao gerar imagem com visão: ${errorDetails}`);
     } finally {
       // 3. Loga a tentativa de geração no banco de dados.
       if (entity) {
-          await GeneratedImageLog.create({
-            type: 'character_generation_simplified', // Novo tipo para identificar o fluxo
-            userId: userId,
-            associatedEntityId: entity.id,
-            associatedEntityType: entity.constructor.name,
-            inputPrompt: prompt,
-            generatedImageUrl: localImageUrl,
-            status,
-            errorDetails,
-            cost: 0.040, // Custo fixo para DALL-E 3 Standard 1024x1024
-          });
+        // Extrai o prompt de texto para o log
+        const textPrompt = messages.map(m =>
+          Array.isArray(m.content) ? m.content.find(c => c.type === 'text')?.text : m.content
+        ).filter(Boolean).join('\n---\n');
+
+        await GeneratedImageLog.create({
+          type: 'character_vision_simplified', // Novo tipo para identificar o fluxo
+          userId: userId,
+          associatedEntityId: entity.id,
+          associatedEntityType: entity.constructor.name,
+          inputPrompt: textPrompt,
+          generatedImageUrl: localImageUrl,
+          status,
+          errorDetails,
+          cost: 0.080, // Custo estimado para GPT-4o com imagem
+        });
       }
     }
     
@@ -63,28 +60,39 @@ class ImageGenerationService {
     return localImageUrl;
   }
 
+
   /**
-   * Método antigo, baseado em templates. Pode ser mantido para uso do admin.
-   * @deprecated para o fluxo simplificado do usuário.
+   * Método antigo, baseado em DALL-E direto. Mantido para compatibilidade ou uso futuro.
    */
-  async generateFromTemplate({ aiSettingId, book, userInputs = {}, page }) {
-    if (!aiSettingId) {
-      throw new Error("ID da configuração de IA (aiSettingId) é obrigatório.");
+  async generateImage(prompt, options = {}) {
+    const { userId, entity } = options;
+    let localImageUrl = null;
+    let status = 'failed';
+    let errorDetails = null;
+
+    try {
+      const openAiUrl = await openaiService.generateImage(prompt);
+      localImageUrl = await downloadAndSaveImage(openAiUrl);
+      status = 'success';
+    } catch (error) {
+      errorDetails = error.message;
+      console.error(`[AI Generation] Erro na geração de imagem:`, errorDetails);
+      throw new Error(`Falha ao gerar imagem: ${errorDetails}`);
+    } finally {
+      if (entity) {
+        await GeneratedImageLog.create({
+          type: 'character_generation_simplified',
+          userId: userId,
+          associatedEntityId: entity.id,
+          associatedEntityType: entity.constructor.name,
+          inputPrompt: prompt,
+          generatedImageUrl: localImageUrl,
+          status,
+          errorDetails,
+          cost: 0.040,
+        });
+      }
     }
-
-    const aiSetting = await OpenAISetting.findByPk(aiSettingId, {
-      include: [{ model: AdminAsset, as: 'baseAssets' }]
-    });
-
-    if (!aiSetting || !aiSetting.isActive) {
-      throw new Error(`Configuração de IA com ID ${aiSettingId} não encontrada ou está inativa.`);
-    }
-
-    const context = { book, userInputs };
-    const fullPrompt = constructPrompt(aiSetting.basePromptText, aiSetting.baseAssets, context);
-    
-    // Simplesmente reutiliza a lógica genérica de geração e log
-    const localImageUrl = await this.generateImage(fullPrompt, { userId: book.authorId, entity: page });
     
     return localImageUrl;
   }
