@@ -1,21 +1,73 @@
+--- START OF FILE src/OpenAI/services/imageGeneration.service.js ---
+
 // src/OpenAI/services/imageGeneration.service.js
 const openaiService = require('./openai.service');
 const { downloadAndSaveImage } = require('../utils/imageDownloader');
-const { constructPrompt } = require('../utils/promptConstructor'); // Usando o novo construtor
-const { OpenAISetting, GeneratedImageLog, Character, Book, AdminAsset } = require('../../models');
+const { constructPrompt } = require('../utils/promptConstructor');
+const { OpenAISetting, GeneratedImageLog, AdminAsset } = require('../../models');
 
 class ImageGenerationService {
 
   /**
-   * Ponto central para gerar uma imagem a partir de um template de IA.
-   * Usado pelo BookCreationService.
-   *
-   * @param {object} options - As opções de geração.
-   * @param {number} options.aiSettingId - O ID da configuração de IA a ser usada.
-   * @param {Book} options.book - A instância do livro.
-   * @param {object} [options.userInputs] - Inputs do usuário.
-   * @param {BookPage} options.page - A instância da página do livro sendo gerada.
-   * @returns {string} A URL da imagem gerada e salva localmente.
+   * Método genérico para gerar uma imagem a partir de um prompt de texto.
+   * Usado agora pelo characterGenerator.
+   * @param {string} prompt - O prompt de texto final para a IA.
+   * @param {object} [options={}] - Opções como userId, associatedEntity.
+   * @returns {Promise<string>} A URL da imagem gerada pela OpenAI.
+   */
+  async generateImage(prompt, options = {}) {
+    if (!prompt) {
+      throw new Error("O prompt para a geração de imagem não pode ser vazio.");
+    }
+    
+    const { userId, entity } = options;
+    let openAiGeneratedUrl = null;
+    let localImageUrl = null;
+    let status = 'failed';
+    let errorDetails = null;
+
+    try {
+      // 1. Chama o serviço da OpenAI para obter a URL da imagem.
+      openAiGeneratedUrl = await openaiService.generateImage(prompt, {
+        model: 'dall-e-3', // Usando um padrão fixo para a geração simplificada
+        size: '1024x1024',
+        quality: 'standard',
+        style: 'vivid',
+      });
+      
+      // 2. Baixa a imagem e salva localmente.
+      localImageUrl = await downloadAndSaveImage(openAiGeneratedUrl);
+      status = 'success';
+
+    } catch (error) {
+      errorDetails = error.message;
+      console.error(`[AI Generation] Erro na geração de imagem:`, errorDetails);
+      // Relança o erro para que o chamador (characterGenerator) possa tratá-lo.
+      throw new Error(`Falha ao gerar imagem: ${errorDetails}`);
+    } finally {
+      // 3. Loga a tentativa de geração no banco de dados.
+      if (entity) {
+          await GeneratedImageLog.create({
+            type: 'character_generation_simplified', // Novo tipo para identificar o fluxo
+            userId: userId,
+            associatedEntityId: entity.id,
+            associatedEntityType: entity.constructor.name,
+            inputPrompt: prompt,
+            generatedImageUrl: localImageUrl,
+            status,
+            errorDetails,
+            cost: 0.040, // Custo fixo para DALL-E 3 Standard 1024x1024
+          });
+      }
+    }
+    
+    // Retorna a URL da imagem salva localmente.
+    return localImageUrl;
+  }
+
+  /**
+   * Método antigo, baseado em templates. Pode ser mantido para uso do admin.
+   * @deprecated para o fluxo simplificado do usuário.
    */
   async generateFromTemplate({ aiSettingId, book, userInputs = {}, page }) {
     if (!aiSettingId) {
@@ -30,82 +82,13 @@ class ImageGenerationService {
       throw new Error(`Configuração de IA com ID ${aiSettingId} não encontrada ou está inativa.`);
     }
 
-    // O contexto tem tudo que o construtor de prompt precisa
     const context = { book, userInputs };
-    
-    // Constrói o prompt final usando a lógica de substituição
     const fullPrompt = constructPrompt(aiSetting.basePromptText, aiSetting.baseAssets, context);
     
-    // Executa a geração e o log
-    return this._executeGenerationAndLog(fullPrompt, aiSetting, page);
-  }
-
-  /**
-   * Método privado que executa a chamada à API, download e log.
-   * @private
-   */
-  async _executeGenerationAndLog(prompt, aiSetting, entity) {
-    let generatedImageUrl = null;
-    let status = 'failed';
-    let errorDetails = null;
-    let generationCost = this._calculateCost(aiSetting);
-
-    try {
-      const openAiGeneratedUrl = await openaiService.generateImage(prompt, {
-        model: aiSetting.model,
-        size: aiSetting.size,
-        quality: aiSetting.quality,
-        style: aiSetting.style,
-      });
-
-      generatedImageUrl = await downloadAndSaveImage(openAiGeneratedUrl, 'book-pages'); // Salva em subpasta específica
-      status = 'success';
-
-    } catch (error) {
-      errorDetails = error.message;
-      console.error(`[AI Generation] Erro na geração de imagem:`, errorDetails);
-    } finally {
-      // O 'entity' pode ser uma página de livro (BookPage) ou um personagem (Character)
-      const entityType = entity.constructor.name; // Ex: 'BookPage', 'Character'
-      const entityId = entity.id;
-
-      await GeneratedImageLog.create({
-        type: aiSetting.type,
-        userId: entity.userId || (entity.book ? entity.book.authorId : null),
-        associatedEntityId: entityId,
-        associatedEntityType: entityType,
-        inputPrompt: prompt,
-        generatedImageUrl,
-        status,
-        errorDetails,
-        cost: generationCost,
-      });
-    }
-
-    if (status === 'failed') {
-      throw new Error(`Falha ao gerar imagem: ${errorDetails}`);
-    }
+    // Simplesmente reutiliza a lógica genérica de geração e log
+    const localImageUrl = await this.generateImage(fullPrompt, { userId: book.authorId, entity: page });
     
-    return generatedImageUrl;
-  }
-  
-  /**
-   * Calcula o custo estimado da geração da imagem.
-   * @private
-   */
-  _calculateCost(aiSetting) {
-    let cost = null;
-    if (aiSetting.model === 'dall-e-3') {
-        if (aiSetting.quality === 'hd' && aiSetting.size === '1792x1024') cost = 0.080;
-        else if (aiSetting.quality === 'hd' && aiSetting.size === '1024x1024') cost = 0.040;
-        else if (aiSetting.quality === 'standard' && aiSetting.size === '1792x1024') cost = 0.040;
-        else if (aiSetting.quality === 'standard' && aiSetting.size === '1024x1024') cost = 0.020;
-    } else if (aiSetting.model === 'dall-e-2') {
-        if (aiSetting.size === '1024x1024') cost = 0.020;
-        else if (aiSetting.size === '512x512') cost = 0.018;
-        else if (aiSetting.size === '256x256') cost = 0.016;
-    }
-    return cost;
+    return localImageUrl;
   }
 }
 
