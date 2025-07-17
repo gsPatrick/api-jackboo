@@ -1,7 +1,9 @@
+
 const { Router } = require('express');
 const contentController = require('./Content.controller');
 const { isAuthenticated, isSubscriber } = require('../Auth/Auth.middleware');
-const { uploadUserDrawing } = require('../../Utils/multerConfig'); // <-- ATUALIZADO: Importar uploadUserDrawing
+// AQUI ESTÁ A IMPORTAÇÃO CRÍTICA
+const { uploadUserDrawing } = require('../../Utils/multerConfig');
 
 const router = Router();
 
@@ -9,18 +11,29 @@ const router = Router();
 router.use(isAuthenticated);
 
 // --- Rotas de Personagem ---
+
+// ESTA É A LINHA QUE CORRIGE O PROBLEMA.
+// Ela garante que, para a rota POST /characters, o middleware `uploadUserDrawing`
+// será executado PRIMEIRO. Ele vai procurar por um campo "drawing" no formulário,
+// salvar o arquivo e criar o objeto `req.file` para o `contentController` usar.
 router.post(
   '/characters', 
-  uploadUserDrawing.single('drawing'), // <-- ATUALIZADO
+  uploadUserDrawing.single('drawing'), // <-- Middleware de upload
   contentController.createCharacter
 );
+
 router.get('/characters', contentController.getMyCharacters);
 router.delete('/characters/:id', contentController.deleteCharacter);
 
 
-// --- Rotas de Livro ---
-router.post('/books', isSubscriber, contentController.createBook);
+// --- Rotas de Livro (Simplificadas para o Usuário) ---
+// A rota de criação de livro (antiga) foi removida para evitar confusão.
+// router.post('/books', isSubscriber, contentController.createBook);
+
 router.get('/books', contentController.getMyBooks);
+router.post('/books/create-coloring', isSubscriber, contentController.createColoringBook);
+router.post('/books/create-story', isSubscriber, contentController.createStoryBook);
+
 
 // --- Rotas de Royalties (Painel do Usuário) ---
 router.get('/royalties', contentController.getMyRoyalties);
@@ -31,13 +44,5 @@ router.get('/badges', contentController.getMyBadges);
 
 // --- Rotas de Histórico de Pagamentos de Assinatura ---
 router.get('/subscription-payments', contentController.getMySubscriptionPayments);
-
-// --- Rotas de Livro (Simplificadas para o Usuário) ---
-// Usuário só precisa ser assinante para acessar estas rotas
-router.use('/books', isSubscriber);
-router.post('/books/create-coloring', contentController.createColoringBook);
-router.post('/books/create-story', contentController.createStoryBook);
-router.get('/books', contentController.getMyBooks); // Lista todos os livros do usuário
-
 
 module.exports = router;
