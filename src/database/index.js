@@ -1,29 +1,32 @@
 const { Sequelize } = require('sequelize');
 const dbConfig = require('../../config/config.json');
-
-// Importe todos os seus models aqui
-const User = require('../models/User');
-// ... outros models
-
-const models = [User /*, ...outros models*/];
+const fs = require('fs');
+const path = require('path');
 
 class Database {
   constructor() {
-    this.init();
+    this.connection = new Sequelize(dbConfig.development);
+    this.models = {};
+    this.initModels();
   }
 
-  init() {
-    // Seleciona a configuração 'development' do config.json
-    this.connection = new Sequelize(dbConfig.development);
+  initModels() {
+    const modelsPath = path.resolve(__dirname, '../../../models');
 
-    // Inicializa cada model e depois associa
-    models
-      .map(model => model.init(this.connection))
-      .map(model => model.associate && model.associate(this.connection.models));
-    
-    console.log('🐘 Models inicializados e associados.');
+    fs.readdirSync(modelsPath)
+      .filter(file => file.endsWith('.js') && file !== 'index.js')
+      .forEach(file => {
+        const model = require(path.join(modelsPath, file));
+        const initializedModel = model.init(this.connection);
+        this.models[initializedModel.name] = initializedModel;
+      });
+
+    Object.values(this.models)
+      .filter(model => typeof model.associate === 'function')
+      .forEach(model => model.associate(this.models));
+
+    console.log('🐘 Models carregados automaticamente.');
   }
 }
 
-// Exporta a conexão, que será usada no app.js
 module.exports = new Database().connection;

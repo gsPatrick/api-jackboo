@@ -1,6 +1,6 @@
 // src/Features/Content/BookCreation.service.js
 const { bookGenerationQueue } = require('../../Jobs/queue'); // <-- NOVO: Importa a fila
-const { Book, BookTemplate, BookPage, Character, sequelize } = require('../../models');
+const { Book, BookTemplate, BookPage, Character, sequelize } = require('../../../models');
 const imageGenerationService = require('../../OpenAI/services/imageGeneration.service');
 const PDFGenerator = require('../../Utils/PDFGenerator');
 

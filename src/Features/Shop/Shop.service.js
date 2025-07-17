@@ -1,4 +1,4 @@
-const { User, Character, Book, BookVariation, Category, AgeRating, sequelize } = require('../../models');
+const { User, Character, Book, BookVariation, Category, AgeRating, sequelize } = require('../../../models');
 const { Op } = require('sequelize');
 const popularityService = require('../Popularity/Popularity.service'); // Importar o serviço de popularidade
 

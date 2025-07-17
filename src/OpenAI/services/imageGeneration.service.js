@@ -2,7 +2,7 @@
 const openaiService = require('./openai.service');
 const { downloadAndSaveImage } = require('../utils/imageDownloader');
 const { constructPrompt } = require('../utils/promptConstructor'); // Usando o novo construtor
-const { OpenAISetting, GeneratedImageLog, Character, Book, AdminAsset } = require('../../models');
+const { OpenAISetting, GeneratedImageLog, Character, Book, AdminAsset } = require('../../../models');
 
 class ImageGenerationService {
 

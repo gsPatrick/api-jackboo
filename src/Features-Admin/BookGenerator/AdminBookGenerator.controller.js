@@ -1,5 +1,7 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.controller.js
 const AdminBookGeneratorService = require('./AdminBookGenerator.service');
+const { Book, BookPage } = require('../../../models');
+
 
 class AdminBookGeneratorController {
     async generatePreview(req, res) {
@@ -43,6 +45,5 @@ class AdminBookGeneratorController {
 }
 
 // É necessário importar o Book e BookPage aqui para o regeneratePage funcionar
-const { Book, BookPage } = require('../../models');
 
 module.exports = new AdminBookGeneratorController();

@@ -1,4 +1,4 @@
-const { User, Character, Book, BookVariation, Setting, Royalty, Order, OrderItem, Badge, UserBadge, Championship, Subscription, SubscriptionPayment } = require('../../models');
+const { User, Character, Book, BookVariation, Setting, Royalty, Order, OrderItem, Badge, UserBadge, Championship, Subscription, SubscriptionPayment } = require('../../../models');
 const popularityService = require('../Popularity/Popularity.service');
 const imageGenerationService = require('../../OpenAI/services/imageGeneration.service');
 const { Op } = require('sequelize');

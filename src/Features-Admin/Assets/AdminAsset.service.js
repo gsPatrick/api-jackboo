@@ -1,5 +1,5 @@
 // src/Features-Admin/Assets/AdminAsset.service.js
-const { AdminAsset, User } = require('../../models');
+const { AdminAsset, User } = require('../../../models');
 const { Op } = require('sequelize');
 
 class AdminAssetService {

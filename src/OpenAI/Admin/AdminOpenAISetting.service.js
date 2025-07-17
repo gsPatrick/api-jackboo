@@ -1,4 +1,4 @@
-const { OpenAISetting, GeneratedImageLog, AdminAsset, OpenAISettingAsset, sequelize } = require('../../models'); // Importar AdminAsset e OpenAISettingAsset
+const { OpenAISetting, GeneratedImageLog, AdminAsset, OpenAISettingAsset, sequelize } = require('../../../models'); // Importar AdminAsset e OpenAISettingAsset
 
 class AdminOpenAISettingService {
   /**

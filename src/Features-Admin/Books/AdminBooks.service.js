@@ -1,5 +1,5 @@
 // src/Features-Admin/BookTemplates/AdminBookTemplates.service.js
-const { BookTemplate, PageTemplate, OpenAISetting, Book, sequelize } = require('../../models');
+const { BookTemplate, PageTemplate, OpenAISetting, Book, sequelize } = require('../../../models');
 const { Op } = require('sequelize');
 
 class AdminBookTemplatesService {

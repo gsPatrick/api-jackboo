@@ -1,4 +1,4 @@
-const { User, Character } = require('../../models');
+const { User, Character } = require('../../../models');
 const { uploadAdminAsset } = require('../../Utils/multerConfig'); // Importar para upload
 const JACKBOO_USER_ID = 1; // ID do "usuário sistema"
 

@@ -1,4 +1,4 @@
-const { Championship, Submission, User, Vote, sequelize } = require('../../models');
+const { Championship, Submission, User, Vote, sequelize } = require('../../../models');
 const { Op } = require('sequelize');
 const { isAfter, isBefore, isWithinInterval, startOfMonth, endOfMonth, parseISO } = require('date-fns');
 

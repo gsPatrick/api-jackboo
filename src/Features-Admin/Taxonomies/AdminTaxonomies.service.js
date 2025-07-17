@@ -1,4 +1,4 @@
-const { Category, AgeRating, Book, OpenAISetting } = require('../../models'); // <-- Adicione OpenAISetting
+const { Category, AgeRating, Book, OpenAISetting } = require('../../../models'); // <-- Adicione OpenAISetting
 const slugify = require('../../Utils/slugify');
 
 class AdminTaxonomiesService {

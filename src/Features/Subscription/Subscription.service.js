@@ -1,4 +1,4 @@
-const { User, Plan, Subscription, sequelize } = require('../../models');
+const { User, Plan, Subscription, sequelize } = require('../../../models');
 const mercadopagoService = require('../../Utils/Payment/mercadoPago.service');
 const { addMonths, addYears } = require('date-fns');
 

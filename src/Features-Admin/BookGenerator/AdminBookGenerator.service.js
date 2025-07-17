@@ -1,5 +1,5 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.service.js
-const { Book, BookPage, Character, PrintFormat, OpenAISetting, sequelize } = require('../../models');
+const { Book, BookPage, Character, PrintFormat, OpenAISetting, sequelize } = require('../../../models');
 const BookStructureService = require('../../Utils/BookStructureService');
 const imageGenerationService = require('../../OpenAI/services/imageGeneration.service');
 const PDFGenerator = require('../../Utils/PDFGenerator');
