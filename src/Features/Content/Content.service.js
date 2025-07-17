@@ -1,5 +1,5 @@
 // src/Features/Content/Content.service.js
-const { User, Character, Book, BookVariation, Setting, Royalty, OrderItem, Badge, UserBadge, Submission, SubscriptionPayment, sequelize } = require('../../../models');
+const { User, Character, Book, BookVariation, Setting, Royalty, OrderItem, Badge, UserBadge, Submission, SubscriptionPayment, sequelize } = require('../../models');
 // REMOVIDO: A importação de BookTemplate não é mais necessária.
 
 const popularityService = require('../Popularity/Popularity.service');

@@ -1,4 +1,4 @@
-const { Order, OrderItem, User, BookVariation, Book, ProductStock, Royalty, Setting, sequelize } = require('../../../models');
+const { Order, OrderItem, User, BookVariation, Book, ProductStock, Royalty, Setting, sequelize } = require('../../models');
 const ShippingService = require('../../Utils/Payment/shipping.service');
 const mercadopagoService = require('../../Utils/Payment/mercadoPago.service');
 

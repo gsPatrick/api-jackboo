@@ -1,6 +1,6 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.controller.js
 const AdminBookGeneratorService = require('./AdminBookGenerator.service');
-const { Book, BookPage } = require('../../../models');
+const { Book, BookPage } = require('../../models');
 
 
 class AdminBookGeneratorController {

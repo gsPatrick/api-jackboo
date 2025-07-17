@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { BookVariation, Book } = require('../../../models'); // Importar modelos para obter dimensões
+const { BookVariation, Book } = require('../../models'); // Importar modelos para obter dimensões
 
 const FRENET_API_KEY = process.env.FRENET_API_KEY;
 const FRENET_PASSWORD = process.env.FRENET_PASSWORD; // Se sua API da Frenet usar Basic Auth com senha

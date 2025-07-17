@@ -1,4 +1,4 @@
-    const { Championship, Submission, User, Vote, Order, OrderItem, BookVariation, Book, Badge, UserBadge, sequelize } = require('../../../models');
+    const { Championship, Submission, User, Vote, Order, OrderItem, BookVariation, Book, Badge, UserBadge, sequelize } = require('../../models');
 const { Op } = require('sequelize');
 const { startOfMonth, endOfMonth, format } = require('date-fns');
 const { ptBR } = require('date-fns/locale'); // Importar o locale para formatar datas em português

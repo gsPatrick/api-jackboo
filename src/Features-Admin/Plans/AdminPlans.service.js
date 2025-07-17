@@ -1,4 +1,4 @@
-const { Plan } = require('../../../models');
+const { Plan } = require('../../models');
 
 class AdminPlansService {
   async listAllPlans() {

@@ -1,4 +1,4 @@
-const { Like, Book, Character, sequelize } = require('../../../models');
+const { Like, Book, Character, sequelize } = require('../../models');
 
 class PopularityService {
   /**

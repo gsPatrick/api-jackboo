@@ -1,4 +1,4 @@
-const { Address } = require('../../../models');
+const { Address } = require('../../models');
 
 class AddressService {
   /**

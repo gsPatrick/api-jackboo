@@ -1,5 +1,5 @@
 const mercadopago = require('../../../config/mercadoPago');
-const { Order, User, Book, BookVariation, Plan, Subscription } = require('../../../models');
+const { Order, User, Book, BookVariation, Plan, Subscription } = require('../../models');
 const { v4: uuidv4 } = require('uuid'); // Para gerar IDs únicos se necessário
 
 class MercadoPagoService {

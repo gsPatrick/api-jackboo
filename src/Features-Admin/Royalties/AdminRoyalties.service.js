@@ -1,4 +1,4 @@
-const { Royalty, User, OrderItem, BookVariation, Book } = require('../../../models');
+const { Royalty, User, OrderItem, BookVariation, Book } = require('../../models');
 const { Op } = require('sequelize');
 
 class AdminRoyaltiesService {
