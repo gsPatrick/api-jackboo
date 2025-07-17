@@ -1,4 +1,3 @@
---- START OF FILE src/OpenAI/services/imageGeneration.service.js ---
 
 // src/OpenAI/services/imageGeneration.service.js
 const openaiService = require('./openai.service');
