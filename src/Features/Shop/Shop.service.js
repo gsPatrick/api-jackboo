@@ -1,22 +1,12 @@
 // src/Features/Shop/Shop.service.js
 
-// ANTES:
-// const { User, Character, Book, BookVariation, Category, AgeRating, sequelize } = require('../../../models');
-
-// DEPOIS (CORRIGIDO):
 const { User, Character, Book, BookVariation, Category, AgeRating, sequelize } = require('../../models');
-const { Op } = require('sequelize'); // <-- LINHA ADICIONADA
+const { Op } = require('sequelize');
 const popularityService = require('../Popularity/Popularity.service');
 
 const JACKBOO_USER_ID = 1;
 
 class ShopService {
-  /**
-   * Lista livros para uma vitrine específica (JackBoo ou Amigos).
-   * Retorna apenas livros com status 'publicado'.
-   * @param {string} shopType - 'jackboo' ou 'friends'.
-   * @param {object} filters - Opções de filtro (page, limit, categoryId, etc.).
-   */
   async listBooksForShop(shopType, filters = {}) {
     const { page = 1, limit = 9, categoryId, ageRatingId, sortBy = 'createdAt', order = 'DESC' } = filters;
     
@@ -27,7 +17,6 @@ class ShopService {
     if (shopType === 'jackboo') {
       whereClause.authorId = JACKBOO_USER_ID;
     } else if (shopType === 'friends') {
-      // AGORA ESTA LINHA FUNCIONARÁ CORRETAMENTE
       whereClause.authorId = { [Op.ne]: JACKBOO_USER_ID };
     }
 
@@ -39,13 +28,16 @@ class ShopService {
     const { count, rows } = await Book.findAndCountAll({
       where: whereClause,
       include: [
-        { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl', 'slug'] }, // Adicionado slug
+        // --- CORREÇÃO AQUI ---
+        // Removido 'slug' da lista de atributos
+        { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl'] },
+        // --- FIM DA CORREÇÃO ---
         { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
         { model: AgeRating, as: 'ageRating', attributes: ['id', 'range'] },
         { 
           model: BookVariation, 
           as: 'variations',
-          attributes: ['price', 'format', 'coverUrl'], // Adicionado coverUrl
+          attributes: ['price', 'format', 'coverUrl'],
           limit: 1,
           order: [['price', 'ASC']]
         },
@@ -60,12 +52,11 @@ class ShopService {
     const bookIds = rows.map(book => book.id);
     const likesCounts = await popularityService.getCountsForMultipleEntities('Book', bookIds);
 
-    // Formatação para garantir que a `coverUrl` e o `slug` do autor estejam no nível principal
     const booksWithDetails = rows.map(book => {
       const bookJson = book.toJSON();
       return {
         ...bookJson,
-        coverUrl: bookJson.variations[0]?.coverUrl, // Pega a capa da primeira variação
+        coverUrl: bookJson.variations[0]?.coverUrl,
         totalLikes: likesCounts[book.id] || 0,
       };
     });
@@ -73,12 +64,14 @@ class ShopService {
     return { totalItems: count, books: booksWithDetails, totalPages: Math.ceil(count / limit), currentPage: parseInt(page, 10) };
   }
   
-  // ... o restante do arquivo permanece o mesmo ...
   async getBookDetails(bookId, userId = null) {
       const book = await Book.findOne({
           where: { id: bookId, status: 'publicado' },
           include: [
-              { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl', 'isSystemUser', 'slug'] }, // Adicionado slug
+              // --- CORREÇÃO AQUI ---
+              // Removido 'slug' da lista de atributos
+              { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl', 'isSystemUser'] },
+              // --- FIM DA CORREÇÃO ---
               { model: Character, as: 'mainCharacter', attributes: ['name', 'generatedCharacterUrl', 'description'] },
               { model: Category, as: 'category' },
               { model: AgeRating, as: 'ageRating' },
@@ -101,6 +94,8 @@ class ShopService {
       return bookData;
   }
 
+  // O restante do arquivo (findRelatedBooks) não parece estar pedindo o slug, então deve estar ok.
+  // ... (o resto do seu arquivo)
    async findRelatedBooks({ authorId, bookType, excludeBookId, limit = 5 }) {
     if (!authorId || !bookType) {
       throw new Error('authorId e bookType são parâmetros obrigatórios.');
@@ -121,7 +116,7 @@ class ShopService {
         {
           model: BookVariation,
           as: 'variations',
-          attributes: ['type', 'price', 'coverUrl'], // Adicionado coverUrl
+          attributes: ['type', 'price', 'coverUrl'],
           where: { type: bookType },
           required: true,
         },
@@ -144,7 +139,7 @@ class ShopService {
                 format: plainBook.variations[0].format,
                 type: plainBook.variations[0].type
             };
-            plainBook.coverUrl = plainBook.variations[0].coverUrl; // Adiciona coverUrl ao nível principal
+            plainBook.coverUrl = plainBook.variations[0].coverUrl;
             delete plainBook.variations;
         }
         return plainBook;
