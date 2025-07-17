@@ -17,7 +17,6 @@ module.exports = (sequelize) => {
     pageType: {
       type: DataTypes.ENUM('text', 'illustration', 'coloring_page', 'cover'),
       allowNull: false,
-      comment: 'Tipo de conteúdo da página (texto, ilustração, página de colorir, capa).'
     },
     content: {
       type: DataTypes.TEXT,
