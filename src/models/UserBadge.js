@@ -15,6 +15,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      field: 'award_date',
     },
     comment: {
       type: DataTypes.TEXT,
@@ -24,6 +25,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true,
       references: { model: 'submissions', key: 'id' },
+      field: 'submission_id',
     }
   }, {
     sequelize,
@@ -34,13 +36,13 @@ module.exports = (sequelize, DataTypes) => {
     indexes: [
       {
         unique: true,
-        fields: ['userId', 'badgeId', 'submissionId'],
-        where: { submissionId: { [Op.ne]: null } }
+        fields: ['user_id', 'badge_id', 'submission_id'],
+        where: { submission_id: { [Op.ne]: null } }
       },
       {
         unique: true,
-        fields: ['userId', 'badgeId'],
-        where: { submissionId: null }
+        fields: ['user_id', 'badge_id'],
+        where: { submission_id: null }
       }
     ]
   });
