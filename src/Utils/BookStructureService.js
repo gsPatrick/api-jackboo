@@ -7,9 +7,12 @@ class BookStructureService {
      * @returns {Array<object>} A estrutura de páginas.
      */
     static getColoringBookStructure(pageCount = 10) {
+        // A ordem e os tipos FUNCIONAIS das páginas.
+        // A escolha de QUAL AI Setting usar para CADA UMA dessas páginas
+        // será definida nas configurações padrão do usuário (tabela 'settings').
         return [
             { pageType: 'cover_front', repeat: 1 },
-            { pageType: 'intro_page', repeat: 1 },
+            { pageType: 'intro_page', repeat: 1 }, // Página de introdução pode ter um texto padrão
             { pageType: 'coloring_page', repeat: pageCount },
             { pageType: 'special_jack_friends', repeat: 1 },
             { pageType: 'back_cover', repeat: 1 },
@@ -18,7 +21,7 @@ class BookStructureService {
 
     /**
      * Retorna a estrutura de páginas padrão para um livro de história.
-     * @param {number} pageCount - O número total de páginas de ilustração/texto.
+     * @param {number} pageCount - O número total de páginas de ilustração/texto (cenas).
      * @returns {Array<object>} A estrutura de páginas.
      */
     static getStoryBookStructure(pageCount = 8) {
@@ -28,12 +31,10 @@ class BookStructureService {
         ];
         
         // Alterna entre página de ilustração e página de texto
+        // Para cada "cena", temos uma ilustração e um texto
         for (let i = 0; i < pageCount; i++) {
-            if (i % 2 === 0) {
-                structure.push({ pageType: 'story_illustration', repeat: 1 });
-            } else {
-                structure.push({ pageType: 'story_text', repeat: 1 });
-            }
+            structure.push({ pageType: 'story_illustration', repeat: 1 });
+            structure.push({ pageType: 'story_text', repeat: 1 });
         }
 
         structure.push({ pageType: 'special_jack_friends', repeat: 1 });
@@ -43,23 +44,13 @@ class BookStructureService {
     }
 
     /**
-     * Mapeia um tipo de página funcional para o tipo de configuração de IA correspondente.
-     * @param {string} pageType - O tipo funcional da página (ex: 'cover_front').
-     * @param {string} bookType - 'coloring' ou 'story' para diferenciar capas.
-     * @returns {string} O tipo de configuração da IA (ex: 'story_cover').
+     * REMOVIDO: Este método não é mais necessário porque o AI Setting é único para o livro/personagem.
+     * A lógica de qual AI Setting usar é agora lida pelo BookCreationService/ContentService
+     * lendo a configuração padrão da tabela 'settings'.
      */
-    static getAiSettingTypeForPage(pageType, bookType = 'story') {
-        const mapping = {
-            'cover_front': bookType === 'coloring' ? 'coloring_cover' : 'story_cover',
-            'intro_page': 'story_intro',
-            'story_illustration': 'story_page_illustration',
-            'story_text': 'story_page_text',
-            'coloring_page': 'coloring_page',
-            'special_jack_friends': 'special_page',
-            'back_cover': bookType === 'coloring' ? 'coloring_cover' : 'story_cover',
-        };
-        return mapping[pageType] || pageType;
-    }
+    // static getAiSettingTypeForPage(pageType, bookType = 'story') {
+    //     // ... lógica removida
+    // }
 }
 
 module.exports = BookStructureService;

@@ -1,47 +1,27 @@
+// src/Jobs/processor.js (ou onde o seu processador da fila está)
+
+const { bookGenerationQueue } = require('./queue');
+const BookCreationService = require('../Features/Content/BookCreationService'); // Este é o worker
+
+// ...
+
+// NOVO PROCESSADOR DE JOB SIMPLIFICADO
+bookGenerationQueue.process('generate-simplified-book', async (job) => {
+    const { bookId, structure, context, referenceImageUrl } = job.data;
+    console.log(`[Worker] Iniciando job SIMPLIFICADO para livro ID: ${bookId}`);
+    await BookCreationService._processSimplifiedBookGeneration(bookId, structure, context, referenceImageUrl);
+});
+
 // src/Jobs/processor.js
 
-// --- CÓDIGO ORIGINAL (DESATIVADO TEMPORARIAMENTE) ---
-// Comentando todo o conteúdo do arquivo para impedir a criação do Worker
-// e a tentativa de conexão com o Redis.
-
-/*
-const { Worker } = require('bullmq');
-const BookCreationService = require('../Features/Content/BookCreation.service');
-require('dotenv').config();
-
-const redisConnection = process.env.REDIS_URL;
-
-if (!redisConnection) {
-  throw new Error('REDIS_URL não está definida no arquivo .env');
-}
-
-const bookGenerationWorker = new Worker('bookGeneration', async job => {
-  const { bookId, userInputs } = job.data;
-  console.log(`[Worker] Processando job ${job.id} para o livro ID: ${bookId}`);
-
-  try {
-    await BookCreationService._processBookGeneration(bookId, userInputs);
-    console.log(`[Worker] Job ${job.id} para o livro ID: ${bookId} concluído com sucesso.`);
-  } catch (error) {
-    console.error(`[Worker] Job ${job.id} para o livro ID: ${bookId} falhou.`, error);
-    throw error;
-  }
-}, { 
-  connection: redisConnection,
-  concurrency: 2 
+// ...
+bookGenerationQueue.process('generate-book-job', async (job) => {
+    const { bookId, structure, context, referenceImageUrl } = job.data;
+    console.log(`[Worker] Iniciando job para livro ID: ${bookId}`);
+    
+    // A lógica de processamento fica em um método do worker
+    await processBookPages(bookId, structure, context, referenceImageUrl);
 });
 
-bookGenerationWorker.on('completed', job => {
-  console.log(`[Worker] Evento 'completed' para job ${job.id}`);
-});
-
-bookGenerationWorker.on('failed', (job, err) => {
-  console.error(`[Worker] Evento 'failed' para job ${job.id}. Erro: ${err.message}`);
-});
-
-console.log('🚀 Worker de geração de livros iniciado e aguardando jobs...');
-
-module.exports = bookGenerationWorker;
-*/
-
-console.log('[AVISO] Worker do Redis está desativado para teste.');
+// O processador antigo 'generate-book' pode ser removido ou mantido para o admin.
+// bookGenerationQueue.process('generate-book', ...);
