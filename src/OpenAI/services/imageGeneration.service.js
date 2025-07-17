@@ -1,5 +1,4 @@
 
-// src/OpenAI/services/imageGeneration.service.js
 const openaiService = require('./openai.service');
 const { downloadAndSaveImage } = require('../utils/imageDownloader');
 const { constructPrompt } = require('../utils/promptConstructor');
