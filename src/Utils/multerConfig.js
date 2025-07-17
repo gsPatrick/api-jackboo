@@ -1,78 +1,45 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid'); // Garante nomes únicos
+const { v4: uuidv4 } = require('uuid');
 
-// Define os diretórios de destino dentro da pasta raiz 'uploads'
-const UPLOADS_ROOT_DIR = path.join(__dirname, '..', '..', 'uploads');
-const USER_DRAWINGS_DIR = path.join(UPLOADS_ROOT_DIR, 'user-drawings');
-const AI_GENERATED_DIR = path.join(UPLOADS_ROOT_DIR, 'ai-generated');
-const ADMIN_ASSETS_DIR = path.join(UPLOADS_ROOT_DIR, 'admin-assets');
+// Define o diretório de uploads de forma robusta
+const USER_DRAWINGS_DIR = path.resolve(__dirname, '..', '..', 'uploads', 'user-drawings');
 
-// Garante que os diretórios existam na inicialização
-[UPLOADS_ROOT_DIR, USER_DRAWINGS_DIR, AI_GENERATED_DIR, ADMIN_ASSETS_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+// Garante que o diretório exista
+fs.mkdirSync(USER_DRAWINGS_DIR, { recursive: true });
 
-// Filtro para aceitar apenas imagens
-const fileFilter = (req, file, cb) => {
-  if (!file) {
-    // Se nenhum arquivo for enviado, não retorne erro, apenas continue.
-    // A validação de "arquivo obrigatório" deve ser feita no serviço.
-    return cb(null, false);
-  }
-
-  const allowedMimeTypes = /jpeg|jpg|png|gif|webp/;
-  const mimetype = allowedMimeTypes.test(file.mimetype);
-  const extname = allowedMimeTypes.test(path.extname(file.originalname).toLowerCase());
-
-  if (mimetype && extname) {
-    return cb(null, true);
-  }
-  cb(new Error('Erro: O arquivo deve ser uma imagem válida (jpeg, jpg, png, gif, webp).'));
-};
-
-// --- Configuração para uploads de Desenhos de Usuário ---
-const userDrawingStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
+// Configuração de armazenamento (storage)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
     cb(null, USER_DRAWINGS_DIR);
   },
-  filename: (req, file, cb) => {
-    // CORREÇÃO CRÍTICA:
-    // Garante que temos um nome de arquivo original para trabalhar.
-    // Se não tiver, gera um nome com extensão padrão '.png'.
-    const originalName = file.originalname || 'fallback.png';
-    const extension = path.extname(originalName);
+  filename: function (req, file, cb) {
+    // Gera um nome de arquivo único para evitar conflitos
+    const extension = path.extname(file.originalname) || '.png';
     const uniqueFilename = `${uuidv4()}${extension}`;
     cb(null, uniqueFilename);
   }
 });
 
-const uploadUserDrawing = multer({
-  storage: userDrawingStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Aumentado para 10MB
-  fileFilter: fileFilter,
-});
-
-// --- Configuração para uploads de Assets do Admin ---
-const adminAssetStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, ADMIN_ASSETS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const originalName = path.basename(file.originalname, path.extname(file.originalname));
-    const timestamp = Date.now();
-    const extension = path.extname(file.originalname);
-    cb(null, `${originalName.substring(0, 50).replace(/[^a-zA-Z0-9-]/g, '')}-${timestamp}${extension}`);
+// Filtro de arquivo para aceitar apenas imagens
+const fileFilter = (req, file, cb) => {
+  const allowedMimes = ['image/jpeg', 'image/pjpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de arquivo de imagem inválido.'), false);
   }
+};
+
+// Exporta a instância do Multer configurada
+const uploadUserDrawing = multer({
+  storage: storage,
+  limits: {
+    fileSize: 1024 * 1024 * 10 // 10MB
+  },
+  fileFilter: fileFilter
 });
 
-const uploadAdminAsset = multer({
-  storage: adminAssetStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: fileFilter,
-});
-
-module.exports = { uploadUserDrawing, uploadAdminAsset };
+// Não precisamos exportar as outras configs de admin agora para simplificar o diagnóstico
+module.exports = { uploadUserDrawing };
