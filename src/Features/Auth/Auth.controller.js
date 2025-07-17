@@ -1,4 +1,4 @@
-const authService = require('./Auth.service');
+const authService = require('./Auth.services');
 
 class AuthController {
   // --- Controllers de Registro e Login ---
