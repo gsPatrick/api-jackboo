@@ -6,17 +6,27 @@ const { generateToken } = require('../../Utils/jwt');
 
 class AuthService {
   // --- Funções de Registro ---
-  async registerUser(userData, role = 'user') {
-    console.log('[AuthService] Iniciando registro de usuário:', JSON.stringify(userData, null, 2)); // Log do payload recebido
+ async registerUser(userData, role = 'user') {
+    console.log('[AuthService] Iniciando registro de usuário:', JSON.stringify(userData, null, 2));
 
-    const { fullName, nickname, email, password, birthDate } = userData;
+    const { fullName, nickname, email, password, birthDate, phone } = userData; // Adicionado phone
 
     try {
-      const existingUser = await User.findOne({ where: { email } });
+      console.log(`[AuthService] Verificando usuário existente com email: ${email}`);
+      // --- PONTO CRÍTICO AQUI ---
+      // Adicionando logs antes e depois de User.findOne
+      console.log(`[AuthService] Chamando User.findOne com where:`, { email });
+      const existingUser = await User.findOne({ where: { email } }); // O erro ocorre nesta linha
+      console.log(`[AuthService] Resultado de User.findOne para email ${email}:`, existingUser); // Verifique se é undefined
+
+      // Se existingUser for undefined, a linha seguinte (existingUser.email) dará o erro.
+      // Adicionaremos uma verificação explícita aqui para o log.
       if (existingUser) {
         console.warn(`[AuthService] Email ${email} já em uso.`);
         throw new Error('Este e-mail já está em uso.');
       }
+      
+      console.log(`[AuthService] Verificando nickname existente: ${nickname}`);
       const existingNickname = await User.findOne({ where: { nickname } });
       if (existingNickname) {
         console.warn(`[AuthService] Apelido ${nickname} já em uso.`);
@@ -27,26 +37,14 @@ class AuthService {
       const passwordHash = await hashPassword(password);
       console.log('[AuthService] Senha hasheada com sucesso.');
 
-      console.log(`[AuthService] Criando usuário no banco com os seguintes dados:`, {
-          fullName,
-          nickname,
-          email,
-          birthDate,
-          role,
-          accountStatus: 'active', // ou o valor padrão que você usa
-          // O passwordHash não deve ser logado explicitamente por segurança
-      });
-
-      // --- PONTO CRÍTICO 1: Antes de chamar User.create ---
-      // Verifique se `birthDate` está no formato esperado pela sua API/controller
-      // console.log('[AuthService] Valor de birthDate antes de criar:', birthDate);
-
+      console.log(`[AuthService] Criando usuário no banco...`);
       const user = await User.create({
         fullName,
         nickname,
         email,
-        passwordHash, // A senha hasheada
+        passwordHash,
         birthDate,
+        phone, // Adicionado phone
         role,
         accountStatus: 'active',
       });
@@ -54,18 +52,19 @@ class AuthService {
       console.log(`[AuthService] Usuário criado com sucesso no banco, ID: ${user.id}`);
 
       const userJson = user.toJSON();
-      delete userJson.passwordHash; // Nunca retorne o hash da senha
+      delete userJson.passwordHash;
 
       return userJson;
     } catch (error) {
       console.error('[AuthService] Erro durante o registro do usuário:', error);
-      // Tenta adicionar mais contexto ao erro, se possível
       if (error.name === 'SequelizeValidationError') {
           console.error('Detalhes da validação Sequelize:', error.errors);
       } else if (error.name === 'SequelizeUniqueConstraintError') {
           console.error('Erro de constraint única:', error.errors);
+      } else if (error.message.includes("Cannot read properties of undefined (reading 'constructor')")) {
+           // Log específico para o erro que estamos investigando
+           console.error("[AuthService] Detectado erro 'Cannot read properties of undefined (reading 'constructor')'. Verifique o modelo User, seus hooks e a inicialização do Sequelize.");
       }
-      // Relança o erro para que o controller possa tratá-lo
       throw error;
     }
   }
