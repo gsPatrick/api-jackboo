@@ -3,23 +3,25 @@
     "username": "jackboodb",
     "password": "jackboodb",
     "database": "jackboodb",
-    "host": "69.62.99.122",
+    "host": "geral_jackboodb",
     "port": 5432,
     "dialect": "postgres",
     "dialectOptions": {
       "ssl": false
-    }
+    },
+    "logging": false
   },
   "test": {
     "username": "jackboodb",
     "password": "jackboodb",
-    "database": "jackboodb",
-    "host": "69.62.99.122",
+    "database": "jackboodb_test",
+    "host": "geral_jackboodb",
     "port": 5432,
     "dialect": "postgres",
     "dialectOptions": {
       "ssl": false
-    }
+    },
+    "logging": false
   },
   "production": {
     "use_env_variable": "DATABASE_URL",
@@ -29,6 +31,7 @@
         "require": true,
         "rejectUnauthorized": false
       }
-    }
+    },
+    "logging": false
   }
 }
