@@ -3,6 +3,7 @@
 // A importação agora funciona como esperado, pois 'index.js' gerencia as dependências.
 const { User, Book, BookVariation, Category, AgeRating, sequelize, Op } = require('../../../models');
 const popularityService = require('../Popularity/Popularity.service'); // Importar o serviço de popularidade
+console.log('[DEBUG Shop.service.js] Modelos importados. O modelo "Book" está definido aqui?', !!Book);
 
 const JACKBOO_USER_ID = 1; // ID do usuário sistema "JackBoo Oficial"
 

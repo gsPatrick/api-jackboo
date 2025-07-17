@@ -1,11 +1,16 @@
 'use strict';
-
 const fs = require('fs');
-const path = require('path');
+const path = require('path'); // <<< Garanta que 'path' está importado
 const Sequelize = require('sequelize');
+const process = require('process');
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'development';
-const config = require(path.join(__dirname, '../../../config/config.json'))[env];
+
+// --- ESTA É A LINHA QUE PRECISA SER EXATAMENTE ASSIM ---
+// O arquivo config.json está dois níveis acima da pasta 'models'
+// Ex: /workspace/src/models/index.js -> /workspace/config/config.json
+const config = require(path.join(__dirname, '../../config/config.json'))[env];
+// --- FIM DA LINHA A SER CORRIGIDA ---
 const db = {};
 
 const sequelize = new Sequelize(config.database, config.username, config.password, config);
