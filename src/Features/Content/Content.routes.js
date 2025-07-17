@@ -16,7 +16,7 @@ router.use(isAuthenticated);
 // Ela garante que, para a rota POST /characters, o middleware `uploadUserDrawing`
 // será executado PRIMEIRO. Ele vai procurar por um campo "drawing" no formulário,
 // salvar o arquivo e criar o objeto `req.file` para o `contentController` usar.
-outer.post(
+router.post(
   '/characters',
   // 1. O middleware do Multer é executado. Ele espera um campo 'drawing'.
   // Se for bem-sucedido, ele cria `req.file` e chama o próximo middleware.
