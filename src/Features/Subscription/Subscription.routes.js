@@ -1,17 +1,17 @@
+// src/Features/Subscription/Subscription.routes.js
 const { Router } = require('express');
 const subscriptionController = require('./Subscription.controller');
 const { isAuthenticated } = require('../Auth/Auth.middleware');
 
 const router = Router();
 
-console.log('initiateSubscription:', typeof subscriptionController.initiateSubscription);
-console.log('cancelSubscription:', typeof subscriptionController.cancelSubscription);
-console.log('getMySubscription:', typeof subscriptionController.getMySubscription);
-console.log('getUserSubscriptionPaymentHistory:', typeof subscriptionController.getUserSubscriptionPaymentHistory);
+// REMOVA ESTAS LINHAS DE LOG. Elas estavam causando o carregamento prematuro.
+// console.log('initiateSubscription:', typeof subscriptionController.initiateSubscription);
+// console.log('cancelSubscription:', typeof subscriptionController.cancelSubscription);
+// console.log('getMySubscription:', typeof subscriptionController.getMySubscription);
+// console.log('getUserSubscriptionPaymentHistory:', typeof subscriptionController.getUserSubscriptionPaymentHistory);
 
-
-// REMOVIDO: Rota pública para webhook de assinaturas do Mercado Pago (agora em /api/webhooks/mercadopago)
-// router.post('/webhook', subscriptionController.handleSubscriptionWebhook);
+// Rota pública para webhook foi movida, o que está correto.
 
 // Todas as rotas abaixo exigem autenticação
 router.use(isAuthenticated);
@@ -27,6 +27,5 @@ router.get('/me', subscriptionController.getMySubscription);
 
 // GET /api/subscriptions/payment-history - Retorna o histórico de pagamentos da assinatura do usuário
 router.get('/payment-history', subscriptionController.getUserSubscriptionPaymentHistory);
-
 
 module.exports = router;
