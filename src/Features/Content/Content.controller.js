@@ -51,6 +51,15 @@ class ContentController {
     }
   }
 
+  async requestPayout(req, res) {
+  try {
+    const result = await contentService.requestRoyaltyPayout(req.user.id, req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ message: 'Erro ao solicitar saque.', error: error.message });
+  }
+}
+
   async createBook(req, res) {
     try {
       const book = await contentService.createBook(req.user.id, req.body);
