@@ -1,21 +1,20 @@
 // src/Generators/characterGenerator.js
 
 const { Character } = require('../models');
-const imageGenerationService = require('../OpenAI/services/imageGeneration.service'); // O orquestrador
+const imageGenerationService = require('../OpenAI/services/imageGeneration.service');
 const path = require('path');
 
 // --- CONSTANTES DE CONFIGURAÇÃO PARA O REPLICATE ---
 const REPLICATE_MODEL_VERSION = '31cbf82d3e6f368be33c12010c260de298982916a55a3c69c175475a022fbf79';
-const JACK_STYLE_IMAGE_URL = `${process.env.SERVER_BASE_URL}/images/jack.png`; // Imagem de estilo do Jack
+const JACK_STYLE_IMAGE_URL = `${process.env.SERVER_BASE_URL}/images/jack.png`;
 const PROMPT = "Generate a cute cartoon character in the same friendly and child-like style as the reference image, preserving the shape and structure of the input image.";
 
 /**
  * Constrói a URL pública completa para um arquivo local.
  * @param {string} localUrl - O caminho relativo, ex: /uploads/user-drawings/file.png
- * @returns {string} A URL completa, ex: http://localhost:3000/uploads/user-drawings/file.png
+ * @returns {string} A URL completa, ex: https://seu-dominio.com/uploads/user-drawings/file.png
  */
 function getPublicUrl(localUrl) {
-    // Remove a barra inicial se houver para evitar URL dupla (//)
     const cleanLocalUrl = localUrl.startsWith('/') ? localUrl.substring(1) : localUrl;
     return `${process.env.SERVER_BASE_URL}/${cleanLocalUrl}`;
 }
@@ -36,12 +35,13 @@ async function generateCharacter(userId, userFile) {
         userId,
         name: "Meu Novo Amigo",
         originalDrawingUrl,
-        generatedCharacterUrl: null, // Inicia como nulo
+        generatedCharacterUrl: null,
     });
 
     try {
         // 1. Construir a URL pública da imagem que o usuário enviou.
         const userDrawingPublicUrl = getPublicUrl(originalDrawingUrl);
+        console.log(`[generateCharacter] URL pública enviada ao Replicate: ${userDrawingPublicUrl}`);
         
         // 2. Montar o objeto de input para a API do Replicate.
         const input = {
@@ -60,7 +60,6 @@ async function generateCharacter(userId, userFile) {
         };
         
         // 3. Chamar o serviço orquestrador para gerar a imagem.
-        // O serviço cuidará do download, log, etc.
         const generatedCharacterUrl = await imageGenerationService.generateCharacterWithReplicate(
             REPLICATE_MODEL_VERSION,
             input,
@@ -77,7 +76,7 @@ async function generateCharacter(userId, userFile) {
         console.error(`Falha ao gerar a imagem de IA para o personagem ${character.id}. O desenho original será mantido.`, error);
         // Fallback: Se a geração falhar, mantemos o registro do personagem, mas sem a imagem gerada.
         // O frontend pode mostrar o `originalDrawingUrl` no lugar.
-        await character.update({ status: 'failed_generation' }); // Adicionar um campo de status seria ideal
+        // Opcional: Adicionar um campo de status no modelo Character para registrar a falha.
     }
 
     return character;
