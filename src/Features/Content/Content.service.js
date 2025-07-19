@@ -6,7 +6,6 @@ const { Op } = require('sequelize');
 
 // --- AQUI ESTÁ A MUDANÇA PRINCIPAL ---
 // 1. Importamos a função específica do nosso novo gerador.
-const { Character } = require('../../models');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader'); // Reutilizamos o downloader
 
 // --- NOSSAS NOVAS IMPORTAÇÕES ---
