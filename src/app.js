@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const mainRouter = require('./Routes/index');
+const webhookRouter = require('.//Features/Webhook/Webhook.routes');
 
 const app = express();
 
@@ -30,6 +31,9 @@ app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')
 // O Express vai direcionar para a rota correspondente (ex: /api/content/characters),
 // onde o middleware específico da rota (Multer) será finalmente executado.
 app.use('/api', mainRouter);
+
+app.use('/api/webhooks', webhookRouter);
+
 
 // 5. TRATAMENTO DE ERRO (Opcional, mas recomendado)
 app.use((err, req, res, next) => {

@@ -1,39 +1,24 @@
+const { Character } = require('../../models');
+const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
+const visionService = require('../../OpenAI/services/openai.service');
+const leonardoService = require('../../OpenAI/services/leonardo.service');
 
-// src/Features/Content/Content.service.js
-const { User, Character, Book, BookVariation, Setting, Royalty, OrderItem, Badge, UserBadge, Submission, SubscriptionPayment, sequelize } = require('../../models');
-const popularityService = require('../Popularity/Popularity.service');
-const { Op } = require('sequelize');
+if (!process.env.APP_URL) {
+  throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
+}
 
-// --- AQUI ESTÁ A MUDANÇA PRINCIPAL ---
-// 1. Importamos a função específica do nosso novo gerador.
-const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader'); // Reutilizamos o downloader
-
-// --- NOSSAS NOVAS IMPORTAÇÕES ---
-const visionService = require('../../OpenAI/services/openai.service'); // O serviço que descreve
-const leonardoService = require('../../OpenAI/services/leonardo.service'); // O serviço que desenha
-// ------------------------------------
-
-const MIN_ROYALTY_PAYOUT = 50.00;
+// Função auxiliar para criar o atraso
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class ContentService {
-  
-  // --- MÉTODO ATUALIZADO ---
-  // 2. O método createCharacter agora é extremamente simples.
-  // Ele recebe apenas o userId e o arquivo, e delega 100% da lógica
-  // para a função `generateCharacter` que importamos.
-  // Isso corrige o erro "generateCharacter is not defined".
   async createCharacter(userId, file) {
     if (!file) {
       throw new Error('A imagem do desenho é obrigatória.');
     }
-    
-    // URL relativa salva no banco
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
-    // URL completa e pública que as APIs externas podem acessar
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
 
     console.log('[ContentService] Iniciando processo de criação de personagem...');
-    // Criamos o personagem no banco com um status inicial claro para o usuário
     const character = await Character.create({
       userId,
       name: "Analisando seu desenho...",
@@ -42,22 +27,28 @@ class ContentService {
     });
 
     try {
-      // 1. Obter a descrição DETALHADA do visionService
+      // --- AQUI ESTÁ A CORREÇÃO ---
+      // Adicionamos uma pequena pausa para garantir que a imagem esteja acessível.
+      console.log('[ContentService] Aguardando 2 segundos para garantir que a URL da imagem esteja ativa...');
+      await sleep(2000); // 2 segundos de atraso
+      // --- FIM DA CORREÇÃO ---
+
       console.log(`[ContentService] Passo 1: Obtendo descrição detalhada da imagem em ${publicImageUrl}...`);
       const detailedDescription = await visionService.describeImage(publicImageUrl);
-      
-      // Atualiza o personagem com a descrição, para que o usuário veja o progresso
+
+      // Verificação para o caso de o GPT-4o ainda recusar
+      if (detailedDescription.includes("I can't") || detailedDescription.includes("I’m sorry")) {
+          throw new Error("A IA de visão não conseguiu processar a imagem. Tente novamente ou use outra imagem.");
+      }
+
       await character.update({ description: `Nossa IA entendeu seu desenho como: "${detailedDescription}". Agora vamos criar a arte!` });
 
-      // 2. Montar o prompt final para o Leonardo, agora muito mais rico
       console.log('[ContentService] Passo 2: Construindo prompt detalhado para o Leonardo...');
       const finalPrompt = `A cute character based on this detailed description: "${detailedDescription}". The character must have a happy expression and be smiling, and should be facing forward. Create a full body 2D cartoon illustration on a simple white background.`;
 
-      // 3. Iniciar a geração no Leonardo (não espera o resultado)
       console.log('[ContentService] Passo 3: Solicitando INÍCIO da geração ao Leonardo.AI...');
       const generationId = await leonardoService.startImageGeneration(finalPrompt, publicImageUrl);
 
-      // 4. Salvar o ID do Job para o webhook poder encontrar o personagem
       console.log(`[ContentService] Passo 4: Salvando o Job ID ${generationId} no personagem ${character.id}`);
       await character.update({ generationJobId: generationId });
       
@@ -66,15 +57,14 @@ class ContentService {
 
     } catch (error) {
       console.error(`[ContentService] Erro fatal na criação do personagem ID ${character.id}:`, error.message);
-      // Marca o personagem como falho para o usuário ver
       await character.update({
         name: 'Ops! Falha na Geração',
         description: `Ocorreu um erro durante o processo: ${error.message}`
       });
-      // Re-lança o erro para ser capturado pelo controller e retornar uma resposta de erro 500.
       throw error;
     }
   }
+
   // -------------------------
 
   // A lógica de criação de livros também será simplificada da mesma forma no futuro.
