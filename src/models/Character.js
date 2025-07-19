@@ -38,7 +38,12 @@ module.exports = (sequelize, DataTypes) => {
     traits: {
         type: DataTypes.JSONB,
         allowNull: true,
-    }
+    },
+       generationJobId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'ID do job de geração retornado pela API (Leonardo/Replicate).'
+    } 
   }, {
     sequelize,
     modelName: 'Character',
