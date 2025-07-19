@@ -1,26 +1,27 @@
+// src/Generators/characterGenerator.js
 
-const fs = require('fs/promises');
-const path = require('path');
 const { Character } = require('../models');
-const imageGenerationService = require('../OpenAI/services/imageGeneration.service');
+const imageGenerationService = require('../OpenAI/services/imageGeneration.service'); // O orquestrador
+const path = require('path');
+
+// --- CONSTANTES DE CONFIGURAÇÃO PARA O REPLICATE ---
+const REPLICATE_MODEL_VERSION = '31cbf82d3e6f368be33c12010c260de298982916a55a3c69c175475a022fbf79';
+const JACK_STYLE_IMAGE_URL = `${process.env.SERVER_BASE_URL}/images/jack.png`; // Imagem de estilo do Jack
+const PROMPT = "Generate a cute cartoon character in the same friendly and child-like style as the reference image, preserving the shape and structure of the input image.";
 
 /**
- * Converte um arquivo de imagem em uma string base64 para a API da OpenAI.
- * @param {string} filePath - O caminho completo para o arquivo de imagem.
- * @returns {Promise<string>} A string base64 da imagem.
+ * Constrói a URL pública completa para um arquivo local.
+ * @param {string} localUrl - O caminho relativo, ex: /uploads/user-drawings/file.png
+ * @returns {string} A URL completa, ex: http://localhost:3000/uploads/user-drawings/file.png
  */
-async function imageToBase64(filePath) {
-  try {
-    const data = await fs.readFile(filePath);
-    return Buffer.from(data).toString('base64');
-  } catch (error) {
-    console.error(`Erro ao ler o arquivo para base64: ${filePath}`, error);
-    throw new Error(`Não foi possível carregar a imagem de referência: ${path.basename(filePath)}`);
-  }
+function getPublicUrl(localUrl) {
+    // Remove a barra inicial se houver para evitar URL dupla (//)
+    const cleanLocalUrl = localUrl.startsWith('/') ? localUrl.substring(1) : localUrl;
+    return `${process.env.SERVER_BASE_URL}/${cleanLocalUrl}`;
 }
 
 /**
- * Gera um personagem usando GPT-4o com uma referência de estilo e seu prompt simplificado.
+ * Gera um personagem usando Replicate com IP-Adapter e ControlNet.
  * @param {number} userId - ID do usuário.
  * @param {object} userFile - O objeto do arquivo enviado pelo usuário (de Multer).
  * @returns {Promise<Character>} A instância do personagem.
@@ -35,77 +36,48 @@ async function generateCharacter(userId, userFile) {
         userId,
         name: "Meu Novo Amigo",
         originalDrawingUrl,
-        generatedCharacterUrl: null,
+        generatedCharacterUrl: null, // Inicia como nulo
     });
 
     try {
-        // 1. Definir o caminho para a imagem de referência do Jack.
-        const jackStyleImagePath = path.join(__dirname, '..', '..', 'public', 'images', 'jack.png');
-
-        // 2. Converter a imagem de estilo e a imagem do usuário para base64.
-        const jackStyleBase64 = await imageToBase64(jackStyleImagePath);
-        const userDrawingBase64 = await imageToBase64(userFile.path);
-
-        // 3. Construir a estrutura de mensagens com seu prompt e uma instrução final clara.
-        const messages = [
-            {
-                role: "system",
-                content: "You are a creative illustrator who transforms children's drawings into a specific cartoon style."
-            },
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "text",
-                        // SEU PROMPT SIMPLIFICADO AQUI
-                        text: `
-Crie um personagem infantil no estilo do JackBoo:
-- arte vetorial 2D, traços suaves, contorno escuro.
-- proporções infantis, olhos grandes e expressivos.
-- cores vibrantes e sólidas.
-- expressão alegre, postura divertida.
-
-A imagem de referência do estilo JackBoo está anexada.
-A imagem a ser transformada é o desenho do usuário.
-
-**MANDATORY OUTPUT:**
-- The output MUST be a single, centered character image.
-- The background MUST be transparent.
-- **DO NOT** create character sheets, turnarounds, multiple views, or any text annotations. Just the final character.
-`
-                    },
-                    {
-                        type: "image_url",
-                        image_url: { 
-                            url: `data:image/png;base64,${jackStyleBase64}`,
-                            detail: "low" // Usamos 'low' para a imagem de estilo, economiza tokens.
-                        }
-                    },
-                    {
-                        type: "image_url",
-                        image_url: { 
-                            url: `data:image/jpeg;base64,${userDrawingBase64}`,
-                            detail: "high" // Usamos 'high' para a imagem do usuário, para capturar detalhes.
-                        }
-                    },
-                ]
-            }
-        ];
-
-        // 4. Chamar o serviço da OpenAI com o prompt multimodal.
-        const generatedCharacterUrl = await imageGenerationService.generateImageWithVision(
-            messages,
+        // 1. Construir a URL pública da imagem que o usuário enviou.
+        const userDrawingPublicUrl = getPublicUrl(originalDrawingUrl);
+        
+        // 2. Montar o objeto de input para a API do Replicate.
+        const input = {
+            prompt: PROMPT,
+            ip_adapter_image: JACK_STYLE_IMAGE_URL,
+            // Assumimos que o input do usuário é mais parecido com um desenho/foto.
+            // Se fosse um rabisco puro, usaríamos 'scribble_image'.
+            lineart_image: userDrawingPublicUrl, 
+            ip_adapter_weight: 0.9,
+            lineart_conditioning_scale: 0.9,
+            guidance_scale: 5,
+            num_inference_steps: 30,
+            max_width: 768,
+            max_height: 768,
+            disable_safety_check: true, // Para evitar falsos positivos com desenhos infantis
+        };
+        
+        // 3. Chamar o serviço orquestrador para gerar a imagem.
+        // O serviço cuidará do download, log, etc.
+        const generatedCharacterUrl = await imageGenerationService.generateCharacterWithReplicate(
+            REPLICATE_MODEL_VERSION,
+            input,
             { userId: userId, entity: character }
         );
         
+        // 4. Atualizar o personagem com a URL da imagem gerada.
         await character.update({
             generatedCharacterUrl,
             name: `Personagem #${character.id}`
         });
 
     } catch (error) {
-        console.error(`Falha ao gerar a imagem de IA para o personagem ${character.id}. O desenho original será usado como fallback.`, error);
-        await character.update({ generatedCharacterUrl: originalDrawingUrl });
+        console.error(`Falha ao gerar a imagem de IA para o personagem ${character.id}. O desenho original será mantido.`, error);
+        // Fallback: Se a geração falhar, mantemos o registro do personagem, mas sem a imagem gerada.
+        // O frontend pode mostrar o `originalDrawingUrl` no lugar.
+        await character.update({ status: 'failed_generation' }); // Adicionar um campo de status seria ideal
     }
 
     return character;
