@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 
-const LEONARDO_API_KEY = '2693b851-8dc6-49cb-8f47-dc42f61d314e';
 const API_URL = 'https://cloud.leonardo.ai/api/rest/v1';
 const TRAINING_IMAGES_DIR = path.join(__dirname, 'training-images');
 
