@@ -14,6 +14,7 @@ class ContentService {
   async createCharacter(userId, file) {
     if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
+    // `publicImageUrl` é a URL da imagem no SEU servidor, usada pelo VisionService
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
 
@@ -27,7 +28,7 @@ class ContentService {
     try {
       await sleep(2000); 
 
-      console.log(`[ContentService] Passo 1: Obtendo descrição da imagem...`);
+      console.log(`[ContentService] Passo 1: Obtendo descrição da imagem para OpenAI Vision...`);
       const detailedDescription = await visionService.describeImage(publicImageUrl);
       
       if (detailedDescription.toLowerCase().includes("i'm sorry") || detailedDescription.toLowerCase().includes("i cannot")) {
@@ -38,27 +39,32 @@ class ContentService {
 
       console.log('[ContentService] Passo 2: Construindo e limpando o prompt...');
       
-      // --- AQUI ESTÁ A CORREÇÃO FINAL ---
-      // Limpa a descrição para remover quebras de linha e texto introdutório.
       const cleanedDescription = detailedDescription
         .replace(/Claro! Aqui estão os elementos visuais principais descritos como um conceito de personagem:/i, '')
-        .replace(/\n/g, ' ') // Substitui quebras de linha por espaços
-        .replace(/-/g, '')   // Remove hífens
-        .trim();             // Remove espaços no início e no fim
+        .replace(/\n/g, ' ') 
+        .replace(/-/g, '')   
+        .trim();             
 
       const finalPrompt = `A cute character based on this detailed description: "${cleanedDescription}". The character must have a happy expression and be smiling, and should be facing forward. Create a full body 2D cartoon illustration on a simple white background.`;
-      // --- FIM DA CORREÇÃO ---
+      
+      // --- NOVO PASSO CRÍTICO: UPLOAD DA IMAGEM GUIA PARA LEONARDO.AI ---
+      console.log('[ContentService] Passo 3 (NOVO): Carregando imagem guia para Leonardo.Ai...');
+      // file.path é o caminho local do arquivo temporário do Multer
+      // file.mimetype é o tipo MIME do arquivo (ex: 'image/webp')
+      const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
+      // --- FIM DO NOVO PASSO ---
 
-      console.log('[ContentService] Passo 3: Solicitando INÍCIO da geração ao Leonardo...');
-      const generationId = await leonardoService.startImageGeneration(finalPrompt, publicImageUrl);
+      console.log('[ContentService] Passo 4: Solicitando INÍCIO da geração ao Leonardo...');
+      // Agora passamos o ID da imagem que está AGORA nos servidores da Leonardo.Ai
+      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId);
       
       await character.update({ generationJobId: generationId, name: "Gerando sua arte..." });
 
-      console.log('[ContentService] Passo 4: Iniciando polling para o resultado...');
+      console.log('[ContentService] Passo 5: Iniciando polling para o resultado...');
       let finalImageUrl = null;
-      const MAX_POLLS = 20;
+      const MAX_POLLS = 20; // 20 * 5 segundos = 100 segundos de espera máxima
       for (let i = 0; i < MAX_POLLS; i++) {
-        await sleep(5000);
+        await sleep(5000); // Espera 5 segundos entre as verificações
         const result = await leonardoService.checkGenerationStatus(generationId);
         if (result.isComplete) {
           finalImageUrl = result.imageUrl;
@@ -67,14 +73,14 @@ class ContentService {
       }
 
       if (!finalImageUrl) {
-        throw new Error("A geração da imagem demorou muito para responder.");
+        throw new Error("A geração da imagem demorou muito para responder ou falhou no polling.");
       }
-      console.log(`[ContentService] Polling bem-sucedido! URL da imagem: ${finalImageUrl}`);
+      console.log(`[ContentService] Polling bem-sucedido! URL da imagem final do Leonardo: ${finalImageUrl}`);
 
-      console.log('[ContentService] Passo 5: Baixando imagem final...');
+      console.log('[ContentService] Passo 6: Baixando imagem final para armazenamento local...');
       const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl);
 
-      console.log('[ContentService] Passo 6: Finalizando personagem...');
+      console.log('[ContentService] Passo 7: Finalizando personagem no banco de dados...');
       await character.update({
         generatedCharacterUrl: localGeneratedUrl,
         name: `Meu ${cleanedDescription.split(',')[0] || 'Amigo'}`
@@ -89,7 +95,8 @@ class ContentService {
         name: 'Ops! Falha na Geração',
         description: `Ocorreu um erro durante o processo: ${error.message}`
       });
-      throw error;
+      // Re-lança o erro para que o middleware de tratamento de erro do Express o capture
+      throw error; 
     }
   }
 

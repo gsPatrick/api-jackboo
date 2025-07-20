@@ -1,5 +1,9 @@
 // src/OpenAI/services/leonardo.service.js
 
+const axios = require('axios');
+const fs = require('fs'); // Importar o módulo 'fs' para ler o arquivo localmente
+const FormData = require('form-data'); // Importar 'form-data' para construir o payload de upload de arquivo
+
 class LeonardoService {
   constructor() {
     this.token = process.env.LEONARDO_API_KEY;
@@ -9,25 +13,86 @@ class LeonardoService {
     }
     this.headers = {
       'Authorization': `Bearer ${this.token}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json', // Importante para payload JSON
       'accept': 'application/json',
     };
   }
 
-  async startImageGeneration(prompt, referenceImageUrl) {
+  /**
+   * Faz o upload de uma imagem local para os servidores da Leonardo.Ai
+   * e retorna o ID interno da imagem gerado por eles.
+   * @param {string} filePath - O caminho completo do arquivo local da imagem.
+   * @param {string} mimetype - O tipo MIME da imagem (ex: 'image/webp').
+   * @returns {Promise<string>} O ID da imagem na Leonardo.Ai.
+   */
+  async uploadImageToLeonardo(filePath, mimetype) {
+    try {
+      // 1. Obter URL pré-assinada para upload da imagem
+      const extension = mimetype.split('/')[1]; // Ex: 'image/webp' -> 'webp'
+      if (!['png', 'jpg', 'jpeg', 'webp'].includes(extension)) {
+        throw new Error(`Extensão de arquivo não suportada para upload para Leonardo.Ai: ${extension}`);
+      }
+
+      const presignedUrlPayload = { extension: extension };
+      console.log('[LeonardoService] Solicitando URL pré-assinada para upload da imagem guia...');
+      const presignedResponse = await axios.post(`${this.apiUrl}/init-image`, presignedUrlPayload, { headers: this.headers });
+      
+      const uploadDetails = presignedResponse.data.uploadInitImage;
+      const leonardoImageId = uploadDetails.id;
+      const s3UploadUrl = uploadDetails.url;
+      const s3UploadFields = uploadDetails.fields;
+
+      // 2. Fazer upload da imagem para o S3 usando o URL pré-assinado
+      const formData = new FormData();
+      // Adicionar os campos retornados pela Leonardo.Ai (credenciais S3 temporárias)
+      for (const key in s3UploadFields) {
+        formData.append(key, s3UploadFields[key]);
+      }
+      // Adicionar o arquivo real
+      formData.append('file', fs.createReadStream(filePath), {
+        filename: `image.${extension}`, // Nome do arquivo a ser enviado no S3
+        contentType: mimetype,
+      });
+
+      console.log(`[LeonardoService] Fazendo upload da imagem para S3 com ID: ${leonardoImageId}...`);
+      // A requisição de upload para o S3 NÃO usa os headers de autenticação da Leonardo.Ai
+      // O axios automaticamente define o Content-Type para multipart/form-data quando usa FormData
+      await axios.post(s3UploadUrl, formData, {
+        headers: formData.getHeaders(), // Obtém os headers corretos para o FormData
+      });
+
+      console.log(`[LeonardoService] Imagem guia local ${filePath} carregada com sucesso para Leonardo.Ai com ID: ${leonardoImageId}`);
+      return leonardoImageId;
+
+    } catch (error) {
+      console.error('--- ERRO DETALHADO NO UPLOAD DA IMAGEM PARA LEONARDO ---');
+      const status = error.response?.status;
+      const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno durante o upload da imagem.';
+      console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
+      throw new Error(`Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
+    }
+  }
+
+
+  /**
+   * Inicia o processo de geração de imagem na Leonardo.Ai.
+   * @param {string} prompt - O prompt de texto para a geração.
+   * @param {string} leonardoInitImageId - O ID da imagem guia já carregada para a Leonardo.Ai.
+   * @returns {Promise<string>} O ID do job de geração.
+   */
+  async startImageGeneration(prompt, leonardoInitImageId) { 
     const generationPayload = {
       prompt: prompt,
       
-      // 1. Usamos o ID do MODELO BASE Flux Dev.
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+      // O elemento 'jackboo' tem 'baseModel: "FLUX_DEV"'.
+      // Para garantir a compatibilidade e melhor resultado, é crucial usar
+      // 'sd_version': "FLUX_DEV" e REMOVER 'modelId'.
+      sd_version: "FLUX_DEV", // <-- Use FLUX_DEV para compatibilidade total com seu elemento
+      // modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // <-- COMENTE ou REMOVA esta linha!
       
-      // 2. Aplicamos seu ELEMENT (LoRA) usando o ID numérico que você encontrou.
-      // O nome do parâmetro é 'elements', como o erro 'Unexpected variable loras' nos ensinou.
       elements: [
         {
-          // A API espera um 'akUUID', mas vamos usar o ID numérico que temos.
-          // AGORA VAMOS ENVIAR ESTE NÚMERO COMO UMA STRING, CONFORME O ERRO!
-          akUUID: "106054", // <--- Mude de número para STRING!
+          akUUID: "106054", // Seu ID como STRING, como corrigido antes
           weight: 0.8
         }
       ],
@@ -36,14 +101,16 @@ class LeonardoService {
       width: 1024,
       height: 1024,
 
-      // A imagem de guia (rabisco) para guiar a forma.
-      imagePrompts: [referenceImageUrl],
-      imagePromptWeight: 0.7,
+      // --- CORREÇÃO FINAL: Usar init_image_id e init_strength para image-to-image ---
+      init_image_id: leonardoInitImageId, // ID da imagem UPLOADED para Leonardo.Ai
+      init_strength: 0.7, // Força de influência da imagem guia (entre 0.1 e 0.9).
+      // --- FIM DA CORREÇÃO ---
       
-      // Parâmetro específico para o Flux, como descobrimos.
       contrast: 2.5,
-
-      // REMOVEMOS 'alchemy' e 'presetStyle' pois são incompatíveis.
+      ultra: true, // Ultra mode é recomendado para FLUX_DEV (incompatível com Alchemy)
+      // Certifique-se de que 'alchemy' e 'presetStyle' NÃO estejam presentes se usar 'ultra: true' com FLUX_DEV.
+      // alchemy: false, // Pode ser removido, já que 'ultra' já implica isso.
+      // presetStyle: 'DYNAMIC', // Pode ser removido, pois pode conflitar com FLUX_DEV/Ultra.
     };
 
     try {
@@ -62,13 +129,19 @@ class LeonardoService {
     } catch (error) {
       console.error('--- ERRO DETALHADO DA API LEONARDO ---');
       const status = error.response?.status;
-      const details = error.response?.data?.error || error.response?.data?.details || 'internal error';
-      console.error(`Status: ${status}, Detalhes: ${JSON.stringify(details)}`);
-      const finalErrorMessage = `Falha na comunicação com a API do Leonardo: [${status}] ${JSON.stringify(details)}`;
+      // Extrair a mensagem de erro da resposta, se disponível
+      const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
+      console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
+      const finalErrorMessage = `Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`;
       throw new Error(finalErrorMessage);
     }
   }
   
+  /**
+   * Verifica o status de uma geração de imagem.
+   * @param {string} generationId - O ID do job de geração.
+   * @returns {Promise<{isComplete: boolean, imageUrl: string|null}>} Status e URL da imagem se completa.
+   */
   async checkGenerationStatus(generationId) {
     try {
       const response = await axios.get(`${this.apiUrl}/generations/${generationId}`, { headers: this.headers });
@@ -94,6 +167,7 @@ class LeonardoService {
 
       return { isComplete: false, imageUrl: null };
     } catch (error) {
+      console.error(`[LeonardoService] Erro ao verificar o status da geração ${generationId}:`, error.response ? error.response.data : error.message);
       throw new Error(`Erro ao verificar o status da geração: ${error.message}`);
     }
   }
