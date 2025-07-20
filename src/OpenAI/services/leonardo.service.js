@@ -89,43 +89,46 @@ class LeonardoService {
       
       sd_version: "FLUX_DEV", 
       
-      // --- CORREÇÃO: Usar 'userElements' com 'userLoraId' ---
-      userElements: [ // Use userElements para LoRAs customizadas
+      // --- CORREÇÃO FINAL: Usar 'userElements' com 'userLoraId' ---
+      userElements: [ 
         {
-          userLoraId: 106054, // O ID numérico da sua LoRA
-          weight: 1 // O peso no log de sucesso é 1 para o elemento
+          userLoraId: 106054, // O ID numérico da sua LoRA (jackboo)
+          weight: 1 // Peso recomendado para LoRAs
         }
       ],
-      // REMOVA 'elements' se ele estiver definido em outro lugar, use apenas 'userElements'
+      // REMOVA qualquer definição de 'elements' se houver
       
-      num_images: 4, // Alinhado com o log de sucesso (gera 4 imagens)
-      width: 1120,   // Alinhado com o log de sucesso
-      height: 1120,  // Alinhado com o log de sucesso
+      num_images: 4, // Quantidade de imagens geradas no log de sucesso
+      width: 1120,   // Resolução de sucesso
+      height: 1120,  // Resolução de sucesso
 
-      // --- CORREÇÃO: Usar o formato CORRETO de 'controlnets' ---
+      // --- CORREÇÃO FINAL: Usar o formato CORRETO de 'controlnets' para Style Reference ---
       controlnets: [
         {
-          preprocessorId: 299, // ID do preprocessor para "Style Reference" (encontrado no seu log)
+          preprocessorId: 299, // ID do preprocessor para "Style Reference"
           initImageType: "UPLOADED", // Tipo de imagem guia
           initImageId: leonardoInitImageId, // O ID da imagem guia carregada para Leonardo.Ai
           strengthType: "Mid" // Força de influência do ControlNet (Mid, Low, High)
         }
       ],
-      // --- FIM DAS CORREÇÕES ---
+      // Remova 'init_image_id', 'init_strength', 'imagePrompts', 'imagePromptWeight' 
+      // pois 'controlnets' é o mecanismo para Style Reference
       
       contrast: 3.5, // Alinhado com o log de sucesso
-      ultra: false, // Alinhado com o log de sucesso (não usar ultra com ControlNet/Elements)
-      // alchemy: false, // Se ultra for false, alchemy pode ser omitido ou null
+      // Não usar 'ultra' ou 'alchemy' quando se usa ControlNets com FLUX_DEV,
+      // a menos que explicitamente confirmado em documentação ou exemplos de sucesso.
+      // Os exemplos de sucesso mostram 'ultra: false' e 'alchemy: null'.
+      ultra: false,
       
-      // --- NOVOS PARÂMETROS ALINHADOS COM O LOG DE SUCESSO ---
-      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ID do Preset Style usado nas gerações bem-sucedidas
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Modelo "Flux Dev"
-      scheduler: "LEONARDO", // Alinhado com o log de sucesso
-      guidance_scale: 7, // Alinhado com o log de sucesso
-      inferenceSteps: 10, // Alinhado com o log de sucesso
-      public: true, // Alinhado com o log de sucesso
-      nsfw: true, // Alinhado com o log de sucesso (se aplicável ao seu caso de uso, se não for, defina como false)
-      // --- FIM DOS NOVOS PARÂMETROS ---
+      // --- PARÂMETROS ADICIONAIS ALINHADOS COM OS EXEMPLOS DE SUCESSO ---
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ID do Preset Style usado
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Modelo específico "Flux Dev"
+      scheduler: "LEONARDO", // Scheduler usado
+      guidance_scale: 7,     // Valor comum para guidance_scale
+      inferenceSteps: 10,    // Passos de inferência
+      public: true,          // Imagem é pública
+      nsfw: true,            // Permite NSFW (ajuste se necessário)
+      // --- FIM DOS PARÂMETROS ADICIONAIS ---
     };
 
     try {
