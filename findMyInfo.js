@@ -20,10 +20,6 @@ async function findMyInfoAndModels() {
     const response = await axios.get(`${API_URL}/me`, { headers });
     const data = response.data;
 
-    console.log('\n--- RESPOSTA COMPLETA DA API ---');
-    console.log(JSON.stringify(data, null, 2));
-    console.log('--- FIM DA RESPOSTA DA API ---\n');
-
     const userDetails = data.user_details && data.user_details[0];
     const elements = userDetails?.loras;
 
@@ -31,12 +27,12 @@ async function findMyInfoAndModels() {
       console.log('✅ SUCESSO! Seus Elements (LoRAs) foram encontrados:');
       elements.forEach(element => {
         console.log(`  > Nome: ${element.name}`);
-        console.log(`    ID (akUUID): ${element.akUUID}`); // O ID que você precisa!
+        console.log(`    ID (akUUID): ${element.akUUID}`); // <<< ESTE É O ID QUE VOCÊ PRECISA!
         console.log('    --------------------');
       });
     } else {
       console.log('❌ IMPORTANTE: Nenhum Element (LoRA) encontrado na resposta de /me.');
-      console.log('Verifique no site em "Your Elements" se o modelo treinado aparece lá.');
+      console.log('Isso é inesperado. Verifique no site se o Element "jackboo" está em "Your Elements".');
     }
 
   } catch (error) {
