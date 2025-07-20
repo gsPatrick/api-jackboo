@@ -89,33 +89,43 @@ class LeonardoService {
       
       sd_version: "FLUX_DEV", 
       
-      elements: [
+      // --- CORREÇÃO: Usar 'userElements' com 'userLoraId' ---
+      userElements: [ // Use userElements para LoRAs customizadas
         {
-          akUUID: "106054", // Seu ID do elemento "jackboo" como STRING
-          weight: 0.8 // Ou o peso que você deseja para o elemento
+          userLoraId: 106054, // O ID numérico da sua LoRA
+          weight: 1 // O peso no log de sucesso é 1 para o elemento
         }
       ],
+      // REMOVA 'elements' se ele estiver definido em outro lugar, use apenas 'userElements'
+      
+      num_images: 4, // Alinhado com o log de sucesso (gera 4 imagens)
+      width: 1120,   // Alinhado com o log de sucesso
+      height: 1120,  // Alinhado com o log de sucesso
 
-      num_images: 1,
-      width: 1024,
-      height: 1024,
-
-      // --- SOLUÇÃO FINAL: USAR O FORMATO CORRETO DE CONTROLNETS ---
+      // --- CORREÇÃO: Usar o formato CORRETO de 'controlnets' ---
       controlnets: [
         {
           preprocessorId: 299, // ID do preprocessor para "Style Reference" (encontrado no seu log)
-          initImageType: "UPLOADED", // Tipo de imagem guia (sua imagem foi carregada)
+          initImageType: "UPLOADED", // Tipo de imagem guia
           initImageId: leonardoInitImageId, // O ID da imagem guia carregada para Leonardo.Ai
-          strengthType: "Mid" // Força de influência do ControlNet (Pode ser "Low", "Mid", "High")
-          // Note: 'weight' não é um campo de entrada direto aqui, é 'strengthType'
+          strengthType: "Mid" // Força de influência do ControlNet (Mid, Low, High)
         }
       ],
-      // --- FIM DA SOLUÇÃO ---
+      // --- FIM DAS CORREÇÕES ---
       
-      contrast: 2.5,
-      // IMPORTANTE: Definir ultra como 'false' e remover 'alchemy' para corresponder aos exemplos de sucesso com FLUX_DEV + Controlnet
-      ultra: false, // << Ajustado para false, conforme seus logs de sucesso com ControlNet
-      // alchemy: false, // << Comente ou remova, se ultra for false, alchemy padrão não deve causar conflito
+      contrast: 3.5, // Alinhado com o log de sucesso
+      ultra: false, // Alinhado com o log de sucesso (não usar ultra com ControlNet/Elements)
+      // alchemy: false, // Se ultra for false, alchemy pode ser omitido ou null
+      
+      // --- NOVOS PARÂMETROS ALINHADOS COM O LOG DE SUCESSO ---
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ID do Preset Style usado nas gerações bem-sucedidas
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Modelo "Flux Dev"
+      scheduler: "LEONARDO", // Alinhado com o log de sucesso
+      guidance_scale: 7, // Alinhado com o log de sucesso
+      inferenceSteps: 10, // Alinhado com o log de sucesso
+      public: true, // Alinhado com o log de sucesso
+      nsfw: true, // Alinhado com o log de sucesso (se aplicável ao seu caso de uso, se não for, defina como false)
+      // --- FIM DOS NOVOS PARÂMETROS ---
     };
 
     try {
