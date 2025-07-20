@@ -3,6 +3,7 @@
 const axios = require('axios');
 const fs = require('fs'); // Importar o módulo 'fs' para ler o arquivo localmente
 const FormData = require('form-data'); // Importar 'form-data' para construir o payload de upload de arquivo
+const path = require('path'); // Importar o módulo 'path'
 
 class LeonardoService {
   constructor() {
@@ -42,21 +43,21 @@ class LeonardoService {
       const s3UploadUrl = uploadDetails.url;
       const s3UploadFields = uploadDetails.fields;
 
-      // --- LOGS CRÍTICAS PARA DEPURAR ---
       console.log('[LeonardoService] URL pré-assinada recebida:', s3UploadUrl);
       console.log('[LeonardoService] Campos S3 pré-assinados recebidos:', JSON.stringify(s3UploadFields, null, 2));
-      // --- FIM DOS LOGS CRÍTICAS ---
 
       // Construir FormData para o upload para S3
       const formData = new FormData();
       // Adicionar os campos retornados pela Leonardo.Ai (credenciais S3 temporárias) PRIMEIRO
+      // Isso é CRÍTICO para o S3 POST.
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
       }
+      
       // Adicionar o arquivo real com o nome 'file', que é o esperado pelo S3 para uploads multipart/form-data
+      // REMOVEMOS A OPÇÃO 'filename' AQUI! A propriedade 'key' em s3UploadFields já define o nome do arquivo no S3.
       formData.append('file', fs.createReadStream(filePath), {
-        filename: `drawing.${extension}`, // Nome do arquivo a ser enviado no S3 (pode ser arbitrário, mas deve ter uma extensão)
-        contentType: mimetype, // Tipo de conteúdo do arquivo específico
+        contentType: mimetype, 
       });
 
       console.log(`[LeonardoService] Fazendo upload da imagem para S3 (multipart/form-data) com ID: ${leonardoImageId}...`);
@@ -85,6 +86,7 @@ class LeonardoService {
       throw new Error(`Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
+
 
   /**
    * Inicia o processo de geração de imagem na Leonardo.Ai.
@@ -139,7 +141,7 @@ class LeonardoService {
       const status = error.response?.status;
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
-      throw new Error(finalErrorMessage);
+      throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
   
