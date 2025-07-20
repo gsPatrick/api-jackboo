@@ -27,7 +27,7 @@ class LeonardoService {
    */
   async uploadImageToLeonardo(filePath, mimetype) {
     try {
-      // 1. Obter URL pré-assinada para upload da imagem
+      // Validar extensão e obter URL pré-assinada
       const extension = mimetype.split('/')[1]; // Ex: 'image/webp' -> 'webp'
       if (!['png', 'jpg', 'jpeg', 'webp'].includes(extension)) {
         throw new Error(`Extensão de arquivo não suportada para upload para Leonardo.Ai: ${extension}`);
@@ -42,23 +42,31 @@ class LeonardoService {
       const s3UploadUrl = uploadDetails.url;
       const s3UploadFields = uploadDetails.fields;
 
-      // 2. Fazer upload da imagem para o S3 usando o URL pré-assinado
+      // --- LOGS CRÍTICAS PARA DEPURAR ---
+      console.log('[LeonardoService] URL pré-assinada recebida:', s3UploadUrl);
+      console.log('[LeonardoService] Campos S3 pré-assinados recebidos:', JSON.stringify(s3UploadFields, null, 2));
+      // --- FIM DOS LOGS CRÍTICAS ---
+
+      // Construir FormData para o upload para S3
       const formData = new FormData();
-      // Adicionar os campos retornados pela Leonardo.Ai (credenciais S3 temporárias)
+      // Adicionar os campos retornados pela Leonardo.Ai (credenciais S3 temporárias) PRIMEIRO
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
       }
-      // Adicionar o arquivo real
+      // Adicionar o arquivo real com o nome 'file', que é o esperado pelo S3 para uploads multipart/form-data
       formData.append('file', fs.createReadStream(filePath), {
-        filename: `image.${extension}`, // Nome do arquivo a ser enviado no S3
-        contentType: mimetype,
+        filename: `drawing.${extension}`, // Nome do arquivo a ser enviado no S3 (pode ser arbitrário, mas deve ter uma extensão)
+        contentType: mimetype, // Tipo de conteúdo do arquivo específico
       });
 
-      console.log(`[LeonardoService] Fazendo upload da imagem para S3 com ID: ${leonardoImageId}...`);
+      console.log(`[LeonardoService] Fazendo upload da imagem para S3 (multipart/form-data) com ID: ${leonardoImageId}...`);
       // A requisição de upload para o S3 NÃO usa os headers de autenticação da Leonardo.Ai
-      // O axios automaticamente define o Content-Type para multipart/form-data quando usa FormData
+      // O axios automaticamente define o Content-Type para multipart/form-data quando usa FormData.
+      // Usamos formData.getHeaders() para obter o Content-Type correto com o boundary.
       await axios.post(s3UploadUrl, formData, {
-        headers: formData.getHeaders(), // Obtém os headers corretos para o FormData
+        headers: formData.getHeaders(), // ESSENCIAL para FormData
+        maxBodyLength: Infinity, // Necessário para arquivos maiores, boa prática
+        maxContentLength: Infinity, // Necessário para arquivos maiores, boa prática
       });
 
       console.log(`[LeonardoService] Imagem guia local ${filePath} carregada com sucesso para Leonardo.Ai com ID: ${leonardoImageId}`);
@@ -69,10 +77,14 @@ class LeonardoService {
       const status = error.response?.status;
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno durante o upload da imagem.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
+      if (axios.isAxiosError(error)) {
+          console.error('Axios Error Config:', error.config); // Configurações da requisição que falhou
+          console.error('Axios Error Request Headers:', error.config.headers); // Headers enviados
+          console.error('Axios Error Response Data:', error.response?.data); // Dados da resposta do erro (pode ser redundante com 'details')
+      }
       throw new Error(`Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
-
 
   /**
    * Inicia o processo de geração de imagem na Leonardo.Ai.
@@ -101,16 +113,12 @@ class LeonardoService {
       width: 1024,
       height: 1024,
 
-      // --- CORREÇÃO FINAL: Usar init_image_id e init_strength para image-to-image ---
       init_image_id: leonardoInitImageId, // ID da imagem UPLOADED para Leonardo.Ai
       init_strength: 0.7, // Força de influência da imagem guia (entre 0.1 e 0.9).
-      // --- FIM DA CORREÇÃO ---
       
       contrast: 2.5,
       ultra: true, // Ultra mode é recomendado para FLUX_DEV (incompatível com Alchemy)
       // Certifique-se de que 'alchemy' e 'presetStyle' NÃO estejam presentes se usar 'ultra: true' com FLUX_DEV.
-      // alchemy: false, // Pode ser removido, já que 'ultra' já implica isso.
-      // presetStyle: 'DYNAMIC', // Pode ser removido, pois pode conflitar com FLUX_DEV/Ultra.
     };
 
     try {
@@ -129,10 +137,8 @@ class LeonardoService {
     } catch (error) {
       console.error('--- ERRO DETALHADO DA API LEONARDO ---');
       const status = error.response?.status;
-      // Extrair a mensagem de erro da resposta, se disponível
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
-      const finalErrorMessage = `Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`;
       throw new Error(finalErrorMessage);
     }
   }
