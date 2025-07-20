@@ -41,10 +41,14 @@ class LeonardoService {
       const uploadDetails = presignedResponse.data.uploadInitImage;
       const leonardoImageId = uploadDetails.id;
       const s3UploadUrl = uploadDetails.url;
-      const s3UploadFields = uploadDetails.fields;
+      
+      // --- CORREÇÃO CRÍTICA AQUI: PARSE o JSON retornado em 'fields' ---
+      const s3UploadFields = JSON.parse(uploadDetails.fields); 
+      // Agora s3UploadFields é um objeto JavaScript real, não uma string.
+      // --- FIM DA CORREÇÃO ---
 
       console.log('[LeonardoService] URL pré-assinada recebida:', s3UploadUrl);
-      console.log('[LeonardoService] Campos S3 pré-assinados recebidos:', JSON.stringify(s3UploadFields, null, 2));
+      console.log('[LeonardoService] Campos S3 pré-assinados (parsed) recebidos:', JSON.stringify(s3UploadFields, null, 2)); // Log de objeto agora
 
       // Construir FormData para o upload para S3
       const formData = new FormData();
@@ -55,12 +59,7 @@ class LeonardoService {
       }
       
       // Adicionar o arquivo real com o nome 'file', que é o esperado pelo S3 para uploads multipart/form-data
-      // --- CORREÇÃO FINAL PARA MalformedPOSTRequest: Removendo 'contentType' ---
       formData.append('file', fs.createReadStream(filePath)); 
-      // A propriedade 'key' nos s3UploadFields já informa ao S3 o nome final do arquivo.
-      // O Content-Type geral da requisição é handled por formData.getHeaders().
-      // O Content-Type do arquivo é inferido ou já definido pelo campo 'Content-Type' nos s3UploadFields.
-      // --- FIM DA CORREÇÃO ---
 
       console.log(`[LeonardoService] Fazendo upload da imagem para S3 (multipart/form-data) com ID: ${leonardoImageId}...`);
       await axios.post(s3UploadUrl, formData, {
@@ -78,9 +77,9 @@ class LeonardoService {
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno durante o upload da imagem.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
       if (axios.isAxiosError(error)) {
-          console.error('Axios Error Config:', error.config); // Configurações da requisição que falhou
-          console.error('Axios Error Request Headers:', error.config.headers); // Headers enviados
-          console.error('Axios Error Response Data:', error.response?.data); // Dados da resposta do erro (pode ser redundante com 'details')
+          console.error('Axios Error Config:', error.config); 
+          console.error('Axios Error Request Headers:', error.config.headers); 
+          console.error('Axios Error Response Data:', error.response?.data); 
       }
       throw new Error(`Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
@@ -97,15 +96,11 @@ class LeonardoService {
     const generationPayload = {
       prompt: prompt,
       
-      // O elemento 'jackboo' tem 'baseModel: "FLUX_DEV"'.
-      // Para garantir a compatibilidade e melhor resultado, é crucial usar
-      // 'sd_version': "FLUX_DEV" e REMOVER 'modelId'.
-      sd_version: "FLUX_DEV", // <-- Use FLUX_DEV para compatibilidade total com seu elemento
-      // modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // <-- COMENTE ou REMOVA esta linha!
+      sd_version: "FLUX_DEV", 
       
       elements: [
         {
-          akUUID: "106054", // Seu ID como STRING, como corrigido antes
+          akUUID: "106054", 
           weight: 0.8
         }
       ],
@@ -114,12 +109,11 @@ class LeonardoService {
       width: 1024,
       height: 1024,
 
-      init_image_id: leonardoInitImageId, // ID da imagem UPLOADED para Leonardo.Ai
-      init_strength: 0.7, // Força de influência da imagem guia (entre 0.1 e 0.9).
+      init_image_id: leonardoInitImageId, 
+      init_strength: 0.7, 
       
       contrast: 2.5,
-      ultra: true, // Ultra mode é recomendado para FLUX_DEV (incompatível com Alchemy)
-      // Certifique-se de que 'alchemy' e 'presetStyle' NÃO estejam presentes se usar 'ultra: true' com FLUX_DEV.
+      ultra: true, 
     };
 
     try {
