@@ -25,36 +25,44 @@ class ContentService {
     });
 
     try {
-      await sleep(2000); // Pausa para garantir a URL
+      await sleep(2000); 
 
       console.log(`[ContentService] Passo 1: Obtendo descrição da imagem...`);
       const detailedDescription = await visionService.describeImage(publicImageUrl);
       
-      // Checagem de segurança do GPT-4o
       if (detailedDescription.toLowerCase().includes("i'm sorry") || detailedDescription.toLowerCase().includes("i cannot")) {
           throw new Error("A IA de visão não conseguiu processar a imagem. Tente uma imagem diferente ou com mais detalhes.");
       }
       
       await character.update({ description: `Nossa IA entendeu seu desenho como: "${detailedDescription}".` });
 
-      console.log('[ContentService] Passo 2: Construindo prompt...');
-      const finalPrompt = `A cute character based on this detailed description: "${detailedDescription}". The character must have a happy expression and be smiling, and should be facing forward. Create a full body 2D cartoon illustration on a simple white background.`;
+      console.log('[ContentService] Passo 2: Construindo e limpando o prompt...');
+      
+      // --- AQUI ESTÁ A CORREÇÃO FINAL ---
+      // Limpa a descrição para remover quebras de linha e texto introdutório.
+      const cleanedDescription = detailedDescription
+        .replace(/Claro! Aqui estão os elementos visuais principais descritos como um conceito de personagem:/i, '')
+        .replace(/\n/g, ' ') // Substitui quebras de linha por espaços
+        .replace(/-/g, '')   // Remove hífens
+        .trim();             // Remove espaços no início e no fim
+
+      const finalPrompt = `A cute character based on this detailed description: "${cleanedDescription}". The character must have a happy expression and be smiling, and should be facing forward. Create a full body 2D cartoon illustration on a simple white background.`;
+      // --- FIM DA CORREÇÃO ---
 
       console.log('[ContentService] Passo 3: Solicitando INÍCIO da geração ao Leonardo...');
       const generationId = await leonardoService.startImageGeneration(finalPrompt, publicImageUrl);
       
       await character.update({ generationJobId: generationId, name: "Gerando sua arte..." });
 
-      // --- AQUI ESTÁ A LÓGICA DE POLLING ---
       console.log('[ContentService] Passo 4: Iniciando polling para o resultado...');
       let finalImageUrl = null;
-      const MAX_POLLS = 20; // Máximo de 20 tentativas (20 * 5s = 100 segundos)
+      const MAX_POLLS = 20;
       for (let i = 0; i < MAX_POLLS; i++) {
-        await sleep(5000); // Espera 5 segundos
+        await sleep(5000);
         const result = await leonardoService.checkGenerationStatus(generationId);
         if (result.isComplete) {
           finalImageUrl = result.imageUrl;
-          break; // Sai do loop se a imagem estiver pronta
+          break;
         }
       }
 
@@ -63,19 +71,17 @@ class ContentService {
       }
       console.log(`[ContentService] Polling bem-sucedido! URL da imagem: ${finalImageUrl}`);
 
-      // --- FIM DA LÓGICA DE POLLING ---
-
       console.log('[ContentService] Passo 5: Baixando imagem final...');
       const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl);
 
       console.log('[ContentService] Passo 6: Finalizando personagem...');
       await character.update({
         generatedCharacterUrl: localGeneratedUrl,
-        name: `Meu ${detailedDescription.split(' ')[0] || 'Amigo'}`
+        name: `Meu ${cleanedDescription.split(',')[0] || 'Amigo'}`
       });
 
       console.log('[ContentService] Personagem criado com sucesso!');
-      return character; // Retorna o personagem completo para o usuário
+      return character;
 
     } catch (error) {
       console.error(`[ContentService] Erro fatal na criação do personagem ID ${character.id}:`, error.message);
