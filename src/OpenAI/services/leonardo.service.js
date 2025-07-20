@@ -1,4 +1,4 @@
-const axios = require('axios');
+// src/OpenAI/services/leonardo.service.js
 
 class LeonardoService {
   constructor() {
@@ -26,9 +26,8 @@ class LeonardoService {
       elements: [
         {
           // A API espera um 'akUUID', mas vamos usar o ID numérico que temos.
-          // Se isso falhar, a API pode esperar este número como uma string.
-          // Mas vamos começar com o tipo de dado correto (número).
-          akUUID: 106054, // <-- SEU ID!
+          // AGORA VAMOS ENVIAR ESTE NÚMERO COMO UMA STRING, CONFORME O ERRO!
+          akUUID: "106054", // <--- Mude de número para STRING!
           weight: 0.8
         }
       ],
