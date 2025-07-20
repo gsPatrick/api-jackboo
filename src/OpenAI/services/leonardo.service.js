@@ -1,3 +1,4 @@
+
 const axios = require('axios');
 
 class LeonardoService {
@@ -15,40 +16,35 @@ class LeonardoService {
   }
 
   async startImageGeneration(prompt, referenceImageUrl) {
-    // --- PAYLOAD FINAL E CORRETO, COMBINANDO SUAS DESCOBERTAS ---
     const generationPayload = {
       prompt: prompt,
       
-      // 1. Usamos o ID do MODELO BASE que você encontrou nas requisições.
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // <-- ID do Flux Dev
+      // 1. Usamos o ID do MODELO BASE Flux Dev.
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       
-      // 2. Aplicamos seu ELEMENT (LoRA) sobre ele.
-      //    A API parece aceitar o ID numérico diretamente aqui,
-      //    mesmo que a documentação antiga mencionasse 'akUUID'.
-      //    Vamos usar o que temos certeza que existe.
-      loras: [ // A API pode usar 'elements' ou 'loras'. 'loras' é mais comum.
+      // --- AQUI ESTÁ A CORREÇÃO FINAL ---
+      // 2. Trocamos 'loras' por 'elements', como a documentação de uso diz.
+      elements: [
         {
-          modelId: 106054, // <-- O ID numérico do seu 'jackboo'
-          weight: 0.8     // Peso do seu estilo.
+          // AQUI PRECISAMOS DO akUUID. RODE O SCRIPT findMyInfo.js
+          // DEPOIS DE TREINAR UM NOVO ELEMENT NO SITE.
+          akUUID: "COLE_O_AKUUID_DO_SEU_NOVO_ELEMENT_AQUI", 
+          weight: 0.8
         }
       ],
+      // --- FIM DA CORREÇÃO ---
 
       num_images: 1,
       width: 1024,
       height: 1024,
-
-      // A imagem de guia (rabisco) para guiar a forma.
       imagePrompts: [referenceImageUrl],
       imagePromptWeight: 0.7,
-
-      // Parâmetros recomendados para o Flux
       alchemy: true,
       presetStyle: 'DYNAMIC',
-      contrast: 2.5,
     };
 
     try {
-      console.log('[LeonardoService] Iniciando geração com Element (método final). Payload:', JSON.stringify(generationPayload, null, 2));
+      console.log('[LeonardoService] Iniciando geração com Element (tentativa final). Payload:', JSON.stringify(generationPayload, null, 2));
       const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
       
       const generationId = response.data?.sdGenerationJob?.generationId;
@@ -69,7 +65,6 @@ class LeonardoService {
       throw new Error(finalErrorMessage);
     }
   }
-
 
   async checkGenerationStatus(generationId) {
     try {
