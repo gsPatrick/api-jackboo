@@ -91,7 +91,7 @@ class LeonardoService {
       
       elements: [
         {
-          akUUID: "106054", 
+          akUUID: "106054", // Seu ID do elemento "jackboo" como STRING
           weight: 0.8
         }
       ],
@@ -100,10 +100,16 @@ class LeonardoService {
       width: 1024,
       height: 1024,
 
-      // --- CORREÇÃO PRINCIPAL: USAR imagePrompts para "Style Reference" ---
-      imagePrompts: [leonardoInitImageId], // ID da imagem UPLOADED para Leonardo.Ai
-      imagePromptWeight: 0.7, // Força de influência da imagem guia (entre 0.1 e 0.9).
-      // --- FIM DA CORREÇÃO ---
+      // --- SOLUÇÃO FINAL: USAR CONTROLNETS PARA "Style Reference" ---
+      controlnets: [
+        {
+          initImageId: leonardoInitImageId, // O ID da imagem guia carregada para Leonardo.Ai
+          controlNetId: "f241fee6-4e7b-4ffb-93d1-336e81db6fcc", // akUUID para "Style Reference" ControlNet
+          weight: 0.8 // Peso da influência do Style Reference (entre 0 e 2, 0.8 é um bom começo)
+        }
+      ],
+      // REMOVA init_image_id, init_strength, imagePrompts e imagePromptWeight
+      // pois Style Reference usa ControlNets
       
       contrast: 2.5,
       ultra: true,
