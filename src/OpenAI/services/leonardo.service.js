@@ -1,8 +1,4 @@
-// src/OpenAI/services/leonardo.service.js
 const axios = require('axios');
-
-// Função auxiliar para criar um atraso
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class LeonardoService {
   constructor() {
@@ -18,21 +14,20 @@ class LeonardoService {
     };
   }
 
-  /**
-   * Inicia a geração de uma imagem e retorna o ID do job.
-   * @returns {Promise<string>} O ID da geração para o polling.
-   */
   async startImageGeneration(prompt, referenceImageUrl) {
     try {
-      // O payload agora NÃO inclui o webhook_url
       const generationPayload = {
         prompt: prompt,
-        modelId: "168f6afd-3d31-4009-adbd-46aedaa92f7b",
+        modelId: "168f6afd-3d31-4009-adbd-46aedaa92f7b", // Seu ID
         num_images: 1,
         width: 1024,
         height: 1024,
         imagePrompts: [referenceImageUrl],
         imagePromptWeight: 0.7,
+        
+        // --- AQUI ESTÁ A ADIÇÃO CRÍTICA ---
+        // Com base na documentação do 'Generate Images Using Flux'
+        contrast: 3.5,
       };
 
       console.log('[LeonardoService] Iniciando geração (modo Polling). Payload:', JSON.stringify(generationPayload, null, 2));
@@ -52,11 +47,6 @@ class LeonardoService {
     }
   }
 
-  /**
-   * Verifica o status de uma geração e retorna a URL da imagem se estiver completa.
-   * @param {string} generationId - O ID da geração a ser verificado.
-   * @returns {Promise<{isComplete: boolean, imageUrl: string|null}>}
-   */
   async checkGenerationStatus(generationId) {
     try {
       const response = await axios.get(`${this.apiUrl}/generations/${generationId}`, { headers: this.headers });
