@@ -1,9 +1,9 @@
 // src/OpenAI/services/leonardo.service.js
 
 const axios = require('axios');
-const fs = require('fs'); // Importar o módulo 'fs' para ler o arquivo localmente
-const FormData = require('form-data'); // Importar 'form-data' para construir o payload de upload de arquivo
-const path = require('path'); // Importar o módulo 'path'
+const fs = require('fs');
+const FormData = require('form-data');
+const path = require('path');
 
 class LeonardoService {
   constructor() {
@@ -14,7 +14,7 @@ class LeonardoService {
     }
     this.headers = {
       'Authorization': `Bearer ${this.token}`,
-      'Content-Type': 'application/json', // Importante para payload JSON
+      'Content-Type': 'application/json',
       'accept': 'application/json',
     };
   }
@@ -29,7 +29,7 @@ class LeonardoService {
   async uploadImageToLeonardo(filePath, mimetype) {
     try {
       // Validar extensão e obter URL pré-assinada
-      const extension = mimetype.split('/')[1]; // Ex: 'image/webp' -> 'webp'
+      const extension = mimetype.split('/')[1];
       if (!['png', 'jpg', 'jpeg', 'webp'].includes(extension)) {
         throw new Error(`Extensão de arquivo não suportada para upload para Leonardo.Ai: ${extension}`);
       }
@@ -42,30 +42,24 @@ class LeonardoService {
       const leonardoImageId = uploadDetails.id;
       const s3UploadUrl = uploadDetails.url;
       
-      // --- CORREÇÃO CRÍTICA AQUI: PARSE o JSON retornado em 'fields' ---
       const s3UploadFields = JSON.parse(uploadDetails.fields); 
-      // Agora s3UploadFields é um objeto JavaScript real, não uma string.
-      // --- FIM DA CORREÇÃO ---
 
       console.log('[LeonardoService] URL pré-assinada recebida:', s3UploadUrl);
-      console.log('[LeonardoService] Campos S3 pré-assinados (parsed) recebidos:', JSON.stringify(s3UploadFields, null, 2)); // Log de objeto agora
+      console.log('[LeonardoService] Campos S3 pré-assinados (parsed) recebidos:', JSON.stringify(s3UploadFields, null, 2));
 
       // Construir FormData para o upload para S3
       const formData = new FormData();
-      // Adicionar os campos retornados pela Leonardo.Ai (credenciais S3 temporárias) PRIMEIRO
-      // Isso é CRÍTICO para o S3 POST.
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
       }
       
-      // Adicionar o arquivo real com o nome 'file', que é o esperado pelo S3 para uploads multipart/form-data
       formData.append('file', fs.createReadStream(filePath)); 
 
       console.log(`[LeonardoService] Fazendo upload da imagem para S3 (multipart/form-data) com ID: ${leonardoImageId}...`);
       await axios.post(s3UploadUrl, formData, {
-        headers: formData.getHeaders(), // ESSENCIAL para FormData
-        maxBodyLength: Infinity, // Boa prática para arquivos maiores
-        maxContentLength: Infinity, // Boa prática para arquivos maiores
+        headers: formData.getHeaders(),
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
       });
 
       console.log(`[LeonardoService] Imagem guia local ${filePath} carregada com sucesso para Leonardo.Ai com ID: ${leonardoImageId}`);
@@ -77,9 +71,9 @@ class LeonardoService {
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno durante o upload da imagem.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
       if (axios.isAxiosError(error)) {
-          console.error('Axios Error Config:', error.config); 
-          console.error('Axios Error Request Headers:', error.config.headers); 
-          console.error('Axios Error Response Data:', error.response?.data); 
+          console.error('Axios Error Config:', error.config);
+          console.error('Axios Error Request Headers:', error.config.headers);
+          console.error('Axios Error Response Data:', error.response?.data);
       }
       throw new Error(`Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
@@ -113,7 +107,10 @@ class LeonardoService {
       init_strength: 0.7, 
       
       contrast: 2.5,
-      ultra: true, 
+      ultra: true,
+      // --- CORREÇÃO FINAL PARA O ERRO 500: Desabilitar Alchemy explicitamente ---
+      alchemy: false, // <-- Adicionado para resolver conflito com 'ultra: true'
+      // --- FIM DA CORREÇÃO ---
     };
 
     try {
@@ -134,6 +131,11 @@ class LeonardoService {
       const status = error.response?.status;
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios Error Config:', error.config);
+        console.error('Axios Error Request Headers:', error.config.headers);
+        console.error('Axios Error Response Data:', error.response?.data);
+      }
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
