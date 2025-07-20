@@ -89,46 +89,37 @@ class LeonardoService {
       
       sd_version: "FLUX_DEV", 
       
-      // --- CORREÇÃO FINAL: Usar 'userElements' com 'userLoraId' ---
       userElements: [ 
         {
-          userLoraId: 106054, // O ID numérico da sua LoRA (jackboo)
-          weight: 1 // Peso recomendado para LoRAs
+          userLoraId: 106054, 
+          weight: 1 
         }
       ],
-      // REMOVA qualquer definição de 'elements' se houver
       
-      num_images: 4, // Quantidade de imagens geradas no log de sucesso
-      width: 1120,   // Resolução de sucesso
-      height: 1120,  // Resolução de sucesso
+      num_images: 4,
+      width: 1120,
+      height: 1120,
 
-      // --- CORREÇÃO FINAL: Usar o formato CORRETO de 'controlnets' para Style Reference ---
       controlnets: [
         {
-          preprocessorId: 299, // ID do preprocessor para "Style Reference"
-          initImageType: "UPLOADED", // Tipo de imagem guia
-          initImageId: leonardoInitImageId, // O ID da imagem guia carregada para Leonardo.Ai
-          strengthType: "Mid" // Força de influência do ControlNet (Mid, Low, High)
+          preprocessorId: 299, 
+          initImageType: "UPLOADED", 
+          initImageId: leonardoInitImageId, 
+          strengthType: "Mid" 
         }
       ],
-      // Remova 'init_image_id', 'init_strength', 'imagePrompts', 'imagePromptWeight' 
-      // pois 'controlnets' é o mecanismo para Style Reference
       
-      contrast: 3.5, // Alinhado com o log de sucesso
-      // Não usar 'ultra' ou 'alchemy' quando se usa ControlNets com FLUX_DEV,
-      // a menos que explicitamente confirmado em documentação ou exemplos de sucesso.
-      // Os exemplos de sucesso mostram 'ultra: false' e 'alchemy: null'.
-      ultra: false,
+      contrast: 3.5,
+      ultra: false, // Necessário ser false para ControlNets com FLUX_DEV
       
-      // --- PARÂMETROS ADICIONAIS ALINHADOS COM OS EXEMPLOS DE SUCESSO ---
-      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ID do Preset Style usado
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Modelo específico "Flux Dev"
-      scheduler: "LEONARDO", // Scheduler usado
-      guidance_scale: 7,     // Valor comum para guidance_scale
-      inferenceSteps: 10,    // Passos de inferência
-      public: true,          // Imagem é pública
-      nsfw: true,            // Permite NSFW (ajuste se necessário)
-      // --- FIM DOS PARÂMETROS ADICIONAIS ---
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", 
+      scheduler: "LEONARDO", 
+      // REMOVA guidance_scale E inferenceSteps, pois eles podem causar conflito com ControlNets no FLUX_DEV
+      // guidance_scale: 7,    
+      // inferenceSteps: 10,   
+      public: true,          
+      nsfw: true,            
     };
 
     try {
