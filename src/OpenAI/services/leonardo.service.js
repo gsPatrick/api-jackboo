@@ -92,7 +92,7 @@ class LeonardoService {
       elements: [
         {
           akUUID: "106054", // Seu ID do elemento "jackboo" como STRING
-          weight: 0.8
+          weight: 0.8 // Ou o peso que você deseja para o elemento
         }
       ],
 
@@ -100,20 +100,22 @@ class LeonardoService {
       width: 1024,
       height: 1024,
 
-      // --- SOLUÇÃO FINAL: USAR CONTROLNETS PARA "Style Reference" ---
+      // --- SOLUÇÃO FINAL: USAR O FORMATO CORRETO DE CONTROLNETS ---
       controlnets: [
         {
+          preprocessorId: 299, // ID do preprocessor para "Style Reference" (encontrado no seu log)
+          initImageType: "UPLOADED", // Tipo de imagem guia (sua imagem foi carregada)
           initImageId: leonardoInitImageId, // O ID da imagem guia carregada para Leonardo.Ai
-          controlNetId: "f241fee6-4e7b-4ffb-93d1-336e81db6fcc", // akUUID para "Style Reference" ControlNet
-          weight: 0.8 // Peso da influência do Style Reference (entre 0 e 2, 0.8 é um bom começo)
+          strengthType: "Mid" // Força de influência do ControlNet (Pode ser "Low", "Mid", "High")
+          // Note: 'weight' não é um campo de entrada direto aqui, é 'strengthType'
         }
       ],
-      // REMOVA init_image_id, init_strength, imagePrompts e imagePromptWeight
-      // pois Style Reference usa ControlNets
+      // --- FIM DA SOLUÇÃO ---
       
       contrast: 2.5,
-      ultra: true,
-      alchemy: false, 
+      // IMPORTANTE: Definir ultra como 'false' e remover 'alchemy' para corresponder aos exemplos de sucesso com FLUX_DEV + Controlnet
+      ultra: false, // << Ajustado para false, conforme seus logs de sucesso com ControlNet
+      // alchemy: false, // << Comente ou remova, se ultra for false, alchemy padrão não deve causar conflito
     };
 
     try {
