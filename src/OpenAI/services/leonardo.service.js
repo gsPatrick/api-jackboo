@@ -28,7 +28,6 @@ class LeonardoService {
    */
   async uploadImageToLeonardo(filePath, mimetype) {
     try {
-      // Validar extensão e obter URL pré-assinada
       const extension = mimetype.split('/')[1];
       if (!['png', 'jpg', 'jpeg', 'webp'].includes(extension)) {
         throw new Error(`Extensão de arquivo não suportada para upload para Leonardo.Ai: ${extension}`);
@@ -47,12 +46,10 @@ class LeonardoService {
       console.log('[LeonardoService] URL pré-assinada recebida:', s3UploadUrl);
       console.log('[LeonardoService] Campos S3 pré-assinados (parsed) recebidos:', JSON.stringify(s3UploadFields, null, 2));
 
-      // Construir FormData para o upload para S3
       const formData = new FormData();
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
       }
-      
       formData.append('file', fs.createReadStream(filePath)); 
 
       console.log(`[LeonardoService] Fazendo upload da imagem para S3 (multipart/form-data) com ID: ${leonardoImageId}...`);
@@ -103,14 +100,14 @@ class LeonardoService {
       width: 1024,
       height: 1024,
 
-      init_image_id: leonardoInitImageId, 
-      init_strength: 0.7, 
+      // --- CORREÇÃO PRINCIPAL: USAR imagePrompts para "Style Reference" ---
+      imagePrompts: [leonardoInitImageId], // ID da imagem UPLOADED para Leonardo.Ai
+      imagePromptWeight: 0.7, // Força de influência da imagem guia (entre 0.1 e 0.9).
+      // --- FIM DA CORREÇÃO ---
       
       contrast: 2.5,
       ultra: true,
-      // --- CORREÇÃO FINAL PARA O ERRO 500: Desabilitar Alchemy explicitamente ---
-      alchemy: false, // <-- Adicionado para resolver conflito com 'ultra: true'
-      // --- FIM DA CORREÇÃO ---
+      alchemy: false, 
     };
 
     try {
