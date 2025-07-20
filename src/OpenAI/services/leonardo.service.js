@@ -1,4 +1,3 @@
-
 const axios = require('axios');
 
 class LeonardoService {
@@ -22,29 +21,34 @@ class LeonardoService {
       // 1. Usamos o ID do MODELO BASE Flux Dev.
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       
-      // --- AQUI ESTÁ A CORREÇÃO FINAL ---
-      // 2. Trocamos 'loras' por 'elements', como a documentação de uso diz.
+      // 2. Aplicamos seu ELEMENT (LoRA) usando o ID numérico que você encontrou.
+      // O nome do parâmetro é 'elements', como o erro 'Unexpected variable loras' nos ensinou.
       elements: [
         {
-          // AQUI PRECISAMOS DO akUUID. RODE O SCRIPT findMyInfo.js
-          // DEPOIS DE TREINAR UM NOVO ELEMENT NO SITE.
-          akUUID: "COLE_O_AKUUID_DO_SEU_NOVO_ELEMENT_AQUI", 
+          // A API espera um 'akUUID', mas vamos usar o ID numérico que temos.
+          // Se isso falhar, a API pode esperar este número como uma string.
+          // Mas vamos começar com o tipo de dado correto (número).
+          akUUID: 106054, // <-- SEU ID!
           weight: 0.8
         }
       ],
-      // --- FIM DA CORREÇÃO ---
 
       num_images: 1,
       width: 1024,
       height: 1024,
+
+      // A imagem de guia (rabisco) para guiar a forma.
       imagePrompts: [referenceImageUrl],
       imagePromptWeight: 0.7,
-      alchemy: true,
-      presetStyle: 'DYNAMIC',
+      
+      // Parâmetro específico para o Flux, como descobrimos.
+      contrast: 2.5,
+
+      // REMOVEMOS 'alchemy' e 'presetStyle' pois são incompatíveis.
     };
 
     try {
-      console.log('[LeonardoService] Iniciando geração com Element (tentativa final). Payload:', JSON.stringify(generationPayload, null, 2));
+      console.log('[LeonardoService] Iniciando geração (payload final). Payload:', JSON.stringify(generationPayload, null, 2));
       const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
       
       const generationId = response.data?.sdGenerationJob?.generationId;
@@ -65,7 +69,7 @@ class LeonardoService {
       throw new Error(finalErrorMessage);
     }
   }
-
+  
   async checkGenerationStatus(generationId) {
     try {
       const response = await axios.get(`${this.apiUrl}/generations/${generationId}`, { headers: this.headers });
