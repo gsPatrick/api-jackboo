@@ -55,19 +55,18 @@ class LeonardoService {
       }
       
       // Adicionar o arquivo real com o nome 'file', que é o esperado pelo S3 para uploads multipart/form-data
-      // REMOVEMOS A OPÇÃO 'filename' AQUI! A propriedade 'key' em s3UploadFields já define o nome do arquivo no S3.
-      formData.append('file', fs.createReadStream(filePath), {
-        contentType: mimetype, 
-      });
+      // --- CORREÇÃO FINAL PARA MalformedPOSTRequest: Removendo 'contentType' ---
+      formData.append('file', fs.createReadStream(filePath)); 
+      // A propriedade 'key' nos s3UploadFields já informa ao S3 o nome final do arquivo.
+      // O Content-Type geral da requisição é handled por formData.getHeaders().
+      // O Content-Type do arquivo é inferido ou já definido pelo campo 'Content-Type' nos s3UploadFields.
+      // --- FIM DA CORREÇÃO ---
 
       console.log(`[LeonardoService] Fazendo upload da imagem para S3 (multipart/form-data) com ID: ${leonardoImageId}...`);
-      // A requisição de upload para o S3 NÃO usa os headers de autenticação da Leonardo.Ai
-      // O axios automaticamente define o Content-Type para multipart/form-data quando usa FormData.
-      // Usamos formData.getHeaders() para obter o Content-Type correto com o boundary.
       await axios.post(s3UploadUrl, formData, {
         headers: formData.getHeaders(), // ESSENCIAL para FormData
-        maxBodyLength: Infinity, // Necessário para arquivos maiores, boa prática
-        maxContentLength: Infinity, // Necessário para arquivos maiores, boa prática
+        maxBodyLength: Infinity, // Boa prática para arquivos maiores
+        maxContentLength: Infinity, // Boa prática para arquivos maiores
       });
 
       console.log(`[LeonardoService] Imagem guia local ${filePath} carregada com sucesso para Leonardo.Ai com ID: ${leonardoImageId}`);
