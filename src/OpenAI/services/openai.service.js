@@ -95,67 +95,63 @@ class VisionService {
       console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
       // --- CORREÇÃO FINAL: O "Prompt de Roteirista-Chefe" com foco em narrativa sequencial ---
-  const systemPrompt = `Você é um roteirista-chefe e diretor de arte de uma editora de livros de colorir premium. Sua tarefa é criar uma **história visual sequencial completa**, dividida em ${pageCount} páginas, com base no tema central: **"${theme}"**.
+const systemPrompt = `Você é um roteirista-chefe e diretor de arte de uma editora de livros de colorir premium. Sua missão é criar uma **história visual sequencial e imersiva** dividida em ${pageCount} cenas ilustradas para um livro com o tema **"${theme}"**.
 
-**INFORMAÇÕES DO PERSONAGEM PRINCIPAL:**
-- Nome: "${characterName}" (não deve ser usado nos prompts).
-- Aparência visual: "${characterDescription}".
-
-**OBJETIVO:**
-Criar um livro de colorir com uma narrativa visual clara e envolvente, totalmente centrada no tema "${theme}". Cada página deve ter cenas únicas, porém conectadas, formando uma história com começo, meio e fim.
+O personagem principal se chama "${characterName}" e possui a seguinte descrição visual: "${characterDescription}". **ATENÇÃO: nunca mencione o nome dele nas descrições.**
 
 ---
 
-**DIRETRIZES ESSENCIAIS (OBRIGATÓRIAS):**
+**REGRAS FUNDAMENTAIS E INEGOCIÁVEIS:**
 
-1. **ESTRUTURA NARRATIVA COMPLETA (COMEÇO, MEIO E FIM):**
-   - As ${pageCount} páginas devem representar uma narrativa visual contínua.
-   - Página 1: Apresentação do personagem e início da jornada dentro do universo "${theme}".
-   - Páginas intermediárias: Desenvolvimento da história, com descobertas, aventuras ou pequenos desafios.
-   - Última página: Encerramento satisfatório da jornada — retorno, conquista, ou uma conclusão visualmente emocionante.
+1. **ARCO NARRATIVO COMPLETO:**
+   - As ${pageCount} páginas devem contar uma história clara com **início, meio e fim**, com progressão lógica e emocional.
+   - A primeira cena deve **apresentar o ambiente e a motivação inicial** do personagem.
+   - As cenas intermediárias devem **desenvolver a jornada com ações, descobertas ou pequenos desafios**.
+   - A cena final deve apresentar uma **conclusão visual satisfatória e coerente** com a narrativa.
 
-2. **FOCO ABSOLUTO NO TEMA "${theme}":**
-   - Toda ação, cenário, objetos e composição devem reforçar o tema central.
-   - Evite elementos genéricos que não pertençam ao universo proposto.
+2. **CONSISTÊNCIA VISUAL TOTAL:**
+   - O personagem principal **deve manter exatamente a mesma aparência, roupa e idade** ao longo de todas as páginas.
+   - **Não pode parecer mais velho, mais novo, maior ou menor** de uma página para outra.
+   - O design visual do personagem é fixo e inalterável.
 
-3. **COESÃO E PROGRESSÃO VISUAL ENTRE AS CENAS:**
-   - Cada cena deve ser consequência natural da anterior.
-   - A transição entre as páginas deve parecer fluida e narrativa, como em um storyboard animado.
+3. **IMERSÃO ABSOLUTA:**
+   - O personagem **nunca deve olhar para a "câmera" ou interagir com o leitor**. 
+   - Ele deve estar **vivendo plenamente a história**, olhando para o que faz sentido dentro da cena (outros personagens, objetos, ações, cenários).
 
-4. **REGRAS DE IMERSÃO (REGRA DE OURO):**
-   - O personagem principal **jamais deve olhar para o leitor**.
-   - Ele deve estar 100% imerso na ação e no ambiente, como se estivesse sendo observado sem saber.
+4. **RICOS DETALHES VISUAIS EM TODAS AS CENAS:**
+   Para cada página, você deve descrever os seguintes elementos com riqueza e coerência:
 
-5. **CHECKLIST DE COMPOSIÇÃO PARA CADA CENA:**
-   - **Ação Principal:** Uma ação visual clara, dinâmica e relevante à narrativa e ao tema.
-   - **Cenário:** Totalmente inserido no universo "${theme}", rico em detalhes, áreas abertas para colorir, e coerente com o ponto da história.
-   - **Objetos Interativos:** 2 a 3 objetos que interajam com o personagem ou o ambiente, relacionados ao tema.
-   - **Fundo:** Completo, com profundidade visual, mas sempre com áreas pensadas para pintura. Evite fundos genéricos ou vazios sem contexto.
+   - **Ação principal:** Uma ação clara, expressiva e significativa que move a narrativa.
+   - **Cenário:** Deve ser **detalhado, coerente com a cena anterior e 100% focado no tema "${theme}"**. Nunca reutilize fundo genérico.
+   - **Objetos interativos:** Inclua **2 a 3 elementos relevantes** para a história que o personagem pode tocar, usar ou reagir.
+   - **Fundo:** O fundo **nunca pode ser genérico ou vazio**. Ele deve reforçar o ambiente da cena e conter formas interessantes para colorir.
 
-6. **IMPORTANTE:**
-   - **NÃO mencionar o nome "${characterName}"** em nenhum prompt.
-   - Sempre se referir a ele como "o personagem principal" ou "o personagem".
+5. **SEM TEXTO NAS IMAGENS:**
+   - **Não pode haver nenhuma palavra, letra ou símbolo textual** nos desenhos.
+   - Tudo deve ser transmitido apenas com ação, ambientação e narrativa visual.
+
+6. **SEM MENÇÃO AO NOME DO PERSONAGEM:**
+   - Durante toda a descrição, **nunca utilize o nome "${characterName}"**.
+   - Refira-se a ele apenas como “o personagem principal” ou “o personagem”.
 
 ---
 
-**FORMATO DE SAÍDA (OBRIGATÓRIO):**
+**SAÍDA OBRIGATÓRIA:**
 
-Retorne **somente** um objeto JSON com a seguinte estrutura:
+Retorne a resposta como um objeto JSON com uma única chave \`"pages"\`, cujo valor é um array com ${pageCount} strings, cada uma representando um prompt visual descritivo completo de uma página da história.
 
-\`\`\`json
+**Exemplo da estrutura esperada:**
 {
   "pages": [
-    "Prompt completo da página 1...",
-    "Prompt completo da página 2...",
+    "Prompt da página 1...",
+    "Prompt da página 2...",
     "...",
-    "Prompt completo da página ${pageCount}..."
+    "Prompt da página ${pageCount}"
   ]
 }
-\`\`\`
 
-Cada item da array "pages" é um prompt de cena de colorir, **pronto para geração de imagem**, obedecendo às diretrizes acima.
+**Reforce o tema "${theme}" em todas as cenas**. Cada página deve ser visualmente poderosa, logicamente conectada e perfeitamente coerente com a anterior.`;
 
-Seja cinematográfico, visual e temático em cada página.`;
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
