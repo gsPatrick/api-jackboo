@@ -191,35 +191,33 @@ class LeonardoService {
    * @returns {Promise<string>} O ID do job de geração.
    */
   async startColoringPageGeneration(pagePrompt) { 
-    const finalLeonardoPrompt = `${pagePrompt}, coloring book page for children, clean line art, thick bold outlines, no shading, simple, high contrast, white background.`;
+     const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, ${pagePrompt}`;
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
+      negativePrompt: "color, shading, gray, shadows, detailed textures, photorealistic", // Adiciona um negative prompt forte
       
       sd_version: "FLUX_DEV",
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Flux Dev model
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       
       elements: [
         {
-          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // ID do "Abstract Line Art" da plataforma
-          weight: 0.8 // Ajuste o peso conforme necessário
+          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
+          weight: 1.0 // Peso forte para garantir o estilo line art
         }
       ],
       userElements: [ 
         {
-          userLoraId: 106054, // ID numérico do seu elemento "jackboo"
-          weight: 0.6 // Ajuste o peso conforme necessário
+          userLoraId: 106054, // jackboo
+          // --- AUMENTAR O PESO DO SEU PERSONAGEM ---
+          weight: 1.2 // Peso mais alto para garantir que a aparência do personagem seja dominante
         }
       ],
       
       num_images: 1,
-      width: 1120,
-      height: 1120,
-      
-      // --- CORREÇÃO FINAL AQUI ---
-      contrast: 2.5, // Alterado de 2.0 para 2.5, um valor válido na lista da API para FLUX
-      // --- FIM DA CORREÇÃO ---
-      
+      width: 1024, // Reduzido para um padrão mais comum e rápido
+      height: 1024,
+      contrast: 2.5,
       scheduler: "LEONARDO",
       guidance_scale: 7,
       public: true,

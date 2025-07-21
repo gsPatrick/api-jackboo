@@ -60,28 +60,25 @@ class VisionService {
    * @param {number} pageCount - O número de páginas a serem geradas.
    * @returns {Promise<string[]>} Um array de prompts de ilustração.
    */
-   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
+  async generateColoringBookStoryline(characterName, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      const systemPrompt = `Você é uma IA criativa para livros de colorir infantis. Sua tarefa é gerar uma lista de ${pageCount} prompts de cena distintos e simples.
+      // --- PROMPT MELHORADO E MAIS DETALhado ---
+      const systemPrompt = `Você é um roteirista especialista em criar livros de colorir para crianças. Sua tarefa é criar um roteiro com ${pageCount} cenas para um livro sobre o personagem "${characterName}" e o tema "${theme}".
 
-      O personagem principal é "${characterName}".
-      Suas características visuais são: "${characterDescription}". Use essas características para criar cenas que façam sentido para o personagem.
-
-      O tema do livro é "${theme}".
-
-      REGRAS:
-      1.  **Cenas Claras:** Descreva uma única cena clara e fácil de colorir.
-      2.  **Ação e Emoção:** A cena deve mostrar "${characterName}" fazendo algo divertido relacionado ao tema.
-      3.  **Formato JSON:** Sua resposta DEVE ser um objeto JSON válido com uma única chave "pages", que é um array de strings. Exemplo: { "pages": ["${characterName} brinca na neve.", "${characterName} abre um presente."] }`;
+      REGRAS PARA CADA CENA (PROMPT):
+      1.  **Foco em Ação Simples:** Cada prompt deve descrever uma ação clara e simples que "${characterName}" está fazendo. Ex: "${characterName} constrói um castelo de areia", "${characterName} decora uma árvore".
+      2.  **Ambiente Rico, mas Aberto:** Descreva o cenário ao redor, mas deixe espaços abertos para a criança colorir. Ex: "...na praia com conchas espalhadas", "...na floresta com cogumelos e flores".
+      3.  **Ideal para Colorir:** As descrições devem resultar em imagens com contornos claros e áreas bem definidas, ideais para um livro de colorir. Não descreva sombras, cores ou texturas complexas.
+      4.  **Formato JSON OBRIGATÓRIO:** Sua resposta deve ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt para uma página.`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena agora.` }
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena agora para "${characterName}" no tema "${theme}".` }
         ],
         max_tokens: 150 * pageCount,
       });
@@ -93,12 +90,11 @@ class VisionService {
       }
       
       console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
-      return result.pages.slice(0, pageCount); // Garante que retornará no máximo o número de páginas solicitado
+      return result.pages.slice(0, pageCount);
 
     } catch (error) {
-      console.error('[VisionService] Erro ao gerar o roteiro do livro de colorir:', error.response ? error.response.data : error.message);
-      const errorMessage = error.response?.data?.error?.message || error.message;
-      throw new Error(`Falha na geração do roteiro: ${errorMessage}`);
+      console.error('[VisionService] Erro ao gerar o roteiro do livro de colorir:', error.message);
+      throw new Error(`Falha na geração do roteiro: ${error.message}`);
     }
   }
 
