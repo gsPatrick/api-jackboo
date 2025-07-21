@@ -1,3 +1,4 @@
+// src/models/Character.js
 'use strict';
 const { Model } = require('sequelize');
 const { deleteFile } = require('../Utils/FileHelper');
@@ -39,7 +40,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.JSONB,
         allowNull: true,
     },
-       generationJobId: {
+    generationJobId: {
       type: DataTypes.STRING,
       allowNull: true,
       comment: 'ID do job de geração retornado pela API (Leonardo/Replicate).'
@@ -48,7 +49,9 @@ module.exports = (sequelize, DataTypes) => {
     sequelize,
     modelName: 'Character',
     tableName: 'characters',
-    timestamps: false, // Este modelo não tinha timestamps
+    underscored: true, // Adiciona underscored para garantir que createdAt vire created_at
+    // A linha "timestamps: false," foi REMOVIDA.
+    // Agora o Sequelize vai gerenciar createdAt e updatedAt.
   });
 
   return Character;
