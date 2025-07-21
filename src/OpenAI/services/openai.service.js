@@ -87,48 +87,75 @@ class VisionService {
   /**
    * Gera uma lista de prompts para as páginas de um livro de colorir.
    */
+ /**
+   * Gera uma lista de prompts para as páginas de um livro de colorir com uma narrativa coesa.
+   */
   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
-      console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
+      console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO FINAL: O "Prompt Definitivo" que incorpora todas as sugestões avançadas ---
-      const systemPrompt = `Você é um diretor de arte e roteirista sênior para uma editora de livros de colorir premium, criando conteúdo para crianças de 4 a 7 anos. Sua tarefa é criar ${pageCount} prompts de cena para um livro com o tema central "${theme}" e o personagem principal "${characterName}".
+      // --- CORREÇÃO FINAL: O "Prompt de Roteirista-Chefe" com foco em narrativa sequencial ---
+  const systemPrompt = `Você é um roteirista-chefe e diretor de arte de uma editora de livros de colorir premium. Sua tarefa é criar uma **história visual sequencial completa**, dividida em ${pageCount} páginas, com base no tema central: **"${theme}"**.
 
-      DESCRIÇÃO VISUAL DO PERSONAGEM (para forma e consistência): "${characterDescription}".
+**INFORMAÇÕES DO PERSONAGEM PRINCIPAL:**
+- Nome: "${characterName}" (não deve ser usado nos prompts).
+- Aparência visual: "${characterDescription}".
 
-      **DIRETRIZES RÍGIDAS PARA CADA CENA:**
-      Para cada uma das ${pageCount} páginas, o prompt gerado deve seguir este checklist de 7 pontos sem exceção:
+**OBJETIVO:**
+Criar um livro de colorir com uma narrativa visual clara e envolvente, totalmente centrada no tema "${theme}". Cada página deve ter cenas únicas, porém conectadas, formando uma história com começo, meio e fim.
 
-      1.  **AÇÃO IMERSIVA (REGRA DE OURO):**
-          - O personagem NUNCA deve quebrar a "quarta parede" (olhar para o leitor). Ele deve estar completamente focado e imerso na cena, interagindo com objetos ou com o ambiente.
-          - A ação deve ser dinâmica e expressiva (correndo, pulando, agachado, olhando curioso para algo, etc.).
+---
 
-      2.  **CENÁRIO TEMÁTICO:**
-          - O cenário deve ser 100% relacionado ao tema "${theme}". Cada detalhe do fundo deve reforçar a história.
+**DIRETRIZES ESSENCIAIS (OBRIGATÓRIAS):**
 
-      3.  **OBJETOS INTERATIVOS (2-3):**
-          - Liste 2 ou 3 objetos claros e bem definidos com os quais o personagem interage diretamente.
+1. **ESTRUTURA NARRATIVA COMPLETA (COMEÇO, MEIO E FIM):**
+   - As ${pageCount} páginas devem representar uma narrativa visual contínua.
+   - Página 1: Apresentação do personagem e início da jornada dentro do universo "${theme}".
+   - Páginas intermediárias: Desenvolvimento da história, com descobertas, aventuras ou pequenos desafios.
+   - Última página: Encerramento satisfatório da jornada — retorno, conquista, ou uma conclusão visualmente emocionante.
 
-      4.  **FUNDO NARRATIVO:**
-          - Descreva o fundo de forma a complementar a cena, com formas grandes e claras, fáceis de colorir, e com poucos elementos (máximo de 6 elementos visuais principais por página).
+2. **FOCO ABSOLUTO NO TEMA "${theme}":**
+   - Toda ação, cenário, objetos e composição devem reforçar o tema central.
+   - Evite elementos genéricos que não pertençam ao universo proposto.
 
-      5.  **PROIBIÇÃO DE OBJETOS GENÉRICOS:**
-          - Não incluir formas geométricas aleatórias, círculos flutuando ou objetos sem função clara. Tudo na cena deve ser compreensível por uma criança.
+3. **COESÃO E PROGRESSÃO VISUAL ENTRE AS CENAS:**
+   - Cada cena deve ser consequência natural da anterior.
+   - A transição entre as páginas deve parecer fluida e narrativa, como em um storyboard animado.
 
-      6.  **ESTILO DE ARTE:**
-          - O resultado deve ser uma composição rica em ação, mas para uma página de livro de colorir com contornos pretos, grossos e limpos. Sem cor, sombras ou texturas.
+4. **REGRAS DE IMERSÃO (REGRA DE OURO):**
+   - O personagem principal **jamais deve olhar para o leitor**.
+   - Ele deve estar 100% imerso na ação e no ambiente, como se estivesse sendo observado sem saber.
 
-      7.  **ATMOSFERA:**
-          - A cena deve transmitir uma emoção clara (alegria, concentração, surpresa, etc.).
+5. **CHECKLIST DE COMPOSIÇÃO PARA CADA CENA:**
+   - **Ação Principal:** Uma ação visual clara, dinâmica e relevante à narrativa e ao tema.
+   - **Cenário:** Totalmente inserido no universo "${theme}", rico em detalhes, áreas abertas para colorir, e coerente com o ponto da história.
+   - **Objetos Interativos:** 2 a 3 objetos que interajam com o personagem ou o ambiente, relacionados ao tema.
+   - **Fundo:** Completo, com profundidade visual, mas sempre com áreas pensadas para pintura. Evite fundos genéricos ou vazios sem contexto.
 
-      **ESTRUTURA OBRIGATÓRIA DA DESCRIÇÃO:**
-      - Cada prompt deve ter de 4 a 6 linhas descritivas.
-      - Nunca comece a descrição com o nome do personagem. Comece com a ação principal da cena.
-      - Mantenha o foco na coerência entre ação, cenário, objetos e fundo.
+6. **IMPORTANTE:**
+   - **NÃO mencionar o nome "${characterName}"** em nenhum prompt.
+   - Sempre se referir a ele como "o personagem principal" ou "o personagem".
 
-      **FORMATO OBRIGATÓRIO DA RESPOSTA:**
-      Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt completo para uma página.`;
-      
+---
+
+**FORMATO DE SAÍDA (OBRIGATÓRIO):**
+
+Retorne **somente** um objeto JSON com a seguinte estrutura:
+
+\`\`\`json
+{
+  "pages": [
+    "Prompt completo da página 1...",
+    "Prompt completo da página 2...",
+    "...",
+    "Prompt completo da página ${pageCount}..."
+  ]
+}
+\`\`\`
+
+Cada item da array "pages" é um prompt de cena de colorir, **pronto para geração de imagem**, obedecendo às diretrizes acima.
+
+Seja cinematográfico, visual e temático em cada página.`;
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
@@ -136,8 +163,7 @@ class VisionService {
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            // --- CORREÇÃO: Adicionando o reforço do tema no prompt do usuário ---
-            content: `O tema principal é "${theme}" com o personagem "${characterName}". Gere a lista de ${pageCount} prompts de cena, seguindo rigorosamente o checklist e a estrutura de descrição.`
+            content: `Crie a história visual completa em ${pageCount} cenas para o tema "${theme}". Lembre-se de criar uma narrativa sequencial e de omitir o nome do personagem nos prompts finais.`
           }
         ],
         max_tokens: 350 * pageCount,
