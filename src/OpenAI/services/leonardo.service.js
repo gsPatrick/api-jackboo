@@ -184,8 +184,8 @@ class LeonardoService {
     }
   }
 
-  /**
-   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
+ /**
+   * Inicia o processo de geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
    * @param {string} pagePrompt - O prompt de texto para a página específica.
    * @returns {Promise<string>} O ID do job de geração.
    */
@@ -194,8 +194,6 @@ class LeonardoService {
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
-      // --- CORREÇÃO: Removido o campo 'negativePrompt' que causa o erro 400. ---
-      // negativePrompt: "color, shading, gray, shadows, detailed textures, photorealistic", 
       
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
@@ -218,7 +216,12 @@ class LeonardoService {
       height: 1024,
       contrast: 2.5,
       scheduler: "LEONARDO",
-      guidance_scale: 7,
+      
+      // --- CORREÇÃO FINAL: REMOVER PARÂMETROS INCOMPATÍVEIS ---
+      // guidance_scale: 7,    // Causa conflito com ControlNets/FLUX_DEV
+      // inferenceSteps: 10,   // Causa conflito com ControlNets/FLUX_DEV
+      // --- FIM DA CORREÇÃO ---
+      
       public: true,
       nsfw: true,
       ultra: false,

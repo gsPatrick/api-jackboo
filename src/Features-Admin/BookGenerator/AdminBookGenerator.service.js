@@ -122,9 +122,19 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
     
-    static async generateSingleColoringPage(bookVariationId, pageNumber, prompt) {
+      static async generateSingleColoringPage(bookVariationId, pageNumber, prompt) {
         console.log(`[AdminGenerator] Iniciando geração da página ${pageNumber}: ${prompt}`);
+        let pageRecord;
         try {
+            // Cria o registro da página no DB antes de iniciar, com status 'generating'
+            pageRecord = await BookContentPage.create({
+                bookVariationId,
+                pageNumber,
+                pageType: 'coloring_page',
+                status: 'generating',
+                illustrationPrompt: prompt,
+            });
+
             const generationId = await leonardoService.startColoringPageGeneration(prompt);
 
             let finalImageUrl = null;
@@ -144,26 +154,30 @@ class AdminBookGeneratorService {
 
             const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
 
-            await BookContentPage.create({
-                bookVariationId,
-                pageNumber,
-                pageType: 'coloring_page',
+            await pageRecord.update({
                 imageUrl: localPageUrl,
-                illustrationPrompt: prompt,
-                status: 'completed', // --- Salva o status correto
+                status: 'completed',
             });
             console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso.`);
         } catch (pageError) {
             console.error(`[AdminGenerator] Erro ao gerar a página ${pageNumber}:`, pageError.message);
-            // --- CORREÇÃO: Salva um registro de falha usando os novos campos do modelo ---
-            await BookContentPage.create({
-                bookVariationId,
-                pageNumber,
-                pageType: 'coloring_page',
-                illustrationPrompt: prompt,
-                status: 'failed',
-                errorDetails: pageError.message,
-            }).catch(e => console.error("Falha ao salvar o registro de erro da página:", e));
+            if (pageRecord) {
+                // Se o registro da página foi criado, atualiza com o erro
+                await pageRecord.update({
+                    status: 'failed',
+                    errorDetails: pageError.message,
+                }).catch(e => console.error("Falha ao salvar o registro de erro da página:", e));
+            } else {
+                // Se o erro ocorreu antes da criação do registro, cria um registro de falha
+                await BookContentPage.create({
+                    bookVariationId,
+                    pageNumber,
+                    pageType: 'coloring_page',
+                    illustrationPrompt: prompt,
+                    status: 'failed',
+                    errorDetails: pageError.message,
+                }).catch(e => console.error("Falha ao salvar o registro de erro da página:", e));
+            }
         }
     }
 
