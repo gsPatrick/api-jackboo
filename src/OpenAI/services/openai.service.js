@@ -10,6 +10,8 @@ class VisionService {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
+  
+
   async describeImage(imageUrl) {
     try {
       console.log(`[VisionService] Solicitando descrição DETALHADA para a imagem: ${imageUrl}`);
@@ -50,49 +52,37 @@ class VisionService {
     }
   }
 
- /**
-   * Gera uma lista de prompts para as páginas de um livro de colorir.
-   * @param {object} character - O objeto do personagem com nome e URL da imagem.
+/**
+   * Gera uma lista de prompts para as páginas de um livro de colorir,
+   * baseado APENAS no nome do personagem e no tema.
+   * @param {string} characterName - O nome do personagem principal.
    * @param {string} theme - O tema do livro (ex: "Aventura no zoológico").
    * @param {number} pageCount - O número de páginas a serem geradas.
    * @returns {Promise<string[]>} Um array de prompts de ilustração.
    */
-  async generateColoringBookStoryline(character, theme, pageCount) {
+  async generateColoringBookStoryline(characterName, theme, pageCount) {
     try {
-      console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${character.name}, Tema: ${theme}, Páginas: ${pageCount}`);
+      console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // Este é o prompt base que ensina a IA a se comportar como uma criadora de livros de colorir.
       const systemPrompt = `Você é uma IA assistente criativa, especializada em criar conteúdo para livros de colorir infantis. Sua tarefa é gerar uma lista de ${pageCount} prompts de cena distintos, simples e engajantes para um livro de colorir.
 
-      O personagem principal é "${character.name}".
+      O personagem principal é "${characterName}".
       O tema do livro é "${theme}".
 
       REGRAS IMPORTANTES PARA CADA PROMPT:
-      1.  **Foco Visual e Simples:** Descreva uma única cena clara e fácil de colorir. Evite cenas complexas com muitos personagens ou detalhes confusos.
-      2.  **Ação e Emoção:** A cena deve mostrar o personagem principal fazendo algo relacionado ao tema. Use verbos de ação.
-      3.  **Inclua o Personagem:** Cada prompt DEVE incluir o nome do personagem, "${character.name}".
-      4.  **Estrutura do Prompt:** Cada prompt deve ser uma frase curta e direta. Exemplo: "${character.name} encontra um leão amigável no zoológico." ou "${character.name} decora uma árvore de Natal na neve."
-      5.  **Formato da Saída:** Sua resposta DEVE ser um objeto JSON válido contendo uma única chave "pages", que é um array de strings, onde cada string é um prompt para uma página. Exemplo: { "pages": ["prompt 1", "prompt 2"] }`;
+      1.  **Foco Visual e Simples:** Descreva uma única cena clara e fácil de colorir. Evite cenas complexas.
+      2.  **Ação e Emoção:** A cena deve mostrar o personagem principal fazendo algo divertido e relacionado ao tema. Use verbos de ação.
+      3.  **Inclua o Personagem:** Cada prompt DEVE incluir o nome do personagem, "${characterName}".
+      4.  **Formato da Saída:** Sua resposta DEVE ser um objeto JSON válido contendo uma única chave "pages", que é um array de strings. Exemplo: { "pages": ["${characterName} brinca na neve.", "${characterName} abre um presente."] }`;
       
-      const userPrompt = `Baseado no personagem cuja aparência é mostrada nesta imagem, crie o roteiro do livro de colorir conforme as regras.`;
-
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o", // gpt-4o é excelente para isso
-        response_format: { type: "json_object" }, // Força a saída a ser um JSON válido
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              {
-                type: "image_url",
-                image_url: { url: character.imageUrl },
-              },
-            ],
-          },
+          { role: "user", content: `Por favor, gere a lista de ${pageCount} prompts de cena agora.` } // Prompt simples do usuário
         ],
-        max_tokens: 150 * pageCount, // Aloca tokens suficientes para os prompts
+        max_tokens: 150 * pageCount,
       });
 
       const result = JSON.parse(response.choices[0].message.content);
