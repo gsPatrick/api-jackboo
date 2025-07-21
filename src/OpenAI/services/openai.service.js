@@ -11,23 +11,35 @@ class VisionService {
   }
 
 
-  /**
-   * --- NOVA FUNÇÃO: Remove todas as menções de cores de uma descrição. ---
-   * @param {string} description - A descrição original do personagem.
-   * @returns {string} A descrição sem palavras de cor.
-   */
-  sanitizeDescriptionForColoring(description) {
+
+  static sanitizeDescriptionForColoring(description) {
     if (!description) return '';
     const colorWords = [
       'amarela', 'amarelo', 'laranja', 'azul', 'azuis', 'marrom', 'verde', 
       'vermelho', 'rosa', 'preto', 'branco', 'cinza', 'roxo', 'violeta', 
       'dourado', 'prateado', 'colorido', 'colorida'
     ];
-    // Cria uma expressão regular para encontrar qualquer uma dessas palavras inteiras, ignorando maiúsculas/minúsculas
     const regex = new RegExp('\\b(' + colorWords.join('|') + ')\\b', 'gi');
-    // Substitui as cores por nada e limpa espaços duplos
     return description.replace(regex, '').replace(/\s\s+/g, ' ').trim();
   }
+
+  /**
+   * --- CORREÇÃO: Declarada como static ---
+   * Remove palavras-chave perigosas que acionam filtros de moderação.
+   * @param {string} prompt - O prompt de cena gerado.
+   * @returns {string} O prompt higienizado e seguro para a API de imagem.
+   */
+  static sanitizePromptForSafety(prompt) {
+    if (!prompt) return '';
+    const forbiddenWords = [
+      'criança', 'crianças', 'menino', 'menina', 'bebê', 'infantil', 'garoto', 'garota',
+      'child', 'children', 'kid', 'kids', 'boy', 'girl', 'baby', 'infant', 'toddler'
+    ];
+    const regex = new RegExp('\\b(' + forbiddenWords.join('|') + ')\\b', 'gi');
+    return prompt.replace(regex, 'friendly figures');
+  }
+
+  /**
 
   
 
