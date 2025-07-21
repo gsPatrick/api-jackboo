@@ -1,140 +1,173 @@
-// src/Features-Admin/BookGenerator/AdminBookGenerator.service.js
-const { Book, BookVariation, BookContentPage, Character, sequelize } = require('../../models');
-const visionService = require('../../OpenAI/services/openai.service');
-const leonardoService = require('../../OpenAI/services/leonardo.service');
-const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
+// src/Features-Admin/BookTemplates/AdminBookTemplates.service.js
+const { BookTemplate, PageTemplate, OpenAISetting, Book, sequelize } = require('../../models');
+const { Op } = require('sequelize');
 
-const ADMIN_USER_ID = 1; // ID do usuário "Sistema/JackBoo"
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+class AdminBookTemplatesService {
+  // --- CRUD para BookTemplates ---
 
-class AdminBookGeneratorService {
+  async createBookTemplate(data) {
+    const { name, description, systemType, isActive = true } = data;
+    if (!name) throw new Error('Nome do template é obrigatório.');
 
-    /**
-     * Inicia e executa o processo de geração de um livro pelo admin.
-     * @param {string} bookType - 'coloring' ou 'story'.
-     * @param {object} generationData - Dados do formulário do admin.
-     * @returns {Book} O objeto do livro com suas páginas (após a geração ser iniciada).
-     */
-    static async generateBookPreview(bookType, generationData) {
-        const { theme, title, characterId, printFormatId, pageCount, location, summary } = generationData;
-
-        // Validações
-        if (!bookType || !title || !characterId || !printFormatId || !pageCount || !theme) {
-            throw new Error("Dados insuficientes fornecidos para a geração do livro.");
-        }
-        
-        const character = await Character.findByPk(characterId);
-        if (!character) throw new Error("Personagem principal não encontrado.");
-
-        // --- Criação da Estrutura Inicial do Livro ---
-        const t = await sequelize.transaction();
-        let book, bookVariation;
-        try {
-            book = await Book.create({
-                authorId: ADMIN_USER_ID,
-                title,
-                mainCharacterId: characterId,
-                printFormatId,
-                status: 'gerando',
-                genre: theme,
-                storyPrompt: { theme, location, summary }
-            }, { transaction: t });
-
-            bookVariation = await BookVariation.create({
-                bookId: book.id,
-                type: bookType, // 'coloring' ou 'story'
-                format: 'digital_pdf',
-                price: 0.00,
-                coverUrl: character.generatedCharacterUrl, // Capa temporária
-                pageCount,
-            }, { transaction: t });
-
-            await t.commit();
-        } catch (error) {
-            await t.rollback();
-            console.error("[AdminGenerator] Erro ao criar a estrutura do livro no DB:", error);
-            throw new Error("Falha ao criar os registros iniciais do livro.");
-        }
-
-        // --- Geração Assíncrona do Conteúdo (Fire-and-Forget) ---
-        (async () => {
-            try {
-                if (bookType === 'coloring') {
-                    await this.generateColoringBookContent(book, bookVariation, character, theme, pageCount);
-                } else if (bookType === 'story') {
-                    // Aqui entraria a lógica para gerar livros de história
-                    throw new Error("A geração de livros de história ainda não foi implementada.");
-                }
-
-                // Sucesso!
-                await book.update({ status: 'privado' }); // Ou 'publicado'
-                console.log(`[AdminGenerator] Livro ID ${book.id} gerado com sucesso!`);
-
-            } catch (error) {
-                console.error(`[AdminGenerator] Erro fatal na thread de geração do livro ID ${book.id}:`, error.message);
-                await book.update({ status: 'falha_geracao' });
-            }
-        })();
-
-        // Retorna o livro imediatamente para a página de "generating" ter o ID
-        return book;
+    // Validação: Se for um systemType específico (USER_COLORING_BOOK, USER_STORY_BOOK), garante que não haja duplicidade.
+    if (systemType !== 'CUSTOM') {
+      const existingSystemTemplate = await BookTemplate.findOne({ where: { systemType } });
+      if (existingSystemTemplate) {
+        throw new Error(`Já existe um template com o tipo de sistema "${systemType}". Edite-o em vez de criar um novo.`);
+      }
     }
 
-    /**
-     * Lógica específica para gerar o conteúdo de um livro de colorir.
-     */
-    static async generateColoringBookContent(book, bookVariation, character, theme, pageCount) {
-        const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
+    const newTemplate = await BookTemplate.create({ name, description, systemType, isActive });
+    return newTemplate;
+  }
 
-        // 1. Gerar o roteiro com todos os prompts de página usando o VisionService
-        console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas...`);
-        const pagePrompts = await visionService.generateColoringBookStoryline(
-            { name: character.name, imageUrl: characterImageUrl }, 
-            theme, 
-            pageCount
-        );
+  async listBookTemplates(filters = {}) {
+    const { page = 1, limit = 10, name, systemType, isActive } = filters;
+    const whereClause = {};
 
-        // 2. Gerar cada página individualmente em um loop
-        for (let i = 0; i < pagePrompts.length; i++) {
-            const pageNumber = i + 1;
-            const prompt = pagePrompts[i];
-            console.log(`[AdminGenerator] Gerando página ${pageNumber}/${pageCount}: ${prompt}`);
+    if (name) whereClause.name = { [Op.iLike]: `%${name}%` };
+    if (systemType) whereClause.systemType = systemType;
+    if (isActive !== undefined) whereClause.isActive = isActive;
 
-            // Inicia a geração no Leonardo
-            const generationId = await leonardoService.startColoringPageGeneration(prompt);
+    const { count, rows } = await BookTemplate.findAndCountAll({
+      where: whereClause,
+      include: [
+        { model: PageTemplate, as: 'pageTemplates', attributes: ['id', 'name', 'pageType', 'order'] },
+        // Contagem de livros criados com este template
+        [sequelize.fn("COUNT", sequelize.col("books.id")), "booksCount"]
+      ],
+      limit: parseInt(limit, 10),
+      offset: (parseInt(page, 10) - 1) * parseInt(limit, 10),
+      order: [['systemType', 'ASC'], ['name', 'ASC']],
+      group: ['BookTemplate.id', 'pageTemplates.id'],
+      distinct: true,
+    });
+    
+    // O group/distinct retorna um formato diferente, precisamos reformatar
+    const formattedRows = this._formatTemplateList(rows);
 
-            // Polling para o resultado
-            let finalImageUrl = null;
-            const MAX_POLLS = 30;
-            for (let poll = 0; poll < MAX_POLLS; poll++) {
-                await sleep(5000); // Espera 5 segundos
-                const result = await leonardoService.checkGenerationStatus(generationId);
-                if (result.isComplete) {
-                    finalImageUrl = result.imageUrl;
-                    break;
-                }
-            }
+    return { totalItems: count.length, bookTemplates: formattedRows, totalPages: Math.ceil(count.length / limit), currentPage: parseInt(page, 10) };
+  }
+  
+  _formatTemplateList(rows) {
+      const templatesMap = new Map();
+      rows.forEach(row => {
+          const templateData = row.toJSON();
+          if (!templatesMap.has(templateData.id)) {
+              templatesMap.set(templateData.id, {
+                  ...templateData,
+                  pageTemplates: [],
+                  booksCount: templateData.booksCount || 0
+              });
+          }
+          const existingTemplate = templatesMap.get(templateData.id);
+          if (templateData.pageTemplates && templateData.pageTemplates.id) {
+               // Evita adicionar a mesma página múltiplas vezes
+              if (!existingTemplate.pageTemplates.some(p => p.id === templateData.pageTemplates.id)) {
+                  existingTemplate.pageTemplates.push(templateData.pageTemplates);
+              }
+          }
+      });
+      return Array.from(templatesMap.values());
+  }
 
-            if (!finalImageUrl) {
-                throw new Error(`A geração da página ${pageNumber} demorou muito para responder.`);
-            }
 
-            // Baixa a imagem gerada e salva localmente
-            const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
-
-            // Salva a página no banco de dados
-            await BookContentPage.create({
-                bookVariationId: bookVariation.id,
-                pageNumber,
-                pageType: 'coloring_page',
-                imageUrl: localPageUrl,
-                illustrationPrompt: prompt,
-            });
+  async getBookTemplateById(id) {
+    const template = await BookTemplate.findByPk(id, {
+      include: [
+        { 
+          model: PageTemplate, 
+          as: 'pageTemplates', 
+          include: [{ model: OpenAISetting, as: 'aiSetting', attributes: ['id', 'type'] }],
+          order: [['order', 'ASC']]
         }
+      ]
+    });
+    if (!template) throw new Error('Template de livro não encontrado.');
+    return template;
+  }
+
+  async updateBookTemplate(id, data) {
+    const template = await this.getBookTemplateById(id);
+    const { name, description, systemType, isActive } = data;
+
+    if (systemType && systemType !== 'CUSTOM' && template.systemType !== systemType) {
+      const existingSystemTemplate = await BookTemplate.findOne({ where: { systemType, id: { [Op.ne]: id } } });
+      if (existingSystemTemplate) {
+        throw new Error(`Já existe outro template com o tipo de sistema "${systemType}".`);
+      }
     }
 
-    // A função antiga generateSinglePageContent foi removida pois sua lógica foi substituída.
+    await template.update({ name, description, systemType, isActive });
+    return this.getBookTemplateById(id);
+  }
+
+  async deleteBookTemplate(id) {
+    const template = await BookTemplate.findByPk(id);
+    if (!template) throw new Error('Template de livro não encontrado.');
+    
+    if (template.systemType !== 'CUSTOM') {
+      throw new Error('Não é possível deletar templates de sistema. Apenas desativá-los.');
+    }
+
+    const booksCount = await Book.count({ where: { bookTemplateId: id } });
+    if (booksCount > 0) {
+      throw new Error(`Não é possível deletar este template, pois ele está associado a ${booksCount} livro(s).`);
+    }
+
+    await template.destroy();
+    return { message: 'Template de livro deletado com sucesso.' };
+  }
+
+  // --- CRUD para PageTemplates ---
+
+  async createPageTemplate(bookTemplateId, pageData) {
+    const bookTemplate = await this.getBookTemplateById(bookTemplateId);
+    const { name, pageType, order, repeatCount, userPromptSchema, openAISettingId } = pageData;
+
+    if (!name || !pageType || order === undefined) {
+      throw new Error('Campos obrigatórios (name, pageType, order) não fornecidos.');
+    }
+    
+    if (openAISettingId) {
+      const aiSetting = await OpenAISetting.findByPk(openAISettingId);
+      if (!aiSetting) throw new Error('Configuração de IA não encontrada.');
+    }
+
+    const newPage = await PageTemplate.create({
+      bookTemplateId: bookTemplate.id,
+      name,
+      pageType,
+      order,
+      repeatCount: repeatCount || 1,
+      userPromptSchema: userPromptSchema || null,
+      openAISettingId: openAISettingId || null,
+    });
+    return newPage;
+  }
+
+  async updatePageTemplate(pageId, pageData) {
+    const page = await PageTemplate.findByPk(pageId);
+    if (!page) throw new Error('Template de página não encontrado.');
+    
+    if (pageData.openAISettingId !== undefined) {
+      if (pageData.openAISettingId !== null) {
+        const aiSetting = await OpenAISetting.findByPk(pageData.openAISettingId);
+        if (!aiSetting) throw new Error('Configuração de IA não encontrada.');
+      }
+    }
+    
+    await page.update(pageData);
+    return page;
+  }
+
+  async deletePageTemplate(pageId) {
+    const page = await PageTemplate.findByPk(pageId);
+    if (!page) throw new Error('Template de página não encontrado.');
+    
+    await page.destroy();
+    return { message: 'Template de página deletado com sucesso.' };
+  }
 }
 
-
-module.exports = AdminBookGeneratorService;
+module.exports = new AdminBookTemplatesService();
