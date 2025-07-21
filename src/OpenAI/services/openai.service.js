@@ -60,39 +60,40 @@ class VisionService {
    * @param {number} pageCount - O número de páginas a serem geradas.
    * @returns {Promise<string[]>} Um array de prompts de ilustração.
    */
-  async generateColoringBookStoryline(characterName, theme, pageCount) {
+   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      const systemPrompt = `Você é uma IA assistente criativa, especializada em criar conteúdo para livros de colorir infantis. Sua tarefa é gerar uma lista de ${pageCount} prompts de cena distintos, simples e engajantes para um livro de colorir.
+      const systemPrompt = `Você é uma IA criativa para livros de colorir infantis. Sua tarefa é gerar uma lista de ${pageCount} prompts de cena distintos e simples.
 
       O personagem principal é "${characterName}".
+      Suas características visuais são: "${characterDescription}". Use essas características para criar cenas que façam sentido para o personagem.
+
       O tema do livro é "${theme}".
 
-      REGRAS IMPORTANTES PARA CADA PROMPT:
-      1.  **Foco Visual e Simples:** Descreva uma única cena clara e fácil de colorir. Evite cenas complexas.
-      2.  **Ação e Emoção:** A cena deve mostrar o personagem principal fazendo algo divertido e relacionado ao tema. Use verbos de ação.
-      3.  **Inclua o Personagem:** Cada prompt DEVE incluir o nome do personagem, "${characterName}".
-      4.  **Formato da Saída:** Sua resposta DEVE ser um objeto JSON válido contendo uma única chave "pages", que é um array de strings. Exemplo: { "pages": ["${characterName} brinca na neve.", "${characterName} abre um presente."] }`;
+      REGRAS:
+      1.  **Cenas Claras:** Descreva uma única cena clara e fácil de colorir.
+      2.  **Ação e Emoção:** A cena deve mostrar "${characterName}" fazendo algo divertido relacionado ao tema.
+      3.  **Formato JSON:** Sua resposta DEVE ser um objeto JSON válido com uma única chave "pages", que é um array de strings. Exemplo: { "pages": ["${characterName} brinca na neve.", "${characterName} abre um presente."] }`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Por favor, gere a lista de ${pageCount} prompts de cena agora.` } // Prompt simples do usuário
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena agora.` }
         ],
         max_tokens: 150 * pageCount,
       });
 
       const result = JSON.parse(response.choices[0].message.content);
       
-      if (!result.pages || !Array.isArray(result.pages) || result.pages.length !== pageCount) {
+      if (!result.pages || !Array.isArray(result.pages) || result.pages.length === 0) {
         throw new Error('A IA não retornou a lista de páginas no formato esperado.');
       }
       
       console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
-      return result.pages;
+      return result.pages.slice(0, pageCount); // Garante que retornará no máximo o número de páginas solicitado
 
     } catch (error) {
       console.error('[VisionService] Erro ao gerar o roteiro do livro de colorir:', error.response ? error.response.data : error.message);
