@@ -87,25 +87,40 @@ class VisionService {
   /**
    * Gera uma lista de prompts para as páginas de um livro de colorir.
    */
-  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
+   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO FINAL: Usando a estrutura de "Checklist" inspirada no seu prompt de sucesso. ---
-      const systemPrompt = `Você é um diretor de arte e roteirista para uma editora de livros de colorir. Sua tarefa é criar ${pageCount} prompts de cena para um livro com o tema "${theme}" e o personagem principal "${characterName}".
+      // --- CORREÇÃO FINAL: Prompt de "Diretor de Arte Exigente" ---
+      const systemPrompt = `Você é um diretor de arte e roteirista sênior para uma editora de livros de colorir de alta qualidade, como a "Bobby Goodes". Sua tarefa é criar ${pageCount} prompts de cena VIVAS e IMERSIVAS para um livro com o tema "${theme}" e o personagem principal "${characterName}".
 
       DESCRIÇÃO VISUAL DO PERSONAGEM (para forma e consistência): "${characterDescription}".
 
-      **INSTRUÇÕES PARA CADA CENA:**
-      Para cada uma das ${pageCount} páginas, você deve criar um prompt que siga rigorosamente este checklist de 5 pontos:
-      1.  **AÇÃO DO PERSONAGEM:** Descreva uma ação clara, expressiva e dinâmica que "${characterName}" está fazendo. Ele deve sempre estar interagindo com o ambiente. Varie as poses e ângulos.
-      2.  **CENÁRIO ÚNICO:** Defina um cenário claro e imaginativo que se encaixe no tema "${theme}" (ex: oficina do Papai Noel, campo nevado, sala de estar decorada).
-      3.  **OBJETOS INTERATIVOS (2-3):** Liste 2 ou 3 objetos específicos com os quais o personagem está interagindo ou que são importantes na cena (ex: um presente, um enfeite, uma carta, um biscoito).
-      4.  **FUNDO NARRATIVO:** Descreva o plano de fundo de uma forma que conte parte da história e adicione profundidade, mas mantendo-o simples e com áreas abertas para colorir.
-      5.  **ATMOSFERA:** A cena deve ter uma atmosfera amigável, imaginativa e divertida.
+      **DIRETRIZES RÍGIDAS PARA CADA CENA:**
+      Para cada uma das ${pageCount} páginas, o prompt gerado deve seguir este checklist de 6 pontos sem exceção:
 
-      **EXEMPLO DE UM BOM PROMPT:**
-      "${characterName} está no sótão, com uma expressão de surpresa, segurando um mapa antigo enrolado que acabou de encontrar. Objetos ao redor: caixas empoeiradas e livros antigos. Fundo: teias de aranha nos cantos e uma janela redonda mostrando a lua."
+      1.  **AÇÃO IMERSIVA (REGRA DE OURO):**
+          - O personagem NUNCA deve quebrar a "quarta parede" ou olhar para o leitor. Ele deve estar completamente imerso na cena.
+          - Descreva a ação e o foco do personagem. Se ele está escrevendo uma carta, ele deve estar olhando para a carta. Se está decorando uma árvore, deve estar olhando para o enfeite.
+          - A ação deve ser dinâmica (correndo, pulando, agachado, esticando-se, etc.).
+
+      2.  **CENÁRIO TEMÁTICO:**
+          - O cenário deve ser claramente identificável e 100% relacionado ao tema "${theme}".
+          - Exemplo para o tema "Natal": não apenas "uma sala", mas "uma sala de estar aconchegante com uma lareira crepitante e guirlandas nas paredes".
+
+      3.  **OBJETOS INTERATIVOS ESPECÍFICOS (2-3):**
+          - Liste 2 ou 3 objetos claros e bem definidos com os quais o personagem interage diretamente. Isso evita que a IA invente elementos estranhos.
+          - Exemplo: "Ele segura um biscoito em forma de estrela e uma bisnaga de glacê."
+
+      4.  **FUNDO RICO E COERENTE:**
+          - O fundo deve complementar a cena e o tema. Se a cena é na cozinha, o fundo deve ter armários de cozinha, uma janela, talvez um pote de farinha.
+          - O fundo deve ser simples o suficiente para colorir, com formas claras e sem excesso de detalhes.
+
+      5.  **ESTILO DE ARTE (Para a IA de Imagem):**
+          - O resultado deve ser uma página de livro de colorir com contornos pretos, grossos e limpos. Sem cor, sem sombras, sem texturas. Estilo amigável e imaginativo.
+
+      6.  **ATMOSFERA:**
+          - A cena deve transmitir uma emoção clara (alegria, concentração, surpresa, etc.).
 
       **FORMATO OBRIGATÓRIO:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt completo para uma página.`;
       
@@ -114,9 +129,9 @@ class VisionService {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena agora para "${characterName}" no tema "${theme}", seguindo o checklist rigorosamente.` }
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena imersivos e detalhados agora para "${characterName}" no tema "${theme}", seguindo o checklist rigorosamente.` }
         ],
-        max_tokens: 300 * pageCount,
+        max_tokens: 350 * pageCount, // Um pouco mais de espaço para garantir a riqueza dos detalhes
       });
 
       const result = JSON.parse(response.choices[0].message.content);
