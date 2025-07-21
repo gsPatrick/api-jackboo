@@ -185,8 +185,7 @@ class LeonardoService {
   }
 
   /**
-   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai, combinando
-   * um elemento do usuário (seu estilo) e um elemento da plataforma (line art).
+   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
    * @param {string} pagePrompt - O prompt de texto para a página específica.
    * @returns {Promise<string>} O ID do job de geração.
    */
@@ -195,7 +194,8 @@ class LeonardoService {
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
-      negativePrompt: "color, shading, gray, shadows, detailed textures, photorealistic", // Adiciona um negative prompt forte
+      // --- CORREÇÃO: Removido o campo 'negativePrompt' que causa o erro 400. ---
+      // negativePrompt: "color, shading, gray, shadows, detailed textures, photorealistic", 
       
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
@@ -203,19 +203,18 @@ class LeonardoService {
       elements: [
         {
           akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
-          weight: 1.0 // Peso forte para garantir o estilo line art
+          weight: 1.0
         }
       ],
       userElements: [ 
         {
           userLoraId: 106054, // jackboo
-          // --- AUMENTAR O PESO DO SEU PERSONAGEM ---
-          weight: 1.2 // Peso mais alto para garantir que a aparência do personagem seja dominante
+          weight: 1.2
         }
       ],
       
       num_images: 1,
-      width: 1024, // Reduzido para um padrão mais comum e rápido
+      width: 1024,
       height: 1024,
       contrast: 2.5,
       scheduler: "LEONARDO",
@@ -251,8 +250,6 @@ class LeonardoService {
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
-
-
 }
 
 module.exports = new LeonardoService();
