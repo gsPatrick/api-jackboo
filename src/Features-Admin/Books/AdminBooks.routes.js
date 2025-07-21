@@ -1,32 +1,18 @@
-// src/Features-Admin/BookTemplates/AdminBookTemplates.routes.js
+// src/Features-Admin/Books/AdminBooks.routes.js
 const { Router } = require('express');
 const controller = require('./AdminBooks.controller');
 const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
-
-// Protege todas as rotas de gerenciamento de templates
 router.use(isAuthenticated, isAdmin);
 
-// --- Rotas para BookTemplates ---
-router.get('/', controller.listBookTemplates);
-router.post('/', controller.createBookTemplate);
-router.get('/:id', controller.getBookTemplateById);
-router.put('/:id', controller.updateBookTemplate);
-router.delete('/:id', controller.deleteBookTemplate);
+// GET /api/admin/books -> Lista todos os livros oficiais
+router.get('/', controller.listOfficialBooks);
 
-// --- Rotas para PageTemplates (aninhadas sob um bookTemplate) ---
-// Cria um template de página para um bookTemplate específico
-// POST /api/admin/book-templates/:bookTemplateId/pages
-router.post('/:bookTemplateId/pages', controller.createPageTemplate);
+// GET /api/admin/books/:id -> Pega detalhes de um livro específico (útil para o preview e edição)
+router.get('/:id', controller.getOfficialBookById);
 
-// Atualiza um template de página existente
-// PUT /api/admin/book-templates/pages/:pageId
-router.put('/pages/:pageId', controller.updatePageTemplate);
+// DELETE /api/admin/books/:id -> Deleta um livro oficial
+router.delete('/:id', controller.deleteOfficialBook);
 
-// Deleta um template de página
-// DELETE /api/admin/book-templates/pages/:pageId
-router.delete('/pages/:pageId', controller.deletePageTemplate);
-
-
-module.exports = router;    
+module.exports = router;

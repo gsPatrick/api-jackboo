@@ -10,6 +10,10 @@ router.use(isAuthenticated, isAdmin);
 // Esta rota está correta pois `controller.generatePreview` existe.
 router.post('/preview', controller.generatePreview);
 
+
+// NOVA ROTA PARA BUSCAR DETALHES DO LIVRO
+router.get('/books/:bookId', controller.getBookById);
+
 // --- ROTAS DESATIVADAS TEMPORARIAMENTE ---
 // As funções correspondentes no controller foram comentadas porque dependiam da lógica antiga.
 // Precisamos reimplementá-las antes de reativar estas rotas.

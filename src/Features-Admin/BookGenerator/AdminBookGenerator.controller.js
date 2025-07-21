@@ -18,6 +18,16 @@ class AdminBookGeneratorController {
         }
     }
 
+     async getBookById(req, res, next) {
+        try {
+            const { bookId } = req.params;
+            const book = await AdminBookGeneratorService.findBookById(bookId);
+            res.status(200).json(book);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // A função de regenerar página precisa ser repensada, pois dependia da lógica antiga.
     // Vamos desativá-la por enquanto.
     /*
