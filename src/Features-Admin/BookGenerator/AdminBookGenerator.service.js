@@ -122,21 +122,29 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
     
-      static async generateSingleColoringPage(bookVariationId, pageNumber, prompt) {
-        console.log(`[AdminGenerator] Iniciando geração da página ${pageNumber}: ${prompt}`);
-        let pageRecord;
-        try {
-            // Cria o registro da página no DB antes de iniciar, com status 'generating'
-            pageRecord = await BookContentPage.create({
-                bookVariationId,
-                pageNumber,
-                pageType: 'coloring_page',
-                status: 'generating',
-                illustrationPrompt: prompt,
-            });
+   static async generateSingleColoringPage(bookVariationId, pageNumber, prompt) {
+        console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${prompt}`);
+        
+        // 1. Cria o registro da página no banco de dados com status 'generating'
+        let pageRecord = await BookContentPage.create({
+            bookVariationId,
+            pageNumber,
+            pageType: 'coloring_page',
+            illustrationPrompt: prompt,
+            status: 'generating',
+        }).catch(err => {
+            console.error(`[AdminGenerator] Falha crítica ao criar o registro inicial da página ${pageNumber}:`, err.message);
+            // Se nem conseguirmos criar o registro, não há o que fazer.
+            return null; 
+        });
 
+        if (!pageRecord) return; // Aborta se a criação do registro falhou
+
+        try {
+            // 2. Inicia a geração da imagem na API externa
             const generationId = await leonardoService.startColoringPageGeneration(prompt);
 
+            // 3. Aguarda o resultado (Polling)
             let finalImageUrl = null;
             const MAX_POLLS = 30;
             for (let poll = 0; poll < MAX_POLLS; poll++) {
@@ -152,6 +160,7 @@ class AdminBookGeneratorService {
                 throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
             }
 
+            // 4. Baixa a imagem e atualiza o registro para 'completed'
             const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
 
             await pageRecord.update({
@@ -159,27 +168,17 @@ class AdminBookGeneratorService {
                 status: 'completed',
             });
             console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso.`);
+
         } catch (pageError) {
             console.error(`[AdminGenerator] Erro ao gerar a página ${pageNumber}:`, pageError.message);
-            if (pageRecord) {
-                // Se o registro da página foi criado, atualiza com o erro
-                await pageRecord.update({
-                    status: 'failed',
-                    errorDetails: pageError.message,
-                }).catch(e => console.error("Falha ao salvar o registro de erro da página:", e));
-            } else {
-                // Se o erro ocorreu antes da criação do registro, cria um registro de falha
-                await BookContentPage.create({
-                    bookVariationId,
-                    pageNumber,
-                    pageType: 'coloring_page',
-                    illustrationPrompt: prompt,
-                    status: 'failed',
-                    errorDetails: pageError.message,
-                }).catch(e => console.error("Falha ao salvar o registro de erro da página:", e));
-            }
+            // 5. Em caso de erro, atualiza o registro para 'failed'
+            await pageRecord.update({
+                status: 'failed',
+                errorDetails: pageError.message,
+            });
         }
     }
+
 
     static async findBookById(bookId) {
         const book = await Book.findByPk(bookId, {
