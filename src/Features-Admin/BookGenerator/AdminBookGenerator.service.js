@@ -78,7 +78,7 @@ class AdminBookGeneratorService {
     }
 
 
-    static async generateColoringBookContent(book) {
+   static async generateColoringBookContent(book) {
         const bookVariation = book.variations[0];
         const character = book.mainCharacter;
         const pageCount = bookVariation.pageCount;
@@ -86,19 +86,17 @@ class AdminBookGeneratorService {
 
         console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
         const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        let characterDescription = 'Um personagem fofo e amigável.';
+        let characterDescription = 'Um personagem fofo e amigável.'; // Fallback
         try {
             const fetchedDescription = await visionService.describeImage(characterImageUrl);
             if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
-                characterDescription = fetchedDescription;
+                characterDescription = fetchedDescription.replace(/\n/g, ' ').replace(/-/g, '').trim();
             }
         } catch (descError) {
             console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
         }
 
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
-        
-        // --- CORREÇÃO CRÍTICA: Passando os argumentos na ordem correta para a função corrigida ---
         const pagePrompts = await visionService.generateColoringBookStoryline(
             character.name,
             characterDescription,
@@ -106,20 +104,67 @@ class AdminBookGeneratorService {
             pageCount
         );
 
-        // --- CORREÇÃO: Adicionando verificação para garantir que o roteiro foi gerado ---
         if (!pagePrompts || pagePrompts.length === 0) {
             throw new Error('A IA não conseguiu gerar o roteiro. O array de prompts de página está vazio.');
         }
-
+        
         console.log(`[AdminGenerator] Roteiro com ${pagePrompts.length} páginas recebido. Iniciando geração das imagens...`);
 
+        // --- CORREÇÃO: Passando 'characterDescription' para a função de geração de página. ---
         const pageGenerationPromises = pagePrompts.map((prompt, index) => {
             const pageNumber = index + 1;
-            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt);
+            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt, characterDescription);
         });
 
         await Promise.all(pageGenerationPromises);
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
+    }
+    
+    /**
+     * --- CORREÇÃO: A função agora aceita e usa a descrição do personagem. ---
+     */
+    static async generateSingleColoringPage(bookVariationId, pageNumber, prompt, characterDescription) {
+        console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${prompt}`);
+        
+        let pageRecord = await BookContentPage.create({
+            bookVariationId, pageNumber,
+            pageType: 'coloring_page',
+            illustrationPrompt: prompt,
+            status: 'generating',
+        }).catch(err => {
+            console.error(`Falha crítica ao criar o registro inicial da página ${pageNumber}:`, err.message);
+            return null;
+        });
+
+        if (!pageRecord) return;
+
+        try {
+            // --- CORREÇÃO: Passando a descrição do personagem para o serviço Leonardo ---
+            const generationId = await leonardoService.startColoringPageGeneration(prompt, characterDescription);
+
+            let finalImageUrl = null;
+            const MAX_POLLS = 30;
+            for (let poll = 0; poll < MAX_POLLS; poll++) {
+                await sleep(5000);
+                const result = await leonardoService.checkGenerationStatus(generationId);
+                if (result.isComplete) {
+                    finalImageUrl = result.imageUrl;
+                    break;
+                }
+            }
+
+            if (!finalImageUrl) {
+                throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
+            }
+
+            const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
+            await pageRecord.update({ imageUrl: localPageUrl, status: 'completed' });
+            console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso.`);
+
+        } catch (pageError) {
+            console.error(`[AdminGenerator] Erro ao gerar a página ${pageNumber}:`, pageError.message);
+            await pageRecord.update({ status: 'failed', errorDetails: pageError.message });
+        }
     }
     
    static async generateSingleColoringPage(bookVariationId, pageNumber, prompt) {

@@ -183,14 +183,16 @@ class LeonardoService {
       throw new Error(`Erro ao verificar o status da geração: ${error.message}`);
     }
   }
-
- /**
-   * Inicia o processo de geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
+  /**
+   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
+   * --- CORREÇÃO: A função agora aceita a descrição visual do personagem. ---
    * @param {string} pagePrompt - O prompt de texto para a página específica.
+   * @param {string} characterDescription - A descrição visual do personagem.
    * @returns {Promise<string>} O ID do job de geração.
    */
-  async startColoringPageGeneration(pagePrompt) { 
-     const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, ${pagePrompt}`;
+  async startColoringPageGeneration(pagePrompt, characterDescription) { 
+     // --- CORREÇÃO: O prompt final agora inclui a descrição visual para reforçar a identidade. ---
+     const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
@@ -198,30 +200,25 @@ class LeonardoService {
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       
+      // --- CORREÇÃO CRÍTICA: Unificar o estilo e o personagem em um único array 'elements'. ---
       elements: [
         {
-          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
-          weight: 1.0
-        }
-      ],
-      userElements: [ 
+          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art Element
+          weight: 0.8 // Reduz um pouco o peso do estilo para dar mais força ao personagem
+        },
         {
-          userLoraId: 106054, // jackboo
-          weight: 1.2
+          loraId: 106054, // O ID do seu LoRA 'jackboo'
+          weight: 1.3 // Aumenta o peso do personagem para garantir que ele seja o foco
         }
       ],
+      // O array 'userElements' foi removido, pois foi incorporado acima.
       
       num_images: 1,
       width: 1024,
       height: 1024,
       contrast: 2.5,
       scheduler: "LEONARDO",
-      
-      // --- CORREÇÃO FINAL: REMOVER PARÂMETROS INCOMPATÍVEIS ---
-      // guidance_scale: 7,    // Causa conflito com ControlNets/FLUX_DEV
-      // inferenceSteps: 10,   // Causa conflito com ControlNets/FLUX_DEV
-      // --- FIM DA CORREÇÃO ---
-      
+      guidance_scale: 7, // Re-adicionado para maior controle do prompt
       public: true,
       nsfw: true,
       ultra: false,
@@ -247,7 +244,6 @@ class LeonardoService {
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
       if (axios.isAxiosError(error)) {
         console.error('Axios Error Config:', error.config);
-        console.error('Axios Error Request Headers:', error.config.headers);
         console.error('Axios Error Response Data:', error.response?.data);
       }
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
