@@ -107,6 +107,24 @@ class ContentController {
         next(error);
       }
     }
+
+     async createColoringBook(req, res, next) {
+    try {
+      const { characterId, pageCount, theme } = req.body;
+
+      // Validação básica
+      if (!characterId || !pageCount || !theme) {
+        return res.status(400).json({ error: 'characterId, pageCount, e theme são obrigatórios.' });
+      }
+
+      const result = await contentService.createColoringBook(req.user.id, { characterId, pageCount, theme });
+      // Retorna 202 Accepted, pois o processo é assíncrono
+      res.status(202).json(result); 
+    } catch (error) {
+      next(error);
+    }
+  }
+
 }
 
 module.exports = new ContentController();

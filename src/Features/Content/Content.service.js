@@ -1,5 +1,5 @@
 // src/Features/Content/Content.service.js
-const { Character } = require('../../models');
+const { Character, Book, BookVariation, BookContentPage } = require('../../models'); // Adicione Book, BookVariation, BookContentPage
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
@@ -104,6 +104,109 @@ class ContentService {
       const characters = await Character.findAll({ where: { userId }, order: [['createdAt', 'DESC']] });
       return characters;
   }
+
+  /**
+   * Cria um livro de colorir de forma assíncrona.
+   * @param {number} userId - O ID do usuário que está criando o livro.
+   * @param {object} bookData - Dados para a criação do livro.
+   * @param {number} bookData.characterId - O ID do personagem principal.
+   * @param {number} bookData.pageCount - O número de páginas do livro.
+   * @param {string} bookData.theme - O tema do livro de colorir.
+   */
+  async createColoringBook(userId, { characterId, pageCount, theme }) {
+    // 1. Validação e busca do personagem
+    const character = await Character.findOne({ where: { id: characterId, userId } });
+    if (!character) {
+      throw new Error('Personagem não encontrado ou não pertence ao usuário.');
+    }
+
+    // 2. Criação inicial dos registros no banco de dados
+    console.log('[ContentService] Criando registros iniciais para o livro de colorir...');
+    const book = await Book.create({
+      authorId: userId,
+      mainCharacterId: characterId,
+      title: `As Aventuras de Colorir de ${character.name}: ${theme}`,
+      status: 'gerando',
+      // Outros campos como categoryId, ageRatingId podem ser definidos aqui
+    });
+
+    const bookVariation = await BookVariation.create({
+      bookId: book.id,
+      type: 'colorir',
+      format: 'digital_pdf', // Assumindo digital por padrão
+      price: 0.00, // Defina um preço se aplicável
+      coverUrl: character.generatedCharacterUrl, // Usamos a imagem do personagem como capa temporária
+      pageCount,
+    });
+
+    // 3. Inicia a geração em segundo plano (fire-and-forget)
+    (async () => {
+      try {
+        const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
+
+        // Passo A: Gerar o roteiro com todos os prompts de página
+        console.log('[ContentService] Gerando roteiro para as páginas...');
+        const pagePrompts = await visionService.generateColoringBookStoryline({ name: character.name, imageUrl: characterImageUrl }, theme, pageCount);
+
+        // Passo B: Gerar cada página individualmente
+        for (let i = 0; i < pagePrompts.length; i++) {
+          const pageNumber = i + 1;
+          const prompt = pagePrompts[i];
+          console.log(`[ContentService] Gerando página ${pageNumber}/${pageCount}: ${prompt}`);
+
+          // Inicia a geração no Leonardo
+          const generationId = await leonardoService.startColoringPageGeneration(prompt);
+
+          // Polling para o resultado
+          let finalImageUrl = null;
+          const MAX_POLLS = 30; // Aumentar um pouco o polling se necessário
+          for (let poll = 0; poll < MAX_POLLS; poll++) {
+            await sleep(5000);
+            const result = await leonardoService.checkGenerationStatus(generationId);
+            if (result.isComplete) {
+              finalImageUrl = result.imageUrl;
+              break;
+            }
+          }
+
+          if (!finalImageUrl) {
+            throw new Error(`A geração da página ${pageNumber} demorou muito para responder.`);
+          }
+
+          // Baixa a imagem e salva localmente
+          const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
+
+          // Salva a página no banco de dados
+          await BookContentPage.create({
+            bookVariationId: bookVariation.id,
+            pageNumber,
+            pageType: 'coloring_page',
+            imageUrl: localPageUrl,
+            illustrationPrompt: prompt,
+          });
+        }
+        
+        // Passo C: Finalizar o livro
+        // Aqui você pode adicionar lógica para gerar uma capa final, um PDF, etc.
+        console.log('[ContentService] Todas as páginas foram geradas com sucesso!');
+        await book.update({ status: 'publicado' }); // Ou 'privado' se precisar de revisão
+
+      } catch (error) {
+        console.error(`[ContentService] Erro fatal na geração do livro de colorir ID ${book.id}:`, error.message);
+        await book.update({
+          status: 'falha_geracao',
+          // talvez salvar o erro em um campo no model Book
+        });
+      }
+    })();
+
+    // 4. Retorna uma resposta imediata para o usuário
+    return {
+      message: "Seu livro de colorir começou a ser gerado! Ele aparecerá em sua biblioteca em breve.",
+      book,
+    };
+  }
+
 }
 
 module.exports = new ContentService();

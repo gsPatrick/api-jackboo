@@ -183,6 +183,81 @@ class LeonardoService {
       throw new Error(`Erro ao verificar o status da geração: ${error.message}`);
     }
   }
+
+  /**
+   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai, combinando
+   * um elemento do usuário (seu estilo) e um elemento da plataforma (line art).
+   * @param {string} pagePrompt - O prompt de texto para a página específica.
+   * @returns {Promise<string>} O ID do job de geração.
+   */
+  async startColoringPageGeneration(pagePrompt) { 
+    const finalLeonardoPrompt = `${pagePrompt}, coloring book page for children, clean line art, thick bold outlines, no shading, simple, high contrast, white background.`;
+
+    const generationPayload = {
+      prompt: finalLeonardoPrompt,
+      
+      sd_version: "FLUX_DEV",
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Flux Dev model
+      
+      // --- AQUI ESTÁ A COMBINAÇÃO CORRETA DE ELEMENTS ---
+      elements: [
+        {
+          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // ID do "Abstract Line Art" da plataforma
+          weight: 0.8 // Ajuste o peso conforme necessário
+        }
+      ],
+      userElements: [ 
+        {
+          userLoraId: 106054, // ID numérico do seu elemento "jackboo"
+          weight: 0.6 // Ajuste o peso conforme necessário
+        }
+      ],
+      // --- FIM DA COMBINAÇÃO DE ELEMENTS ---
+      
+      num_images: 1, // Gerar uma imagem por vez para o livro
+      width: 1120,
+      height: 1120,
+      
+      // Vamos omitir ControlNets por enquanto para simplificar e evitar conflitos.
+      // A combinação dos dois Elements de estilo pode já ser suficiente.
+      // controlnets: [ ... ],
+      
+      contrast: 2.0,
+      scheduler: "LEONARDO",
+      guidance_scale: 7,
+      public: true,
+      nsfw: true,
+      ultra: false,
+    };
+
+    try {
+      console.log('[LeonardoService] Iniciando geração de PÁGINA DE COLORIR. Payload:', JSON.stringify(generationPayload, null, 2));
+      const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
+      
+      const generationId = response.data?.sdGenerationJob?.generationId;
+      if (!generationId) {
+        console.error("[LeonardoService] Resposta da API não continha um 'generationId' para a página de colorir. Resposta completa:", JSON.stringify(response.data, null, 2));
+        throw new Error('A API do Leonardo não retornou um ID de geração válido para a página de colorir.');
+      }
+      
+      console.log(`[LeonardoService] Geração de página de colorir iniciada com sucesso. Job ID: ${generationId}`);
+      return generationId;
+
+    } catch (error) {
+      console.error('--- ERRO DETALHADO DA API LEONARDO (PÁGINA DE COLORIR) ---');
+      const status = error.response?.status;
+      const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
+      console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios Error Config:', error.config);
+        console.error('Axios Error Request Headers:', error.config.headers);
+        console.error('Axios Error Response Data:', error.response?.data);
+      }
+      throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
+    }
+  }
+
+
 }
 
 module.exports = new LeonardoService();

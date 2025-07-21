@@ -48,4 +48,7 @@ router.get('/badges', contentController.getMyBadges);
 // --- Rotas de Histórico de Pagamentos de Assinatura ---
 router.get('/subscription-payments', contentController.getMySubscriptionPayments);
 
+router.post('/books/create-coloring', isSubscriber, contentController.createColoringBook); // Nova rota!
+
+
 module.exports = router;

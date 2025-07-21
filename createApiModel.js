@@ -62,10 +62,10 @@ async function createAndTrainModel() {
     console.log('\nPasso 3: Iniciando o treinamento do modelo...');
     const trainingResponse = await axios.post(`${API_URL}/models`, {
       name: 'jackboo-api', // Nome para o novo modelo
-      description: 'Modelo treinado via API para consistência',
+      description: 'Modelo treinado via API para consistência teste',
       datasetId: datasetId,
       instance_prompt: 'estiloJackboo', // Sua nova trigger word
-      modelType: 'GENERAL', // Ou o tipo que você preferir
+      modelType: 'STYLE', // Ou o tipo que você preferir
       sd_version: 'v2', // Ou a versão que preferir
       strength: 'MEDIUM',
       resolution: 768,
