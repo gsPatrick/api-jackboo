@@ -1,45 +1,37 @@
-
+// src/app.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const mainRouter = require('./Routes/index');
-const webhookRouter = require('.//Features/Webhook/Webhook.routes');
+const webhookRouter = require('./Features/Webhook/Webhook.routes'); // Corrigido o caminho
 
 const app = express();
 
-// 1. CORS: Libera o acesso para seu frontend. Essencial.
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 2. MIDDLEWARES DE PARSE DE CORPO:
-// Estes middlewares leem o corpo da requisição. Se eles forem executados
-// em uma requisição `multipart/form-data` antes do Multer, eles podem
-// "consumir" o corpo, e o Multer não encontrará o arquivo.
-// O Express é inteligente o suficiente para não fazer o parse de JSON em um
-// FormData, mas vamos manter a ordem por segurança.
-app.use(express.json()); // Para corpos JSON
-app.use(express.urlencoded({ extended: true })); // Para formulários tradicionais
+// --- CORREÇÃO AQUI ---
+// Esta configuração garante que o caminho para a pasta 'uploads' seja resolvido
+// corretamente a partir da raiz do seu projeto.
+const uploadsPath = path.resolve(process.cwd(), 'uploads');
+console.log(`[Server] Servindo arquivos estáticos da pasta: ${uploadsPath}`);
+app.use('/uploads', express.static(uploadsPath)); // << ISSO ESTÁ CORRETO
+// --- FIM DA CORREÇÃO ---
 
-// 3. SERVIR ARQUIVOS ESTÁTICOS:
-// Permite que o mundo externo acesse os arquivos nas pastas 'uploads' e 'public'.
-// Ex: GET https://.../uploads/arquivo.png
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
-app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')));
+// Mantém o 'images' se você tiver uma pasta public/images na raiz
+app.use('/images', express.static(path.resolve(process.cwd(), 'public', 'images')));
 
-// 4. ROTEADOR PRINCIPAL:
-// A requisição chega aqui depois de passar pelos middlewares acima.
-// O Express vai direcionar para a rota correspondente (ex: /api/content/characters),
-// onde o middleware específico da rota (Multer) será finalmente executado.
 app.use('/api', mainRouter);
-
 app.use('/api/webhooks', webhookRouter);
 
-
-// 5. TRATAMENTO DE ERRO (Opcional, mas recomendado)
 app.use((err, req, res, next) => {
   console.error("--- ERRO GLOBAL CAPTURADO ---");
   console.error(err);
-  res.status(500).json({ message: err.message || 'Ocorreu um erro inesperado no servidor.' });
+  // Garante que o status do erro seja usado, se disponível
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({ message: err.message || 'Ocorreu um erro inesperado no servidor.' });
 });
 
 module.exports = app;
