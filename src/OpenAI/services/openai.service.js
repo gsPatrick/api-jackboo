@@ -51,21 +51,23 @@ class VisionService {
       throw new Error(`Falha na análise da imagem: ${errorMessage}`);
     }
   }
-
-/**
-   * Gera uma lista de prompts para as páginas de um livro de colorir,
-   * baseado APENAS no nome do personagem e no tema.
+ /**
+   * Gera uma lista de prompts para as páginas de um livro de colorir.
+   * --- CORREÇÃO: A assinatura da função é atualizada para aceitar a descrição. ---
    * @param {string} characterName - O nome do personagem principal.
+   * @param {string} characterDescription - A descrição visual do personagem.
    * @param {string} theme - O tema do livro (ex: "Aventura no zoológico").
    * @param {number} pageCount - O número de páginas a serem geradas.
    * @returns {Promise<string[]>} Um array de prompts de ilustração.
    */
-  async generateColoringBookStoryline(characterName, theme, pageCount) {
+  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- PROMPT MELHORADO E MAIS DETALhado ---
-      const systemPrompt = `Você é um roteirista especialista em criar livros de colorir para crianças. Sua tarefa é criar um roteiro com ${pageCount} cenas para um livro sobre o personagem "${characterName}" e o tema "${theme}".
+      // --- CORREÇÃO: O prompt do sistema agora usa a descrição do personagem ---
+      const systemPrompt = `Você é um roteirista especialista em criar livros de colorir para crianças. Sua tarefa é criar um roteiro com ${pageCount} cenas para um livro sobre o personagem "${characterName}" com o tema "${theme}".
+
+      INFORMAÇÕES VISUAIS DO PERSONAGEM (use para manter a consistência): "${characterDescription}".
 
       REGRAS PARA CADA CENA (PROMPT):
       1.  **Foco em Ação Simples:** Cada prompt deve descrever uma ação clara e simples que "${characterName}" está fazendo. Ex: "${characterName} constrói um castelo de areia", "${characterName} decora uma árvore".
@@ -97,7 +99,6 @@ class VisionService {
       throw new Error(`Falha na geração do roteiro: ${error.message}`);
     }
   }
-
 }
 
 module.exports = new VisionService();

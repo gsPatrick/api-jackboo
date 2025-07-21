@@ -5,8 +5,6 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class BookContentPage extends Model {
     static associate(models) {
-      // Uma página de conteúdo pertence a uma variação de livro.
-      // 'as: bookVariation' permite o acesso reverso (se necessário).
       this.belongsTo(models.BookVariation, { 
         foreignKey: 'bookVariationId', 
         as: 'bookVariation' 
@@ -48,6 +46,19 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: 'Prompt usado para gerar a ilustração.'
     },
+    // --- CORREÇÃO: Adicionando campos para status e erro ---
+    status: {
+      type: DataTypes.ENUM('completed', 'failed'),
+      defaultValue: 'completed',
+      allowNull: false,
+      comment: 'Status da geração desta página específica.'
+    },
+    errorDetails: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Detalhes do erro, caso a geração da página falhe.'
+    }
+    // --- FIM DA CORREÇÃO ---
   }, {
     sequelize,
     modelName: 'BookContentPage',
