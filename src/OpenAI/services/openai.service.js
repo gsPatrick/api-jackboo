@@ -10,40 +10,7 @@ class VisionService {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
-
-
-  static sanitizeDescriptionForColoring(description) {
-    if (!description) return '';
-    const colorWords = [
-      'amarela', 'amarelo', 'laranja', 'azul', 'azuis', 'marrom', 'verde', 
-      'vermelho', 'rosa', 'preto', 'branco', 'cinza', 'roxo', 'violeta', 
-      'dourado', 'prateado', 'colorido', 'colorida'
-    ];
-    const regex = new RegExp('\\b(' + colorWords.join('|') + ')\\b', 'gi');
-    return description.replace(regex, '').replace(/\s\s+/g, ' ').trim();
-  }
-
-  /**
-   * --- CORREÇÃO: Declarada como static ---
-   * Remove palavras-chave perigosas que acionam filtros de moderação.
-   * @param {string} prompt - O prompt de cena gerado.
-   * @returns {string} O prompt higienizado e seguro para a API de imagem.
-   */
-  static sanitizePromptForSafety(prompt) {
-    if (!prompt) return '';
-    const forbiddenWords = [
-      'criança', 'crianças', 'menino', 'menina', 'bebê', 'infantil', 'garoto', 'garota',
-      'child', 'children', 'kid', 'kids', 'boy', 'girl', 'baby', 'infant', 'toddler'
-    ];
-    const regex = new RegExp('\\b(' + forbiddenWords.join('|') + ')\\b', 'gi');
-    return prompt.replace(regex, 'friendly figures');
-  }
-
-  
-
-  
-
- async describeImage(imageUrl) {
+  async describeImage(imageUrl) {
     try {
       console.log(`[VisionService] Solicitando descrição DETALHADA para a imagem: ${imageUrl}`);
       
@@ -53,7 +20,6 @@ class VisionService {
           content: [
             {
               type: "text",
-              // --- CORREÇÃO: Prompt ainda mais robusto para evitar bloqueios de conteúdo ---
               text: "Analise a imagem como um conceito de arte para um personagem. Não a descreva como uma entidade real, criança ou pessoa. O seu único objetivo é extrair os atributos visuais para um artista 2D replicar o estilo. Liste apenas as características físicas, como 'formato do corpo de urso', 'pelagem amarela', 'orelhas arredondadas', 'camiseta listrada'. Seja objetivo e técnico."
             },
             {
@@ -81,33 +47,33 @@ class VisionService {
       throw new Error(`Falha na análise da imagem: ${errorMessage}`);
     }
   }
- /**
-   * Gera uma lista de prompts para as páginas de um livro de colorir.
-   * --- CORREÇÃO: A assinatura da função é atualizada para aceitar a descrição. ---
-   * @param {string} characterName - O nome do personagem principal.
-   * @param {string} characterDescription - A descrição visual do personagem.
-   * @param {string} theme - O tema do livro (ex: "Aventura no zoológico").
-   * @param {number} pageCount - O número de páginas a serem geradas.
-   * @returns {Promise<string[]>} Um array de prompts de ilustração.
-   */
-   /**
-   * Gera uma lista de prompts para as páginas de um livro de colorir.
-   */
-/**
-   * Gera uma lista de prompts para as páginas de um livro de colorir.
-   */
-  /**
-   * Gera uma lista de prompts para as páginas de um livro de colorir.
-   */
- /**
-   * Gera uma lista de prompts para as páginas de um livro de colorir com uma narrativa coesa.
-   */
-   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
+
+  sanitizeDescriptionForColoring(description) {
+    if (!description) return '';
+    const colorWords = [
+      'amarela', 'amarelo', 'laranja', 'azul', 'azuis', 'marrom', 'verde', 
+      'vermelho', 'rosa', 'preto', 'branco', 'cinza', 'roxo', 'violeta', 
+      'dourado', 'prateado', 'colorido', 'colorida'
+    ];
+    const regex = new RegExp('\\b(' + colorWords.join('|') + ')\\b', 'gi');
+    return description.replace(regex, '').replace(/\s\s+/g, ' ').trim();
+  }
+
+  sanitizePromptForSafety(prompt) {
+    if (!prompt) return '';
+    const forbiddenWords = [
+      'criança', 'crianças', 'menino', 'menina', 'bebê', 'infantil', 'garoto', 'garota',
+      'child', 'children', 'kid', 'kids', 'boy', 'girl', 'baby', 'infant', 'toddler'
+    ];
+    const regex = new RegExp('\\b(' + forbiddenWords.join('|') + ')\\b', 'gi');
+    return prompt.replace(regex, 'friendly figures');
+  }
+
+  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO FINAL: O "Prompt de Diretor de Cinema" com saída em INGLÊS ---
-      const systemPrompt = `You are a senior art director and storyboarder for a premium coloring book publisher. Your task is to create a complete and sequential visual story in ${pageCount} scenes for a book with the theme "${theme}".
+      const systemPrompt = `You are a senior art director and storyboarder for a premium coloring book publisher, creating content for a young audience (ages 4-7). Your task is to create a complete and sequential visual story in ${pageCount} scenes for a book with the central theme "${theme}".
 
       THE MAIN CHARACTER:
       - His name is "${characterName}" (NEVER use his name in the final output).
@@ -116,21 +82,21 @@ class VisionService {
       **NON-NEGOTIABLE DIRECTIONAL RULES:**
 
       1.  **COMPLETE NARRATIVE ARC:**
-          - The ${pageCount} scenes must tell a clear story with a beginning, middle, and end. Create a logical and emotional progression.
+          - The ${pageCount} scenes must tell a clear story with a beginning, middle, and end.
           - The first scene must introduce the setting and the character's initial motivation.
           - The middle scenes must develop the journey with actions, discoveries, or small challenges.
-          - The final scene must provide a satisfying and coherent visual conclusion to the narrative.
+          - The final scene must provide a satisfying visual conclusion.
 
       2.  **TOTAL IMMERSION (THE GOLDEN RULE):**
-          - The character must NEVER break the "fourth wall" or look at the reader. He must be completely immersed in the scene.
-          - **Direct the Gaze:** Describe where the character is looking. Ex: "looking at the star he is holding," "looking down at the cookie dough."
-          - **Constant Action and Interaction:** The character must always be in motion or interacting with something. Crouching, jumping, running, focused, surprised. No static poses.
+          - The character must NEVER break the "fourth wall" (look at the reader). He must be completely immersed in the scene, focused on his actions.
+          - **Direct the Gaze:** Describe where the character is looking (e.g., "looking at the star he is holding," "looking down at the cookie dough").
+          - **Constant Action:** No static poses. The character must always be in motion or interacting with something.
 
       3.  **DETAILED SCENE CHECKLIST (for each page):**
-          - **Action and Pose:** Describe the exact action and pose of the character (e.g., "crouching, in profile, with an expression of curiosity").
-          - **Thematic Setting:** The setting must be rich, detailed, and 100% focused on the theme "${theme}".
-          - **Key Interactive Objects (2-3):** List 2-3 clear objects the character interacts with directly.
-          - **Narrative Background:** The background must complement the scene and story with clear, large shapes, easy to color.
+          - **Action and Pose:** Describe the exact action and pose (e.g., "crouching, in profile, with an expression of curiosity").
+          - **Thematic Setting:** The setting must be rich and 100% focused on the theme "${theme}".
+          - **Key Interactive Objects (2-3):** List 2-3 clear objects the character interacts with.
+          - **Narrative Background:** The background must complement the story with clear, large shapes, easy to color.
 
       4.  **SAFETY & STYLE RULES:**
           - **Do NOT use sensitive words** like "child," "boy," "baby." Use neutral terms like "friendly figures" or "other characters."
@@ -146,7 +112,7 @@ class VisionService {
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `Create the complete visual story in ${pageCount} scenes for the theme "${theme}". Remember to create a sequential narrative, omit the character's name, and write all prompts in English.`
+            content: `Create the complete visual story in ${pageCount} scenes for the theme "${theme}". Follow ALL directing rules, especially the rule about NOT looking at the camera and omitting the character's name.`
           }
         ],
         max_tokens: 350 * pageCount,
@@ -160,12 +126,13 @@ class VisionService {
       
       console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
       
+      // --- CORREÇÃO: Usando arrow function (=>) para garantir que 'this' se refere à instância da classe VisionService. ---
       const sanitizedPages = result.pages.map(prompt => this.sanitizePromptForSafety(prompt));
       
       return sanitizedPages;
 
     } catch (error) {
-      console.error('[VisionService] Erro ao gerar o roteiro do livro de colorir:', error.message);
+      console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
       throw new Error(`Falha na geração do roteiro: ${error.message}`);
     }
   }

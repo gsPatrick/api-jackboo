@@ -9,13 +9,6 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class AdminBookGeneratorService {
 
-    /**
-     * Ponto de entrada para a criação de livros pelo admin.
-     * O processo agora é síncrono: a função só retorna após a conclusão de todas as etapas.
-     * @param {string} bookType - 'coloring' ou 'story'.
-     * @param {object} generationData - Dados do formulário do admin.
-     * @returns {Book} O objeto do livro recém-criado.
-     */
     static async generateBookPreview(bookType, generationData) {
         const { theme, title, characterId, printFormatId, pageCount, location, summary } = generationData;
 
@@ -60,7 +53,6 @@ class AdminBookGeneratorService {
             throw new Error("Falha ao criar os registros iniciais do livro.");
         }
 
-        // --- GERAÇÃO SÍNCRONA ---
         try {
             console.log(`[AdminGenerator] INICIANDO geração síncrona para o Livro ID: ${book.id}`);
             
@@ -84,10 +76,6 @@ class AdminBookGeneratorService {
         return book;
     }
 
-    /**
-     * Lógica específica para gerar o conteúdo de um livro de colorir.
-     * @param {Book} book - A instância completa do livro com suas associações.
-     */
     static async generateColoringBookContent(book) {
         const bookVariation = book.variations[0];
         const character = book.mainCharacter;
@@ -96,7 +84,7 @@ class AdminBookGeneratorService {
 
         console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
         const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        let characterDescription = 'A cute and friendly character.'; // Fallback
+        let characterDescription = 'A cute and friendly character.';
         try {
             const fetchedDescription = await visionService.describeImage(characterImageUrl);
             if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
@@ -106,15 +94,8 @@ class AdminBookGeneratorService {
             console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
         }
 
-        // --- CORREÇÃO: Chamando a função estática diretamente pela classe 'VisionService' ---
-        // Precisamos importar a classe diretamente ou usar a instância para chamar a função estática
-        // Como o export padrão é `new VisionService()`, a maneira mais limpa é ajustar o export ou chamar via construtor.
-        // A forma mais simples aqui é chamar pela instância, pois o javascript permite isso.
-        // Mas a forma correta seria `VisionService.sanitizeDescriptionForColoring`,
-        // o que requer ajustar o export do serviço. Para simplicidade, vamos usar a instância.
-        const VisionServiceClass = require('../../OpenAI/services/openai.service.js').constructor;
-        
-        const sanitizedDescription = visionService.constructor.sanitizeDescriptionForColoring(characterDescription);
+        // --- CORREÇÃO: Chamando a função diretamente na instância importada, que é a forma correta. ---
+        const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
         console.log(`[AdminGenerator] Descrição sanitizada para prompt: "${sanitizedDescription}"`);
 
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
@@ -125,7 +106,6 @@ class AdminBookGeneratorService {
             pageCount
         );
 
-        // ... (resto da função permanece o mesmo) ...
         if (!pagePrompts || pagePrompts.length === 0) {
             throw new Error('A IA não conseguiu gerar o roteiro. O array de prompts de página está vazio.');
         }
@@ -141,18 +121,9 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
     
-    
-    /**
-     * Função auxiliar que encapsula a lógica de geração de uma única página.
-     * @param {number} bookVariationId 
-     * @param {number} pageNumber 
-     * @param {string} prompt 
-     * @param {string} characterDescription 
-     */
     static async generateSingleColoringPage(bookVariationId, pageNumber, prompt, characterDescription) {
         console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${prompt}`);
         
-        // 1. Cria o registro da página no banco com status 'generating'
         let pageRecord = await BookContentPage.create({
             bookVariationId,
             pageNumber,
@@ -164,17 +135,15 @@ class AdminBookGeneratorService {
             return null; 
         });
 
-        if (!pageRecord) return; // Aborta se a criação do registro falhou
+        if (!pageRecord) return;
 
         try {
-            // 2. Inicia a geração da imagem na API externa, passando a descrição
             const generationId = await leonardoService.startColoringPageGeneration(prompt, characterDescription);
 
-            // 3. Aguarda o resultado (Polling)
             let finalImageUrl = null;
             const MAX_POLLS = 30;
             for (let poll = 0; poll < MAX_POLLS; poll++) {
-                await sleep(5000); // 5 segundos de espera
+                await sleep(5000);
                 const result = await leonardoService.checkGenerationStatus(generationId);
                 if (result.isComplete) {
                     finalImageUrl = result.imageUrl;
@@ -186,7 +155,6 @@ class AdminBookGeneratorService {
                 throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
             }
 
-            // 4. Baixa a imagem e atualiza o registro para 'completed'
             const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
 
             await pageRecord.update({
@@ -197,7 +165,6 @@ class AdminBookGeneratorService {
 
         } catch (pageError) {
             console.error(`[AdminGenerator] Erro ao gerar a página ${pageNumber}:`, pageError.message);
-            // 5. Em caso de erro, atualiza o registro para 'failed'
             await pageRecord.update({
                 status: 'failed',
                 errorDetails: pageError.message,
@@ -205,9 +172,6 @@ class AdminBookGeneratorService {
         }
     }
 
-    /**
-     * Função para buscar um livro completo por ID, usada internamente e pelo controller de preview.
-     */
     static async findBookById(bookId) {
         const book = await Book.findByPk(bookId, {
             include: [
