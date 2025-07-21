@@ -190,16 +190,17 @@ class LeonardoService {
    * @param {string} characterDescription - A descrição visual do personagem.
    * @returns {Promise<string>} O ID do job de geração.
    */
-    async startColoringPageGeneration(pagePrompt, characterDescription) { 
+async startColoringPageGeneration(pagePrompt, characterDescription) { 
      const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
+      // --- CORREÇÃO: Adicionando um negativePrompt forte para garantir a arte de linha ---
+      negativePrompt: "color, shading, gray, shadows, detailed textures, photorealistic, complex patterns, gradients, colored pencils, watercolor",
       
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       
-      // --- CORREÇÃO CRÍTICA: Revertendo para a estrutura correta com 'elements' e 'userElements' separados. ---
       elements: [
         {
           akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
@@ -208,18 +209,17 @@ class LeonardoService {
       ],
       userElements: [ 
         {
-          userLoraId: 106054, // O ID do seu LoRA 'jackboo'
-          weight: 1.2 // Peso alto para garantir a aparência do personagem
+          userLoraId: 106054, // jackboo
+          weight: 1.2
         }
       ],
-      // --- FIM DA CORREÇÃO ---
       
       num_images: 1,
       width: 1024,
       height: 1024,
       contrast: 2.5,
       scheduler: "LEONARDO",
-      guidance_scale: 7, // Mantido para ajudar a IA a seguir o prompt de perto
+      guidance_scale: 7,
       public: true,
       nsfw: true,
       ultra: false,
@@ -244,8 +244,8 @@ class LeonardoService {
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
       if (axios.isAxiosError(error)) {
-        console.error('Axios Error Config:', error.config);
-        console.error('Axios Error Response Data:', error.response?.data);
+          console.error('Axios Error Config:', error.config);
+          console.error('Axios Error Response Data:', error.response?.data);
       }
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }

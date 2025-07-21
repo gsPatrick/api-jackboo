@@ -59,29 +59,36 @@ class VisionService {
    * @param {number} pageCount - O número de páginas a serem geradas.
    * @returns {Promise<string[]>} Um array de prompts de ilustração.
    */
+   /**
+   * Gera uma lista de prompts para as páginas de um livro de colorir.
+   */
   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO: O prompt do sistema agora usa a descrição do personagem ---
-      const systemPrompt = `Você é um roteirista especialista em criar livros de colorir para crianças. Sua tarefa é criar um roteiro com ${pageCount} cenas para um livro sobre o personagem "${characterName}" com o tema "${theme}".
+      // --- CORREÇÃO: Prompt do sistema radicalmente mais detalhado e prescritivo ---
+      const systemPrompt = `Você é um diretor de arte especialista em criar livros de colorir infantis de alta qualidade. Sua tarefa é criar um roteiro com ${pageCount} cenas detalhadas para um livro sobre o personagem "${characterName}" e o tema "${theme}".
 
-      INFORMAÇÕES VISUAIS DO PERSONAGEM (use para manter a consistência): "${characterDescription}".
+      INFORMAÇÕES VISUAIS DO PERSONAGEM (essencial para consistência): "${characterDescription}".
 
-      REGRAS PARA CADA CENA (PROMPT):
-      1.  **Foco em Ação Simples:** Cada prompt deve descrever uma ação clara e simples que "${characterName}" está fazendo. Ex: "${characterName} constrói um castelo de areia", "${characterName} decora uma árvore".
-      2.  **Ambiente Rico, mas Aberto:** Descreva o cenário ao redor, mas deixe espaços abertos para a criança colorir. Ex: "...na praia com conchas espalhadas", "...na floresta com cogumelos e flores".
-      3.  **Ideal para Colorir:** As descrições devem resultar em imagens com contornos claros e áreas bem definidas, ideais para um livro de colorir. Não descreva sombras, cores ou texturas complexas.
-      4.  **Formato JSON OBRIGATÓRIO:** Sua resposta deve ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt para uma página.`;
+      **REGRAS OBRIGATÓRIAS PARA CADA CENA (PROMPT):**
+
+      1.  **PERSONAGEM CENTRAL:** O personagem "${characterName}" deve ser o foco claro da cena, sempre realizando uma ação específica e com uma expressão facial clara (ex: sorrindo, surpreso, concentrado).
+      2.  **AÇÃO E AMBIENTE DETALHADOS:** Descreva a cena com minúcia. Em vez de "decorando a árvore", diga "está na ponta dos pés, pendurando um enfeite em forma de estrela no galho mais alto de um grande pinheiro".
+      3.  **OBJETOS ESPECÍFICOS:** Liste de 2 a 3 objetos secundários importantes na cena para evitar que a IA invente elementos estranhos. (ex: "No chão, há uma caixa de enfeites aberta e um trenó de madeira.").
+      4.  **COMPOSIÇÃO CLARA:** Descreva a cena pensando em primeiro plano, plano de fundo e composição geral para criar uma imagem equilibrada e fácil de entender.
+      5.  **FOCO EM "COLORIBILIDADE":** Todas as descrições devem resultar em imagens com contornos pretos, grossos e bem definidos, com áreas de bom tamanho para as crianças pintarem.
+      6.  **PROIBIÇÕES ABSOLUTAS:** NUNCA mencione cores, sombras, gradientes, texturas complexas ou qualquer tipo de preenchimento. A imagem final deve ser 100% arte de linha (line art).
+      7.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt detalhado para uma página.`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena agora para "${characterName}" no tema "${theme}".` }
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena detalhados agora para "${characterName}" no tema "${theme}".` }
         ],
-        max_tokens: 150 * pageCount,
+        max_tokens: 250 * pageCount, // Aumenta os tokens para permitir respostas mais detalhadas
       });
 
       const result = JSON.parse(response.choices[0].message.content);
