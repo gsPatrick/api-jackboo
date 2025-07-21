@@ -27,33 +27,35 @@ class AdminBookGeneratorService {
         if (!character) throw new Error("Personagem principal não encontrado.");
 
         let book;
+        const t = await sequelize.transaction();
         try {
-            await sequelize.transaction(async (t) => {
-                book = await Book.create({
-                    authorId: ADMIN_USER_ID,
-                    title,
-                    mainCharacterId: characterId,
-                    printFormatId,
-                    status: 'gerando',
-                    genre: theme,
-                    storyPrompt: { theme, location, summary }
-                }, { transaction: t });
+            book = await Book.create({
+                authorId: ADMIN_USER_ID,
+                title,
+                mainCharacterId: characterId,
+                printFormatId,
+                status: 'gerando',
+                genre: theme,
+                storyPrompt: { theme, location, summary }
+            }, { transaction: t });
 
-                let dbBookType = bookType === 'coloring' ? 'colorir' : 'historia';
-                if (!['colorir', 'historia'].includes(dbBookType)) {
-                    throw new Error(`Tipo de livro desconhecido: ${bookType}`);
-                }
+            let dbBookType = bookType === 'coloring' ? 'colorir' : 'historia';
+            if (!['colorir', 'historia'].includes(dbBookType)) {
+                throw new Error(`Tipo de livro desconhecido: ${bookType}`);
+            }
 
-                await BookVariation.create({
-                    bookId: book.id,
-                    type: dbBookType,
-                    format: 'digital_pdf',
-                    price: 0.00,
-                    coverUrl: character.generatedCharacterUrl,
-                    pageCount: parseInt(pageCount),
-                }, { transaction: t });
-            });
+            await BookVariation.create({
+                bookId: book.id,
+                type: dbBookType,
+                format: 'digital_pdf',
+                price: 0.00,
+                coverUrl: character.generatedCharacterUrl,
+                pageCount: parseInt(pageCount),
+            }, { transaction: t });
+
+            await t.commit();
         } catch (error) {
+            await t.rollback();
             console.error("[AdminGenerator] Erro ao criar a estrutura do livro no DB:", error);
             throw new Error("Falha ao criar os registros iniciais do livro.");
         }
@@ -92,28 +94,30 @@ class AdminBookGeneratorService {
         const pageCount = bookVariation.pageCount;
         const theme = book.genre;
 
-        // 1. Obter a descrição visual do personagem para dar contexto à IA
+        // 1. Obter a descrição visual do personagem
         console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
         const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        // Envolve em um try/catch para não quebrar a geração se a OpenAI bloquear a imagem
-        let characterDescription = 'Um personagem fofo e amigável.'; // Descrição padrão
+        let characterDescription = 'Um personagem fofo e amigável.';
         try {
             const fetchedDescription = await visionService.describeImage(characterImageUrl);
             if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
                 characterDescription = fetchedDescription;
             }
         } catch (descError) {
-            console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual do personagem. Usando descrição padrão. Erro: ${descError.message}`);
+            console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
         }
 
         // 2. Gerar o roteiro UMA ÚNICA VEZ, com a descrição
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
+        
+        // --- CORREÇÃO DA ORDEM DOS ARGUMENTOS AQUI ---
         const pagePrompts = await visionService.generateColoringBookStoryline(
-            character.name,
-            characterDescription, // Passa a descrição para a IA
-            theme, 
-            pageCount
+            character.name,         // 1. characterName
+            characterDescription,   // 2. characterDescription
+            theme,                  // 3. theme
+            pageCount               // 4. pageCount
         );
+        // --- FIM DA CORREÇÃO ---
 
         // 3. Criar um array de promessas para gerar todas as páginas em paralelo
         const pageGenerationPromises = pagePrompts.map((prompt, index) => {
@@ -121,6 +125,7 @@ class AdminBookGeneratorService {
             return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt);
         });
 
+        // 4. Espera todas as páginas serem geradas
         await Promise.all(pageGenerationPromises);
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
