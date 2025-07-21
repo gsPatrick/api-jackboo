@@ -88,49 +88,49 @@ class AdminBookGeneratorService {
      * Lógica específica para gerar o conteúdo de um livro de colorir.
      * @param {Book} book - A instância completa do livro com suas associações.
      */
-    static async generateColoringBookContent(book) {
+       static async generateColoringBookContent(book) {
         const bookVariation = book.variations[0];
         const character = book.mainCharacter;
         const pageCount = bookVariation.pageCount;
         const theme = book.genre;
 
-        // 1. Obter a descrição visual do personagem
         console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
         const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        let characterDescription = 'Um personagem fofo e amigável.'; // Descrição fallback
+        let characterDescription = 'Um personagem fofo e amigável.'; // Fallback
         try {
             const fetchedDescription = await visionService.describeImage(characterImageUrl);
             if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
-                // Limpa a descrição para ser usada nos prompts
                 characterDescription = fetchedDescription.replace(/\n/g, ' ').replace(/-/g, '').trim();
             }
         } catch (descError) {
             console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
         }
 
-        // 2. Gerar o roteiro com a descrição
+        // --- CORREÇÃO: Sanitizando a descrição para remover todas as palavras de cor ---
+        const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
+        console.log(`[AdminGenerator] Descrição sanitizada para prompt: "${sanitizedDescription}"`);
+
+        // 2. Gerar o roteiro com a descrição JÁ SANITIZADA
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
         const pagePrompts = await visionService.generateColoringBookStoryline(
             character.name,
-            characterDescription,
+            sanitizedDescription, // Usa a versão limpa
             theme,
             pageCount
         );
 
-        // Validação de robustez
         if (!pagePrompts || pagePrompts.length === 0) {
             throw new Error('A IA não conseguiu gerar o roteiro. O array de prompts de página está vazio.');
         }
 
         console.log(`[AdminGenerator] Roteiro com ${pagePrompts.length} páginas recebido. Iniciando geração das imagens...`);
 
-        // 3. Criar um array de promessas, passando a descrição para cada geração de página
+        // 3. Criar promessas, passando a descrição SANITIZADA para cada geração
         const pageGenerationPromises = pagePrompts.map((prompt, index) => {
             const pageNumber = index + 1;
-            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt, characterDescription);
+            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt, sanitizedDescription); // Usa a versão limpa
         });
 
-        // 4. Espera todas as páginas serem geradas
         await Promise.all(pageGenerationPromises);
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }

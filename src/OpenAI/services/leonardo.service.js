@@ -181,12 +181,11 @@ class LeonardoService {
    * @param {string} characterDescription - A descrição visual do personagem.
    * @returns {Promise<string>} O ID do job de geração.
    */
-  async startColoringPageGeneration(pagePrompt, characterDescription) { 
+ async startColoringPageGeneration(pagePrompt, characterDescription) { 
      const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
-      // O campo 'negativePrompt' foi removido daqui pois causa erro com o modelo FLUX_DEV
       
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
@@ -194,7 +193,8 @@ class LeonardoService {
       elements: [
         {
           akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
-          weight: 1.0 
+          // --- CORREÇÃO: Ajustando o peso conforme sua descoberta para um estilo perfeito. ---
+          weight: 0.10 
         }
       ],
       userElements: [ 
@@ -235,14 +235,11 @@ class LeonardoService {
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
       if (axios.isAxiosError(error)) {
         console.error('Axios Error Config:', error.config);
-        console.error('Axios Error Request Headers:', error.config.headers);
         console.error('Axios Error Response Data:', error.response?.data);
       }
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
-
-
 }
 
 module.exports = new LeonardoService();

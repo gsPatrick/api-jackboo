@@ -10,6 +10,25 @@ class VisionService {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
+
+  /**
+   * --- NOVA FUNÇÃO: Remove todas as menções de cores de uma descrição. ---
+   * @param {string} description - A descrição original do personagem.
+   * @returns {string} A descrição sem palavras de cor.
+   */
+  sanitizeDescriptionForColoring(description) {
+    if (!description) return '';
+    const colorWords = [
+      'amarela', 'amarelo', 'laranja', 'azul', 'azuis', 'marrom', 'verde', 
+      'vermelho', 'rosa', 'preto', 'branco', 'cinza', 'roxo', 'violeta', 
+      'dourado', 'prateado', 'colorido', 'colorida'
+    ];
+    // Cria uma expressão regular para encontrar qualquer uma dessas palavras inteiras, ignorando maiúsculas/minúsculas
+    const regex = new RegExp('\\b(' + colorWords.join('|') + ')\\b', 'gi');
+    // Substitui as cores por nada e limpa espaços duplos
+    return description.replace(regex, '').replace(/\s\s+/g, ' ').trim();
+  }
+
   
 
  async describeImage(imageUrl) {
@@ -69,44 +88,29 @@ class VisionService {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO: Prompt do sistema aprimorado para focar em dinamismo e interação ---
-      const systemPrompt = `Você é um diretor de arte e roteirista sênior, especialista em criar roteiros visuais para livros de colorir infantis premium. Sua tarefa é criar ${pageCount} cenas VIVAS e DINÂMICAS para um livro sobre o personagem "${characterName}" e o tema "${theme}".
+      // --- CORREÇÃO: Prompt do sistema focado em simplicidade e clareza para crianças. ---
+      const systemPrompt = `Você é um autor e ilustrador de livros de colorir para crianças de 3 a 6 anos. Sua especialidade é criar cenas CLARAS, SIMPLES e DIVERTIDAS. Sua tarefa é criar ${pageCount} cenas para um livro sobre o personagem "${characterName}" com o tema "${theme}".
 
-      INFORMAÇÕES VISUAIS DO PERSONAGEM (essencial para consistência): "${characterDescription}".
+      INFORMAÇÕES VISUAIS DO PERSONAGEM (use para manter a consistência da forma): "${characterDescription}".
 
-      **REGRAS CRÍTICAS PARA CADA CENA (PROMPT):**
+      **REGRAS OBRIGATÓRIAS PARA CADA CENA (PROMPT):**
 
-      1.  **DINAMISMO E INTERAÇÃO (REGRA MAIS IMPORTANTE):**
-          - O personagem NUNCA deve estar estático ou apenas posando.
-          - Ele deve estar sempre **ativamente INTERAGINDO** com objetos ou com o ambiente.
-          - **Varie os ângulos e poses:** mostre "${characterName}" de lado, correndo, pulando, agachado, olhando para cima, de costas, em close-up, etc. A ação é o centro de tudo.
-
-      2.  **DETALHES VÍVIDOS E ESPECÍFICOS:**
-          - Seja um "pintor de palavras". Descreva CADA elemento visual importante.
-          - Especifique a **pose exata**, a **expressão facial**, os **objetos principais (2-3)** e o **plano de fundo**.
-          - Exemplo RUIM: 'Jack decora a árvore'.
-          - Exemplo ÓTIMO: 'Jack, com uma expressão de pura alegria, está em cima de um banquinho de madeira, esticando o braço para colocar uma grande estrela no topo do pinheiro de Natal. No chão, uma caixa de enfeites aberta e um pequeno trenó de madeira aguardam.'
-
-      3.  **COMPOSIÇÃO E PROFUNDIDADE:**
-          - Pense como um cineasta. Descreva a cena com um **primeiro plano, plano principal e fundo** para criar uma imagem rica e com profundidade.
-
-      4.  **FOCO EM "COLORIBILIDADE":**
-          - Todas as descrições devem resultar em imagens com contornos pretos, grossos e bem definidos, com áreas de bom tamanho para as crianças pintarem.
-
-      5.  **PROIBIÇÕES ABSOLUTAS:**
-          - NUNCA mencione cores, sombras, gradientes, texturas complexas ou qualquer tipo de preenchimento. A imagem final deve ser 100% arte de linha (line art).
-
-      6.  **FORMATO JSON OBRIGATÓRIO:**
-          - Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt detalhado para uma página.`;
+      1.  **SIMPLICIDADE É REI:** As cenas devem ter poucos elementos. O foco é sempre no personagem principal. Evite fundos muito cheios ou complexos.
+      2.  **FORMAS GRANDES E CLARAS:** Descreva objetos com formas grandes e contornos bem definidos. Pense em algo que uma criança pequena consiga pintar sem frustração.
+      3.  **AÇÃO CLARA E ÚNICA:** Cada página deve mostrar "${characterName}" fazendo UMA ação principal e fácil de entender (ex: empilhando um bloco, cheirando uma flor, abraçando um urso de pelúcia).
+      4.  **INTERAÇÃO DIRETA:** O personagem deve interagir diretamente com 1 ou 2 objetos principais. Exemplo: "Jack, com um sorriso gentil, está sentado no chão e cuidadosamente colocando um bloco triangular no topo de uma pequena torre de três blocos."
+      5.  **EVITAR ALUCINAÇÕES:** Seja específico sobre os 2-3 elementos mais importantes da cena para que a IA não invente detalhes estranhos.
+      6.  **PROIBIÇÕES ABSOLUTAS:** NUNCA mencione cores, sombras, gradientes, ou texturas. A imagem final deve ser 100% arte de linha (line art) preta sobre um fundo branco.
+      7.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt para uma página.`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena dinâmicos e detalhados agora para "${characterName}" no tema "${theme}".` }
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena simples e claros agora para "${characterName}" no tema "${theme}".` }
         ],
-        max_tokens: 300 * pageCount, // Aumenta ainda mais para garantir prompts super detalhados
+        max_tokens: 200 * pageCount, // Ajustado para prompts mais concisos
       });
 
       const result = JSON.parse(response.choices[0].message.content);
