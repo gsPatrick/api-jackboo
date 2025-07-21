@@ -84,33 +84,39 @@ class VisionService {
 /**
    * Gera uma lista de prompts para as páginas de um livro de colorir.
    */
+  /**
+   * Gera uma lista de prompts para as páginas de um livro de colorir.
+   */
   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO: Prompt do sistema focado em simplicidade e clareza para crianças. ---
-      const systemPrompt = `Você é um autor e ilustrador de livros de colorir para crianças de 3 a 6 anos. Sua especialidade é criar cenas CLARAS, SIMPLES e DIVERTIDAS. Sua tarefa é criar ${pageCount} cenas para um livro sobre o personagem "${characterName}" com o tema "${theme}".
+      // --- CORREÇÃO FINAL: Usando a estrutura de "Checklist" inspirada no seu prompt de sucesso. ---
+      const systemPrompt = `Você é um diretor de arte e roteirista para uma editora de livros de colorir. Sua tarefa é criar ${pageCount} prompts de cena para um livro com o tema "${theme}" e o personagem principal "${characterName}".
 
-      INFORMAÇÕES VISUAIS DO PERSONAGEM (use para manter a consistência da forma): "${characterDescription}".
+      DESCRIÇÃO VISUAL DO PERSONAGEM (para forma e consistência): "${characterDescription}".
 
-      **REGRAS OBRIGATÓRIAS PARA CADA CENA (PROMPT):**
+      **INSTRUÇÕES PARA CADA CENA:**
+      Para cada uma das ${pageCount} páginas, você deve criar um prompt que siga rigorosamente este checklist de 5 pontos:
+      1.  **AÇÃO DO PERSONAGEM:** Descreva uma ação clara, expressiva e dinâmica que "${characterName}" está fazendo. Ele deve sempre estar interagindo com o ambiente. Varie as poses e ângulos.
+      2.  **CENÁRIO ÚNICO:** Defina um cenário claro e imaginativo que se encaixe no tema "${theme}" (ex: oficina do Papai Noel, campo nevado, sala de estar decorada).
+      3.  **OBJETOS INTERATIVOS (2-3):** Liste 2 ou 3 objetos específicos com os quais o personagem está interagindo ou que são importantes na cena (ex: um presente, um enfeite, uma carta, um biscoito).
+      4.  **FUNDO NARRATIVO:** Descreva o plano de fundo de uma forma que conte parte da história e adicione profundidade, mas mantendo-o simples e com áreas abertas para colorir.
+      5.  **ATMOSFERA:** A cena deve ter uma atmosfera amigável, imaginativa e divertida.
 
-      1.  **SIMPLICIDADE É REI:** As cenas devem ter poucos elementos. O foco é sempre no personagem principal. Evite fundos muito cheios ou complexos.
-      2.  **FORMAS GRANDES E CLARAS:** Descreva objetos com formas grandes e contornos bem definidos. Pense em algo que uma criança pequena consiga pintar sem frustração.
-      3.  **AÇÃO CLARA E ÚNICA:** Cada página deve mostrar "${characterName}" fazendo UMA ação principal e fácil de entender (ex: empilhando um bloco, cheirando uma flor, abraçando um urso de pelúcia).
-      4.  **INTERAÇÃO DIRETA:** O personagem deve interagir diretamente com 1 ou 2 objetos principais. Exemplo: "Jack, com um sorriso gentil, está sentado no chão e cuidadosamente colocando um bloco triangular no topo de uma pequena torre de três blocos."
-      5.  **EVITAR ALUCINAÇÕES:** Seja específico sobre os 2-3 elementos mais importantes da cena para que a IA não invente detalhes estranhos.
-      6.  **PROIBIÇÕES ABSOLUTAS:** NUNCA mencione cores, sombras, gradientes, ou texturas. A imagem final deve ser 100% arte de linha (line art) preta sobre um fundo branco.
-      7.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt para uma página.`;
+      **EXEMPLO DE UM BOM PROMPT:**
+      "${characterName} está no sótão, com uma expressão de surpresa, segurando um mapa antigo enrolado que acabou de encontrar. Objetos ao redor: caixas empoeiradas e livros antigos. Fundo: teias de aranha nos cantos e uma janela redonda mostrando a lua."
+
+      **FORMATO OBRIGATÓRIO:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt completo para uma página.`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena simples e claros agora para "${characterName}" no tema "${theme}".` }
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena agora para "${characterName}" no tema "${theme}", seguindo o checklist rigorosamente.` }
         ],
-        max_tokens: 200 * pageCount, // Ajustado para prompts mais concisos
+        max_tokens: 300 * pageCount,
       });
 
       const result = JSON.parse(response.choices[0].message.content);
