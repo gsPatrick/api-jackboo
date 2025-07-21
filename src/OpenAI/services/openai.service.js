@@ -87,51 +87,60 @@ class VisionService {
   /**
    * Gera uma lista de prompts para as páginas de um livro de colorir.
    */
-   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
+  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO FINAL: Prompt de "Diretor de Arte Exigente" ---
-      const systemPrompt = `Você é um diretor de arte e roteirista sênior para uma editora de livros de colorir de alta qualidade, como a "Bobby Goodes". Sua tarefa é criar ${pageCount} prompts de cena VIVAS e IMERSIVAS para um livro com o tema "${theme}" e o personagem principal "${characterName}".
+      // --- CORREÇÃO FINAL: O "Prompt Definitivo" que incorpora todas as sugestões avançadas ---
+      const systemPrompt = `Você é um diretor de arte e roteirista sênior para uma editora de livros de colorir premium, criando conteúdo para crianças de 4 a 7 anos. Sua tarefa é criar ${pageCount} prompts de cena para um livro com o tema central "${theme}" e o personagem principal "${characterName}".
 
       DESCRIÇÃO VISUAL DO PERSONAGEM (para forma e consistência): "${characterDescription}".
 
       **DIRETRIZES RÍGIDAS PARA CADA CENA:**
-      Para cada uma das ${pageCount} páginas, o prompt gerado deve seguir este checklist de 6 pontos sem exceção:
+      Para cada uma das ${pageCount} páginas, o prompt gerado deve seguir este checklist de 7 pontos sem exceção:
 
       1.  **AÇÃO IMERSIVA (REGRA DE OURO):**
-          - O personagem NUNCA deve quebrar a "quarta parede" ou olhar para o leitor. Ele deve estar completamente imerso na cena.
-          - Descreva a ação e o foco do personagem. Se ele está escrevendo uma carta, ele deve estar olhando para a carta. Se está decorando uma árvore, deve estar olhando para o enfeite.
-          - A ação deve ser dinâmica (correndo, pulando, agachado, esticando-se, etc.).
+          - O personagem NUNCA deve quebrar a "quarta parede" (olhar para o leitor). Ele deve estar completamente focado e imerso na cena, interagindo com objetos ou com o ambiente.
+          - A ação deve ser dinâmica e expressiva (correndo, pulando, agachado, olhando curioso para algo, etc.).
 
       2.  **CENÁRIO TEMÁTICO:**
-          - O cenário deve ser claramente identificável e 100% relacionado ao tema "${theme}".
-          - Exemplo para o tema "Natal": não apenas "uma sala", mas "uma sala de estar aconchegante com uma lareira crepitante e guirlandas nas paredes".
+          - O cenário deve ser 100% relacionado ao tema "${theme}". Cada detalhe do fundo deve reforçar a história.
 
-      3.  **OBJETOS INTERATIVOS ESPECÍFICOS (2-3):**
-          - Liste 2 ou 3 objetos claros e bem definidos com os quais o personagem interage diretamente. Isso evita que a IA invente elementos estranhos.
-          - Exemplo: "Ele segura um biscoito em forma de estrela e uma bisnaga de glacê."
+      3.  **OBJETOS INTERATIVOS (2-3):**
+          - Liste 2 ou 3 objetos claros e bem definidos com os quais o personagem interage diretamente.
 
-      4.  **FUNDO RICO E COERENTE:**
-          - O fundo deve complementar a cena e o tema. Se a cena é na cozinha, o fundo deve ter armários de cozinha, uma janela, talvez um pote de farinha.
-          - O fundo deve ser simples o suficiente para colorir, com formas claras e sem excesso de detalhes.
+      4.  **FUNDO NARRATIVO:**
+          - Descreva o fundo de forma a complementar a cena, com formas grandes e claras, fáceis de colorir, e com poucos elementos (máximo de 6 elementos visuais principais por página).
 
-      5.  **ESTILO DE ARTE (Para a IA de Imagem):**
-          - O resultado deve ser uma página de livro de colorir com contornos pretos, grossos e limpos. Sem cor, sem sombras, sem texturas. Estilo amigável e imaginativo.
+      5.  **PROIBIÇÃO DE OBJETOS GENÉRICOS:**
+          - Não incluir formas geométricas aleatórias, círculos flutuando ou objetos sem função clara. Tudo na cena deve ser compreensível por uma criança.
 
-      6.  **ATMOSFERA:**
+      6.  **ESTILO DE ARTE:**
+          - O resultado deve ser uma composição rica em ação, mas para uma página de livro de colorir com contornos pretos, grossos e limpos. Sem cor, sombras ou texturas.
+
+      7.  **ATMOSFERA:**
           - A cena deve transmitir uma emoção clara (alegria, concentração, surpresa, etc.).
 
-      **FORMATO OBRIGATÓRIO:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt completo para uma página.`;
+      **ESTRUTURA OBRIGATÓRIA DA DESCRIÇÃO:**
+      - Cada prompt deve ter de 4 a 6 linhas descritivas.
+      - Nunca comece a descrição com o nome do personagem. Comece com a ação principal da cena.
+      - Mantenha o foco na coerência entre ação, cenário, objetos e fundo.
+
+      **FORMATO OBRIGATÓRIO DA RESPOSTA:**
+      Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt completo para uma página.`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena imersivos e detalhados agora para "${characterName}" no tema "${theme}", seguindo o checklist rigorosamente.` }
+          {
+            role: "user",
+            // --- CORREÇÃO: Adicionando o reforço do tema no prompt do usuário ---
+            content: `O tema principal é "${theme}" com o personagem "${characterName}". Gere a lista de ${pageCount} prompts de cena, seguindo rigorosamente o checklist e a estrutura de descrição.`
+          }
         ],
-        max_tokens: 350 * pageCount, // Um pouco mais de espaço para garantir a riqueza dos detalhes
+        max_tokens: 350 * pageCount,
       });
 
       const result = JSON.parse(response.choices[0].message.content);
