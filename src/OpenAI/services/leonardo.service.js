@@ -182,7 +182,8 @@ class LeonardoService {
    * @returns {Promise<string>} O ID do job de geração.
    */
  async startColoringPageGeneration(pagePrompt, characterDescription) { 
-     const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
+     // --- CORREÇÃO: Removida a palavra "for children" para maior segurança e melhor interpretação. ---
+     const finalLeonardoPrompt = `coloring book page, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
@@ -193,14 +194,13 @@ class LeonardoService {
       elements: [
         {
           akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
-          // --- CORREÇÃO: Ajustando o peso conforme sua descoberta para um estilo perfeito. ---
           weight: 0.10 
         }
       ],
       userElements: [ 
         {
           userLoraId: 106054, // jackboo
-          weight: 1.2
+          weight: 0.80
         }
       ],
       
@@ -240,6 +240,7 @@ class LeonardoService {
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
+
 }
 
 module.exports = new LeonardoService();

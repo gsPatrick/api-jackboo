@@ -90,68 +90,43 @@ class VisionService {
  /**
    * Gera uma lista de prompts para as páginas de um livro de colorir com uma narrativa coesa.
    */
-  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
+   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO FINAL: O "Prompt de Roteirista-Chefe" com foco em narrativa sequencial ---
-const systemPrompt = `Você é um roteirista-chefe e diretor de arte de uma editora de livros de colorir premium. Sua missão é criar uma **história visual sequencial e imersiva** dividida em ${pageCount} cenas ilustradas para um livro com o tema **"${theme}"**.
+      // --- CORREÇÃO FINAL: O "Prompt de Diretor de Cinema" com saída em INGLÊS ---
+      const systemPrompt = `You are a senior art director and storyboarder for a premium coloring book publisher. Your task is to create a complete and sequential visual story in ${pageCount} scenes for a book with the theme "${theme}".
 
-O personagem principal se chama "${characterName}" e possui a seguinte descrição visual: "${characterDescription}". **ATENÇÃO: nunca mencione o nome dele nas descrições.**
+      THE MAIN CHARACTER:
+      - His name is "${characterName}" (NEVER use his name in the final output).
+      - His visual description is: "${characterDescription}".
 
----
+      **NON-NEGOTIABLE DIRECTIONAL RULES:**
 
-**REGRAS FUNDAMENTAIS E INEGOCIÁVEIS:**
+      1.  **COMPLETE NARRATIVE ARC:**
+          - The ${pageCount} scenes must tell a clear story with a beginning, middle, and end. Create a logical and emotional progression.
+          - The first scene must introduce the setting and the character's initial motivation.
+          - The middle scenes must develop the journey with actions, discoveries, or small challenges.
+          - The final scene must provide a satisfying and coherent visual conclusion to the narrative.
 
-1. **ARCO NARRATIVO COMPLETO:**
-   - As ${pageCount} páginas devem contar uma história clara com **início, meio e fim**, com progressão lógica e emocional.
-   - A primeira cena deve **apresentar o ambiente e a motivação inicial** do personagem.
-   - As cenas intermediárias devem **desenvolver a jornada com ações, descobertas ou pequenos desafios**.
-   - A cena final deve apresentar uma **conclusão visual satisfatória e coerente** com a narrativa.
+      2.  **TOTAL IMMERSION (THE GOLDEN RULE):**
+          - The character must NEVER break the "fourth wall" or look at the reader. He must be completely immersed in the scene.
+          - **Direct the Gaze:** Describe where the character is looking. Ex: "looking at the star he is holding," "looking down at the cookie dough."
+          - **Constant Action and Interaction:** The character must always be in motion or interacting with something. Crouching, jumping, running, focused, surprised. No static poses.
 
-2. **CONSISTÊNCIA VISUAL TOTAL:**
-   - O personagem principal **deve manter exatamente a mesma aparência, roupa e idade** ao longo de todas as páginas.
-   - **Não pode parecer mais velho, mais novo, maior ou menor** de uma página para outra.
-   - O design visual do personagem é fixo e inalterável.
+      3.  **DETAILED SCENE CHECKLIST (for each page):**
+          - **Action and Pose:** Describe the exact action and pose of the character (e.g., "crouching, in profile, with an expression of curiosity").
+          - **Thematic Setting:** The setting must be rich, detailed, and 100% focused on the theme "${theme}".
+          - **Key Interactive Objects (2-3):** List 2-3 clear objects the character interacts with directly.
+          - **Narrative Background:** The background must complement the scene and story with clear, large shapes, easy to color.
 
-3. **IMERSÃO ABSOLUTA:**
-   - O personagem **nunca deve olhar para a "câmera" ou interagir com o leitor**. 
-   - Ele deve estar **vivendo plenamente a história**, olhando para o que faz sentido dentro da cena (outros personagens, objetos, ações, cenários).
+      4.  **SAFETY & STYLE RULES:**
+          - **Do NOT use sensitive words** like "child," "boy," "baby." Use neutral terms like "friendly figures" or "other characters."
+          - The style is LINE ART for a coloring book. No color, no shadows.
 
-4. **RICOS DETALHES VISUAIS EM TODAS AS CENAS:**
-   Para cada página, você deve descrever os seguintes elementos com riqueza e coerência:
-
-   - **Ação principal:** Uma ação clara, expressiva e significativa que move a narrativa.
-   - **Cenário:** Deve ser **detalhado, coerente com a cena anterior e 100% focado no tema "${theme}"**. Nunca reutilize fundo genérico.
-   - **Objetos interativos:** Inclua **2 a 3 elementos relevantes** para a história que o personagem pode tocar, usar ou reagir.
-   - **Fundo:** O fundo **nunca pode ser genérico ou vazio**. Ele deve reforçar o ambiente da cena e conter formas interessantes para colorir.
-
-5. **SEM TEXTO NAS IMAGENS:**
-   - **Não pode haver nenhuma palavra, letra ou símbolo textual** nos desenhos.
-   - Tudo deve ser transmitido apenas com ação, ambientação e narrativa visual.
-
-6. **SEM MENÇÃO AO NOME DO PERSONAGEM:**
-   - Durante toda a descrição, **nunca utilize o nome "${characterName}"**.
-   - Refira-se a ele apenas como “o personagem principal” ou “o personagem”.
-
----
-
-**SAÍDA OBRIGATÓRIA:**
-
-Retorne a resposta como um objeto JSON com uma única chave \`"pages"\`, cujo valor é um array com ${pageCount} strings, cada uma representando um prompt visual descritivo completo de uma página da história.
-
-**Exemplo da estrutura esperada:**
-{
-  "pages": [
-    "Prompt da página 1...",
-    "Prompt da página 2...",
-    "...",
-    "Prompt da página ${pageCount}"
-  ]
-}
-
-**Reforce o tema "${theme}" em todas as cenas**. Cada página deve ser visualmente poderosa, logicamente conectada e perfeitamente coerente com a anterior.`;
-
+      **MANDATORY OUTPUT FORMAT:**
+      Your response MUST be a JSON object with a single key "pages", which is an array of ${pageCount} strings. Each string is a complete and detailed scene prompt, **WRITTEN ENTIRELY IN ENGLISH**.`;
+      
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
@@ -159,7 +134,7 @@ Retorne a resposta como um objeto JSON com uma única chave \`"pages"\`, cujo va
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `Crie a história visual completa em ${pageCount} cenas para o tema "${theme}". Lembre-se de criar uma narrativa sequencial e de omitir o nome do personagem nos prompts finais.`
+            content: `Create the complete visual story in ${pageCount} scenes for the theme "${theme}". Remember to create a sequential narrative, omit the character's name, and write all prompts in English.`
           }
         ],
         max_tokens: 350 * pageCount,
@@ -172,7 +147,10 @@ Retorne a resposta como um objeto JSON com uma única chave \`"pages"\`, cujo va
       }
       
       console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
-      return result.pages.slice(0, pageCount);
+      
+      const sanitizedPages = result.pages.map(prompt => this.sanitizePromptForSafety(prompt));
+      
+      return sanitizedPages;
 
     } catch (error) {
       console.error('[VisionService] Erro ao gerar o roteiro do livro de colorir:', error.message);
