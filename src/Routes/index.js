@@ -46,6 +46,6 @@ router.use('/admin/openai-settings', adminOpenAISettingRoutes);
 router.use('/admin/assets', adminAssetRoutes); // <-- NOVO: Adicionar rotas Admin de Assets
 router.use('/admin/generator', adminGeneratorRoutes); // <-- NOVO
 router.use('/admin/assets', adminAssetRoutes);
-app.use('/api/admin/books', adminBookRoutes); // Diga ao Express para usar as rotas de livros
+router.use('/api/admin/books', adminBookRoutes); // Diga ao Express para usar as rotas de livros
 
 module.exports = router;
