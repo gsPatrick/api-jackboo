@@ -190,8 +190,7 @@ class LeonardoService {
    * @param {string} characterDescription - A descrição visual do personagem.
    * @returns {Promise<string>} O ID do job de geração.
    */
-  async startColoringPageGeneration(pagePrompt, characterDescription) { 
-     // --- CORREÇÃO: O prompt final agora inclui a descrição visual para reforçar a identidade. ---
+    async startColoringPageGeneration(pagePrompt, characterDescription) { 
      const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
 
     const generationPayload = {
@@ -200,25 +199,27 @@ class LeonardoService {
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       
-      // --- CORREÇÃO CRÍTICA: Unificar o estilo e o personagem em um único array 'elements'. ---
+      // --- CORREÇÃO CRÍTICA: Revertendo para a estrutura correta com 'elements' e 'userElements' separados. ---
       elements: [
         {
-          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art Element
-          weight: 0.8 // Reduz um pouco o peso do estilo para dar mais força ao personagem
-        },
-        {
-          loraId: 106054, // O ID do seu LoRA 'jackboo'
-          weight: 1.3 // Aumenta o peso do personagem para garantir que ele seja o foco
+          akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // Abstract Line Art
+          weight: 1.0 
         }
       ],
-      // O array 'userElements' foi removido, pois foi incorporado acima.
+      userElements: [ 
+        {
+          userLoraId: 106054, // O ID do seu LoRA 'jackboo'
+          weight: 1.2 // Peso alto para garantir a aparência do personagem
+        }
+      ],
+      // --- FIM DA CORREÇÃO ---
       
       num_images: 1,
       width: 1024,
       height: 1024,
       contrast: 2.5,
       scheduler: "LEONARDO",
-      guidance_scale: 7, // Re-adicionado para maior controle do prompt
+      guidance_scale: 7, // Mantido para ajudar a IA a seguir o prompt de perto
       public: true,
       nsfw: true,
       ultra: false,
