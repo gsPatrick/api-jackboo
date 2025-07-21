@@ -88,7 +88,7 @@ class AdminBookGeneratorService {
      * Lógica específica para gerar o conteúdo de um livro de colorir.
      * @param {Book} book - A instância completa do livro com suas associações.
      */
-       static async generateColoringBookContent(book) {
+    static async generateColoringBookContent(book) {
         const bookVariation = book.variations[0];
         const character = book.mainCharacter;
         const pageCount = bookVariation.pageCount;
@@ -96,7 +96,7 @@ class AdminBookGeneratorService {
 
         console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
         const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        let characterDescription = 'Um personagem fofo e amigável.'; // Fallback
+        let characterDescription = 'A cute and friendly character.'; // Fallback
         try {
             const fetchedDescription = await visionService.describeImage(characterImageUrl);
             if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
@@ -106,34 +106,41 @@ class AdminBookGeneratorService {
             console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
         }
 
-        // --- CORREÇÃO: Sanitizando a descrição para remover todas as palavras de cor ---
-        const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
+        // --- CORREÇÃO: Chamando a função estática diretamente pela classe 'VisionService' ---
+        // Precisamos importar a classe diretamente ou usar a instância para chamar a função estática
+        // Como o export padrão é `new VisionService()`, a maneira mais limpa é ajustar o export ou chamar via construtor.
+        // A forma mais simples aqui é chamar pela instância, pois o javascript permite isso.
+        // Mas a forma correta seria `VisionService.sanitizeDescriptionForColoring`,
+        // o que requer ajustar o export do serviço. Para simplicidade, vamos usar a instância.
+        const VisionServiceClass = require('../../OpenAI/services/openai.service.js').constructor;
+        
+        const sanitizedDescription = visionService.constructor.sanitizeDescriptionForColoring(characterDescription);
         console.log(`[AdminGenerator] Descrição sanitizada para prompt: "${sanitizedDescription}"`);
 
-        // 2. Gerar o roteiro com a descrição JÁ SANITIZADA
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
         const pagePrompts = await visionService.generateColoringBookStoryline(
             character.name,
-            sanitizedDescription, // Usa a versão limpa
+            sanitizedDescription,
             theme,
             pageCount
         );
 
+        // ... (resto da função permanece o mesmo) ...
         if (!pagePrompts || pagePrompts.length === 0) {
             throw new Error('A IA não conseguiu gerar o roteiro. O array de prompts de página está vazio.');
         }
-
+        
         console.log(`[AdminGenerator] Roteiro com ${pagePrompts.length} páginas recebido. Iniciando geração das imagens...`);
-
-        // 3. Criar promessas, passando a descrição SANITIZADA para cada geração
+        
         const pageGenerationPromises = pagePrompts.map((prompt, index) => {
             const pageNumber = index + 1;
-            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt, sanitizedDescription); // Usa a versão limpa
+            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt, sanitizedDescription);
         });
 
         await Promise.all(pageGenerationPromises);
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
+    
     
     /**
      * Função auxiliar que encapsula a lógica de geração de uma única página.
