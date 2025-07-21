@@ -1,14 +1,29 @@
-const { Model, DataTypes } = require('sequelize');
+// src/models/BookContentPage.js
+'use strict';
+const { Model } = require('sequelize');
 
-class BookContentPage extends Model {
-  static associate(models) {
-    // Uma página pertence a uma variação de livro (história ou colorir)
-    this.belongsTo(models.BookVariation, { foreignKey: 'bookVariationId', as: 'bookVariation' });
+module.exports = (sequelize, DataTypes) => {
+  class BookContentPage extends Model {
+    static associate(models) {
+      // Uma página de conteúdo pertence a uma variação de livro.
+      // 'as: bookVariation' permite o acesso reverso (se necessário).
+      this.belongsTo(models.BookVariation, { 
+        foreignKey: 'bookVariationId', 
+        as: 'bookVariation' 
+      });
+    }
   }
-}
 
-module.exports = (sequelize) => {
   BookContentPage.init({
+    bookVariationId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'book_variations', // Nome da tabela
+            key: 'id'
+        },
+        onDelete: 'CASCADE'
+    },
     pageNumber: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -26,16 +41,16 @@ module.exports = (sequelize) => {
     imageUrl: {
       type: DataTypes.STRING,
       allowNull: true,
-      comment: 'URL da imagem da página (se pageType for "illustration" ou "coloring_page").'
+      comment: 'URL da imagem da página.'
     },
     illustrationPrompt: {
       type: DataTypes.TEXT,
       allowNull: true,
-      comment: 'Prompt usado para gerar a ilustração desta página (se aplicável).'
+      comment: 'Prompt usado para gerar a ilustração.'
     },
-    // Outros metadados específicos podem ser adicionados aqui
   }, {
     sequelize,
+    modelName: 'BookContentPage',
     tableName: 'book_content_pages',
     timestamps: true,
     underscored: true,
