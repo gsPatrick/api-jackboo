@@ -16,7 +16,7 @@ class AdminBookGeneratorService {
      * @returns {Book} O objeto do livro recém-criado.
      */
     static async generateBookPreview(bookType, generationData) {
-        const { theme, title, characterId, printFormatId, pageCount } = generationData;
+        const { theme, title, characterId, printFormatId, pageCount, location, summary } = generationData;
 
         // Validações
         if (!bookType || !title || !characterId || !printFormatId || !pageCount || !theme) {
@@ -37,17 +37,31 @@ class AdminBookGeneratorService {
                 printFormatId,
                 status: 'gerando',
                 genre: theme,
-                storyPrompt: { theme }
+                storyPrompt: { theme, location, summary }
             }, { transaction: t });
+
+            // --- CORREÇÃO AQUI ---
+            // Mapeia o tipo recebido do frontend ('coloring') para o valor
+            // esperado pelo ENUM do banco de dados ('colorir').
+            let dbBookType;
+            if (bookType === 'coloring') {
+                dbBookType = 'colorir';
+            } else if (bookType === 'story') {
+                dbBookType = 'historia';
+            } else {
+                // Se o tipo for inválido, lança um erro antes de tentar inserir no DB.
+                throw new Error(`Tipo de livro desconhecido ou inválido: ${bookType}`);
+            }
 
             bookVariation = await BookVariation.create({
                 bookId: book.id,
-                type: bookType,
+                type: dbBookType, // <<< USA A VARIÁVEL CORRIGIDA
                 format: 'digital_pdf',
                 price: 0.00,
                 coverUrl: character.generatedCharacterUrl, // Capa temporária
                 pageCount: parseInt(pageCount),
             }, { transaction: t });
+            // --- FIM DA CORREÇÃO ---
 
             await t.commit();
         } catch (error) {
@@ -134,9 +148,6 @@ class AdminBookGeneratorService {
             });
         }
     }
-
-    // A função antiga 'generateSinglePageContent' foi removida.
-    // Você pode adicionar uma nova função 'regeneratePage' aqui se necessário.
 }
 
 
