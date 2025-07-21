@@ -39,7 +39,7 @@ class VisionService {
     return prompt.replace(regex, 'friendly figures');
   }
 
-  /**
+  
 
   
 
