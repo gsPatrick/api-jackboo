@@ -4,21 +4,13 @@ const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
-const ADMIN_USER_ID = 1; // ID do usuário "Sistema/JackBoo"
+const ADMIN_USER_ID = 1;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class AdminBookGeneratorService {
-
-    /**
-     * Ponto de entrada para a criação de livros pelo admin.
-     * @param {string} bookType - 'coloring' ou 'story'.
-     * @param {object} generationData - Dados do formulário do admin.
-     * @returns {Book} O objeto do livro recém-criado.
-     */
     static async generateBookPreview(bookType, generationData) {
         const { theme, title, characterId, printFormatId, pageCount, location, summary } = generationData;
 
-        // Validações
         if (!bookType || !title || !characterId || !printFormatId || !pageCount || !theme) {
             throw new Error("Dados insuficientes fornecidos para a geração do livro.");
         }
@@ -26,7 +18,6 @@ class AdminBookGeneratorService {
         const character = await Character.findByPk(characterId);
         if (!character) throw new Error("Personagem principal não encontrado.");
 
-        // --- Criação da Estrutura Inicial do Livro ---
         const t = await sequelize.transaction();
         let book, bookVariation;
         try {
@@ -40,28 +31,23 @@ class AdminBookGeneratorService {
                 storyPrompt: { theme, location, summary }
             }, { transaction: t });
 
-            // --- CORREÇÃO AQUI ---
-            // Mapeia o tipo recebido do frontend ('coloring') para o valor
-            // esperado pelo ENUM do banco de dados ('colorir').
             let dbBookType;
             if (bookType === 'coloring') {
                 dbBookType = 'colorir';
             } else if (bookType === 'story') {
                 dbBookType = 'historia';
             } else {
-                // Se o tipo for inválido, lança um erro antes de tentar inserir no DB.
-                throw new Error(`Tipo de livro desconhecido ou inválido: ${bookType}`);
+                throw new Error(`Tipo de livro desconhecido: ${bookType}`);
             }
 
             bookVariation = await BookVariation.create({
                 bookId: book.id,
-                type: dbBookType, // <<< USA A VARIÁVEL CORRIGIDA
+                type: dbBookType,
                 format: 'digital_pdf',
                 price: 0.00,
-                coverUrl: character.generatedCharacterUrl, // Capa temporária
+                coverUrl: character.generatedCharacterUrl,
                 pageCount: parseInt(pageCount),
             }, { transaction: t });
-            // --- FIM DA CORREÇÃO ---
 
             await t.commit();
         } catch (error) {
@@ -70,18 +56,18 @@ class AdminBookGeneratorService {
             throw new Error("Falha ao criar os registros iniciais do livro.");
         }
 
-        // --- Geração Assíncrona do Conteúdo (Fire-and-Forget) ---
         (async () => {
             try {
                 if (bookType === 'coloring') {
-                    await this.generateColoringBookContent(book, bookVariation, character);
+                    // --- CORREÇÃO AQUI ---
+                    // Passa `character.name` (uma string) em vez do objeto `character` completo
+                    await this.generateColoringBookContent(book, bookVariation, character.name);
+                    // --- FIM DA CORREÇÃO ---
                 } else if (bookType === 'story') {
-                    // TODO: Implementar lógica de geração para livros de história
                     throw new Error("A geração de livros de história ainda não foi implementada.");
                 }
 
-                // Sucesso!
-                await book.update({ status: 'privado' }); // Ou 'publicado'
+                await book.update({ status: 'privado' });
                 console.log(`[AdminGenerator] Livro ID ${book.id} gerado com sucesso!`);
 
             } catch (error) {
@@ -90,40 +76,31 @@ class AdminBookGeneratorService {
             }
         })();
 
-        // Retorna o livro imediatamente para que o frontend possa redirecionar
         return book;
     }
 
-    /**
-     * Lógica específica para gerar o conteúdo de um livro de colorir.
-     */
-    static async generateColoringBookContent(book, bookVariation, character) {
+    static async generateColoringBookContent(book, bookVariation, characterName) { // Agora recebe characterName
         const pageCount = bookVariation.pageCount;
-        const theme = book.genre; // Usamos o gênero como tema
-        const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-
-        // 1. Gerar o roteiro com todos os prompts de página usando o VisionService
+        const theme = book.genre;
+        
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
         const pagePrompts = await visionService.generateColoringBookStoryline(
-            { name: character.name, imageUrl: characterImageUrl }, 
+            characterName, // Já é uma string
             theme, 
             pageCount
         );
 
-        // 2. Gerar cada página individualmente em um loop
         for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 1;
             const prompt = pagePrompts[i];
             console.log(`[AdminGenerator] Gerando página ${pageNumber}/${pageCount}: ${prompt}`);
 
-            // Inicia a geração no Leonardo
             const generationId = await leonardoService.startColoringPageGeneration(prompt);
 
-            // Polling para o resultado
             let finalImageUrl = null;
-            const MAX_POLLS = 30; // 30 * 5s = 2.5 minutos de espera máxima
+            const MAX_POLLS = 30;
             for (let poll = 0; poll < MAX_POLLS; poll++) {
-                await sleep(5000); // Espera 5 segundos
+                await sleep(5000);
                 const result = await leonardoService.checkGenerationStatus(generationId);
                 if (result.isComplete) {
                     finalImageUrl = result.imageUrl;
@@ -135,10 +112,8 @@ class AdminBookGeneratorService {
                 throw new Error(`A geração da página ${pageNumber} demorou muito para responder.`);
             }
 
-            // Baixa a imagem gerada e salva localmente
             const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
 
-            // Salva a página no banco de dados
             await BookContentPage.create({
                 bookVariationId: bookVariation.id,
                 pageNumber,
@@ -149,6 +124,5 @@ class AdminBookGeneratorService {
         }
     }
 }
-
 
 module.exports = AdminBookGeneratorService;

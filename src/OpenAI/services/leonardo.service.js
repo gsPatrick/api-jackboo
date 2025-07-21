@@ -199,7 +199,6 @@ class LeonardoService {
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // Flux Dev model
       
-      // --- AQUI ESTÁ A COMBINAÇÃO CORRETA DE ELEMENTS ---
       elements: [
         {
           akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", // ID do "Abstract Line Art" da plataforma
@@ -212,17 +211,15 @@ class LeonardoService {
           weight: 0.6 // Ajuste o peso conforme necessário
         }
       ],
-      // --- FIM DA COMBINAÇÃO DE ELEMENTS ---
       
-      num_images: 1, // Gerar uma imagem por vez para o livro
+      num_images: 1,
       width: 1120,
       height: 1120,
       
-      // Vamos omitir ControlNets por enquanto para simplificar e evitar conflitos.
-      // A combinação dos dois Elements de estilo pode já ser suficiente.
-      // controlnets: [ ... ],
+      // --- CORREÇÃO FINAL AQUI ---
+      contrast: 2.5, // Alterado de 2.0 para 2.5, um valor válido na lista da API para FLUX
+      // --- FIM DA CORREÇÃO ---
       
-      contrast: 2.0,
       scheduler: "LEONARDO",
       guidance_scale: 7,
       public: true,
