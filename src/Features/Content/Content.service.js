@@ -83,7 +83,7 @@ class ContentService {
       console.log('[ContentService] Passo 7: Finalizando personagem no banco de dados...');
       await character.update({
         generatedCharacterUrl: localGeneratedUrl,
-        name: `Meu ${cleanedDescription.split(',')[0] || 'Amigo'}`
+        name: `Personagem #${character.id}` // Nome temporário
       });
 
       console.log('[ContentService] Personagem criado com sucesso!');
@@ -205,6 +205,19 @@ class ContentService {
       message: "Seu livro de colorir começou a ser gerado! Ele aparecerá em sua biblioteca em breve.",
       book,
     };
+  }
+
+  async updateCharacterName(characterId, userId, name) {
+    // Busca o personagem e VERIFICA SE PERTENCE AO USUÁRIO LOGADO
+    const character = await Character.findOne({ where: { id: characterId, userId } });
+
+    if (!character) {
+        throw new Error('Personagem não encontrado ou não pertence a você.');
+    }
+
+    await character.update({ name });
+    console.log(`[ContentService] Personagem ID ${characterId} renomeado para "${name}".`);
+    return character;
   }
 
 }

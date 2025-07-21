@@ -125,6 +125,20 @@ class ContentController {
     }
   }
 
+   async updateCharacterName(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { name } = req.body;
+            if (!name || name.trim() === '') {
+                return res.status(400).json({ message: 'O nome não pode ser vazio.' });
+            }
+            const updatedCharacter = await contentService.updateCharacterName(id, req.user.id, name);
+            res.status(200).json(updatedCharacter);
+        } catch (error) {
+            next(error);
+        }
+    }
+
 }
 
 module.exports = new ContentController();
