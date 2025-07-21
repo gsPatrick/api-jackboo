@@ -86,20 +86,16 @@ class LeonardoService {
   async startImageGeneration(prompt, leonardoInitImageId) { 
     const generationPayload = {
       prompt: prompt,
-      
       sd_version: "FLUX_DEV", 
-      
       userElements: [ 
         {
           userLoraId: 106054, 
           weight: 1 
         }
       ],
-      
       num_images: 4,
       width: 1120,
       height: 1120,
-
       controlnets: [
         {
           preprocessorId: 299, 
@@ -108,16 +104,11 @@ class LeonardoService {
           strengthType: "Mid" 
         }
       ],
-      
       contrast: 3.5,
-      ultra: false, // Necessário ser false para ControlNets com FLUX_DEV
-      
+      ultra: false,
       styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36", 
       scheduler: "LEONARDO", 
-      // REMOVA guidance_scale E inferenceSteps, pois eles podem causar conflito com ControlNets no FLUX_DEV
-      // guidance_scale: 7,    
-      // inferenceSteps: 10,   
       public: true,          
       nsfw: true,            
     };
@@ -183,20 +174,19 @@ class LeonardoService {
       throw new Error(`Erro ao verificar o status da geração: ${error.message}`);
     }
   }
+
   /**
    * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
-   * --- CORREÇÃO: A função agora aceita a descrição visual do personagem. ---
    * @param {string} pagePrompt - O prompt de texto para a página específica.
    * @param {string} characterDescription - A descrição visual do personagem.
    * @returns {Promise<string>} O ID do job de geração.
    */
-async startColoringPageGeneration(pagePrompt, characterDescription) { 
+  async startColoringPageGeneration(pagePrompt, characterDescription) { 
      const finalLeonardoPrompt = `coloring book page for children, clean black and white line art, thick bold outlines, no shading, no color. A cute character, visually described as: '${characterDescription}'. The scene is: ${pagePrompt}`;
 
     const generationPayload = {
       prompt: finalLeonardoPrompt,
-      // --- CORREÇÃO: Adicionando um negativePrompt forte para garantir a arte de linha ---
-      negativePrompt: "color, shading, gray, shadows, detailed textures, photorealistic, complex patterns, gradients, colored pencils, watercolor",
+      // O campo 'negativePrompt' foi removido daqui pois causa erro com o modelo FLUX_DEV
       
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
@@ -244,12 +234,15 @@ async startColoringPageGeneration(pagePrompt, characterDescription) {
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
       console.error(`Status: ${status || 'N/A'}, Detalhes: ${JSON.stringify(details)}`);
       if (axios.isAxiosError(error)) {
-          console.error('Axios Error Config:', error.config);
-          console.error('Axios Error Response Data:', error.response?.data);
+        console.error('Axios Error Config:', error.config);
+        console.error('Axios Error Request Headers:', error.config.headers);
+        console.error('Axios Error Response Data:', error.response?.data);
       }
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
+
+
 }
 
 module.exports = new LeonardoService();

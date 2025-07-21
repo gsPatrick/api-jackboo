@@ -62,33 +62,51 @@ class VisionService {
    /**
    * Gera uma lista de prompts para as páginas de um livro de colorir.
    */
+/**
+   * Gera uma lista de prompts para as páginas de um livro de colorir.
+   */
   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
     try {
       console.log(`[VisionService] Gerando roteiro para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // --- CORREÇÃO: Prompt do sistema radicalmente mais detalhado e prescritivo ---
-      const systemPrompt = `Você é um diretor de arte especialista em criar livros de colorir infantis de alta qualidade. Sua tarefa é criar um roteiro com ${pageCount} cenas detalhadas para um livro sobre o personagem "${characterName}" e o tema "${theme}".
+      // --- CORREÇÃO: Prompt do sistema aprimorado para focar em dinamismo e interação ---
+      const systemPrompt = `Você é um diretor de arte e roteirista sênior, especialista em criar roteiros visuais para livros de colorir infantis premium. Sua tarefa é criar ${pageCount} cenas VIVAS e DINÂMICAS para um livro sobre o personagem "${characterName}" e o tema "${theme}".
 
       INFORMAÇÕES VISUAIS DO PERSONAGEM (essencial para consistência): "${characterDescription}".
 
-      **REGRAS OBRIGATÓRIAS PARA CADA CENA (PROMPT):**
+      **REGRAS CRÍTICAS PARA CADA CENA (PROMPT):**
 
-      1.  **PERSONAGEM CENTRAL:** O personagem "${characterName}" deve ser o foco claro da cena, sempre realizando uma ação específica e com uma expressão facial clara (ex: sorrindo, surpreso, concentrado).
-      2.  **AÇÃO E AMBIENTE DETALHADOS:** Descreva a cena com minúcia. Em vez de "decorando a árvore", diga "está na ponta dos pés, pendurando um enfeite em forma de estrela no galho mais alto de um grande pinheiro".
-      3.  **OBJETOS ESPECÍFICOS:** Liste de 2 a 3 objetos secundários importantes na cena para evitar que a IA invente elementos estranhos. (ex: "No chão, há uma caixa de enfeites aberta e um trenó de madeira.").
-      4.  **COMPOSIÇÃO CLARA:** Descreva a cena pensando em primeiro plano, plano de fundo e composição geral para criar uma imagem equilibrada e fácil de entender.
-      5.  **FOCO EM "COLORIBILIDADE":** Todas as descrições devem resultar em imagens com contornos pretos, grossos e bem definidos, com áreas de bom tamanho para as crianças pintarem.
-      6.  **PROIBIÇÕES ABSOLUTAS:** NUNCA mencione cores, sombras, gradientes, texturas complexas ou qualquer tipo de preenchimento. A imagem final deve ser 100% arte de linha (line art).
-      7.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt detalhado para uma página.`;
+      1.  **DINAMISMO E INTERAÇÃO (REGRA MAIS IMPORTANTE):**
+          - O personagem NUNCA deve estar estático ou apenas posando.
+          - Ele deve estar sempre **ativamente INTERAGINDO** com objetos ou com o ambiente.
+          - **Varie os ângulos e poses:** mostre "${characterName}" de lado, correndo, pulando, agachado, olhando para cima, de costas, em close-up, etc. A ação é o centro de tudo.
+
+      2.  **DETALHES VÍVIDOS E ESPECÍFICOS:**
+          - Seja um "pintor de palavras". Descreva CADA elemento visual importante.
+          - Especifique a **pose exata**, a **expressão facial**, os **objetos principais (2-3)** e o **plano de fundo**.
+          - Exemplo RUIM: 'Jack decora a árvore'.
+          - Exemplo ÓTIMO: 'Jack, com uma expressão de pura alegria, está em cima de um banquinho de madeira, esticando o braço para colocar uma grande estrela no topo do pinheiro de Natal. No chão, uma caixa de enfeites aberta e um pequeno trenó de madeira aguardam.'
+
+      3.  **COMPOSIÇÃO E PROFUNDIDADE:**
+          - Pense como um cineasta. Descreva a cena com um **primeiro plano, plano principal e fundo** para criar uma imagem rica e com profundidade.
+
+      4.  **FOCO EM "COLORIBILIDADE":**
+          - Todas as descrições devem resultar em imagens com contornos pretos, grossos e bem definidos, com áreas de bom tamanho para as crianças pintarem.
+
+      5.  **PROIBIÇÕES ABSOLUTAS:**
+          - NUNCA mencione cores, sombras, gradientes, texturas complexas ou qualquer tipo de preenchimento. A imagem final deve ser 100% arte de linha (line art).
+
+      6.  **FORMATO JSON OBRIGATÓRIO:**
+          - Sua resposta DEVE ser um objeto JSON com uma única chave "pages", que é um array de strings. Cada string é o prompt detalhado para uma página.`;
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena detalhados agora para "${characterName}" no tema "${theme}".` }
+          { role: "user", content: `Gere a lista de ${pageCount} prompts de cena dinâmicos e detalhados agora para "${characterName}" no tema "${theme}".` }
         ],
-        max_tokens: 250 * pageCount, // Aumenta os tokens para permitir respostas mais detalhadas
+        max_tokens: 300 * pageCount, // Aumenta ainda mais para garantir prompts super detalhados
       });
 
       const result = JSON.parse(response.choices[0].message.content);
