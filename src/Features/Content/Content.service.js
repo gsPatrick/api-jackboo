@@ -17,7 +17,7 @@ class ContentService {
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
 
-    console.log('[ContentService] Iniciando processo de criação de personagem (modo Polling)...');
+    console.log('[ContentService] Iniciando processo de criação de personagem...');
     const character = await Character.create({
       userId,
       name: "Analisando seu desenho...",
@@ -25,14 +25,40 @@ class ContentService {
     });
 
     try {
-      await sleep(2000); 
+      // --- INÍCIO DA LÓGICA DE RETENTATIVA CORRIGIDA ---
+      let detailedDescription = null;
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 2000;
 
-      console.log(`[ContentService] Passo 1: Obtendo descrição da imagem para OpenAI Vision...`);
-      const detailedDescription = await visionService.describeImage(publicImageUrl);
-      
-      if (detailedDescription.toLowerCase().includes("i'm sorry") || detailedDescription.toLowerCase().includes("i cannot")) {
-          throw new Error("A IA de visão não conseguiu processar a imagem. Tente uma imagem diferente ou com mais detalhes.");
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`[ContentService] Passo 1, Tentativa ${attempt}/${MAX_RETRIES}: Obtendo descrição da imagem...`);
+          const descriptionAttempt = await visionService.describeImage(publicImageUrl);
+          
+          // Verifica se a IA se recusou a analisar a imagem
+          if (descriptionAttempt.toLowerCase().includes("i'm sorry") || descriptionAttempt.toLowerCase().includes("i cannot")) {
+              throw new Error("A IA de visão recusou a análise nesta tentativa. Tentando novamente.");
+          }
+          
+          // Se a descrição for válida, armazena e sai do laço
+          detailedDescription = descriptionAttempt;
+          console.log('[ContentService] Descrição válida obtida com sucesso.');
+          break;
+
+        } catch (error) {
+          console.error(`[ContentService] Tentativa ${attempt} de obter descrição falhou: ${error.message}`);
+          
+          if (attempt === MAX_RETRIES) {
+            // Se todas as tentativas falharem, lança um erro definitivo
+            console.error('[ContentService] Todas as tentativas de obter a descrição da imagem falharam.');
+            throw new Error("A IA de visão não conseguiu processar a imagem após múltiplas tentativas. Por favor, tente uma imagem diferente.");
+          }
+          
+          // Espera antes da próxima tentativa
+          await sleep(RETRY_DELAY);
+        }
       }
+      // --- FIM DA LÓGICA DE RETENTATIVA CORRIGIDA ---
       
       await character.update({ description: `Nossa IA entendeu seu desenho como: "${detailedDescription}".` });
 
@@ -46,7 +72,7 @@ class ContentService {
 
       const finalPrompt = `A cute character based on this detailed description: "${cleanedDescription}". The character must have a happy expression and be smiling, and should be facing forward. Create a full body 2D cartoon illustration on a simple white background.`;
       
-      console.log('[ContentService] Passo 3 (NOVO): Carregando imagem guia para Leonardo.Ai...');
+      console.log('[ContentService] Passo 3: Carregando imagem guia para Leonardo.Ai...');
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
 
       console.log('[ContentService] Passo 4: Solicitando INÍCIO da geração ao Leonardo...');
@@ -56,9 +82,9 @@ class ContentService {
 
       console.log('[ContentService] Passo 5: Iniciando polling para o resultado...');
       let finalImageUrl = null;
-      const MAX_POLLS = 20; // 20 * 5 segundos = 100 segundos de espera máxima
+      const MAX_POLLS = 20;
       for (let i = 0; i < MAX_POLLS; i++) {
-        await sleep(5000); // Espera 5 segundos entre as verificações
+        await sleep(5000); 
         const result = await leonardoService.checkGenerationStatus(generationId);
         if (result.isComplete) {
           finalImageUrl = result.imageUrl;
@@ -77,7 +103,7 @@ class ContentService {
       console.log('[ContentService] Passo 7: Finalizando personagem no banco de dados...');
       await character.update({
         generatedCharacterUrl: localGeneratedUrl,
-        name: `Novo Personagem` // O nome final será definido pelo usuário.
+        name: 'Novo Personagem'
       });
 
       console.log('[ContentService] Personagem criado com sucesso!');
@@ -89,6 +115,7 @@ class ContentService {
         name: 'Ops! Falha na Geração',
         description: `Ocorreu um erro durante o processo: ${error.message}`
       });
+      // Re-lança o erro para que o middleware de tratamento de erro do Express o capture
       throw error; 
     }
   }
@@ -118,11 +145,11 @@ class ContentService {
     const { theme, title } = await visionService.generateBookThemeAndTitle(characterDescription);
     const pageCount = 10;
 
-    console.log(`[ContentService] Criando livro de colorir com TEMA: "${theme}", TÍTULO: "${title}" para o personagem ${character.name}`);
+    console.log(`[ContentService] Criando livro de colorir com TEMA: "${theme}", TÍTULO: "${title}"`);
     const book = await Book.create({
       authorId: userId,
       mainCharacterId: characterId,
-      title: title,
+      title,
       status: 'gerando',
       genre: theme,
     });
@@ -139,13 +166,9 @@ class ContentService {
     (async () => {
       try {
         const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
-
+        
         console.log('[ContentService] Gerando roteiro para as páginas...');
         const pagePrompts = await visionService.generateColoringBookStoryline(character.name, sanitizedDescription, theme, pageCount);
-
-        if (!pagePrompts || pagePrompts.length === 0) {
-            throw new Error('A IA não conseguiu gerar o roteiro. O array de prompts de página está vazio.');
-        }
 
         for (let i = 0; i < pagePrompts.length; i++) {
           const pageNumber = i + 1;
@@ -177,11 +200,11 @@ class ContentService {
             pageType: 'coloring_page',
             imageUrl: localPageUrl,
             illustrationPrompt: prompt,
-            status: 'completed',
+            status: 'completed'
           });
         }
         
-        console.log(`[ContentService] Todas as páginas do livro ${book.id} foram geradas com sucesso!`);
+        console.log('[ContentService] Todas as páginas foram geradas com sucesso!');
         await book.update({ status: 'privado' });
 
       } catch (error) {
@@ -209,7 +232,6 @@ class ContentService {
     console.log(`[ContentService] Personagem ID ${characterId} renomeado para "${name}".`);
     return character;
   }
-
 }
 
 module.exports = new ContentService();
