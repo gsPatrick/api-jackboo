@@ -122,14 +122,17 @@ class ContentController {
         }
     }
 
-    async getBookStatus(req, res, next) {
+     async getBookStatus(req, res, next) {
     try {
-        const { id } = req.params;
-        const bookStatus = await contentService.getBookStatus(id, req.user.id);
+        const { id } = req.params; // 'id' é o ID do livro na URL
+        // CORREÇÃO AQUI: Invertendo a ordem dos parâmetros.
+        // O primeiro parâmetro do serviço é o userId (req.user.id), o segundo é o bookId (id).
+        const bookStatus = await contentService.getBookStatus(req.user.id, id);
         res.status(200).json(bookStatus);
     } catch (error) {
         next(error);
     }
+
 }
 
 }
