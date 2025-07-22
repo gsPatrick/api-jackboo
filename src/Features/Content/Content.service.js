@@ -232,6 +232,26 @@ class ContentService {
     console.log(`[ContentService] Personagem ID ${characterId} renomeado para "${name}".`);
     return character;
   }
+
+
+  async getBookStatus(userId, bookId) {
+    const book = await Book.findOne({
+        where: { id: bookId, authorId: userId },
+        attributes: ['id', 'status', 'title', 'finalPdfUrl'], // Retorna apenas o necessário
+        include: [{
+            model: BookVariation,
+            as: 'variations',
+            attributes: ['id', 'type', 'coverUrl', 'pageCount'],
+            include: [{
+                model: BookContentPage,
+                as: 'pages',
+                attributes: ['pageNumber', 'status', 'imageUrl'] // Para mostrar o progresso das páginas
+            }]
+        }]
+    });
+    if (!book) throw new Error('Livro não encontrado ou não pertence ao usuário.');
+    return book;
+}
 }
 
 module.exports = new ContentService();

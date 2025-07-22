@@ -43,6 +43,6 @@ router.get('/badges', contentController.getMyBadges);
 // --- Rotas de Histórico de Pagamentos de Assinatura ---
 router.get('/subscription-payments', contentController.getMySubscriptionPayments);
 
-// NOTA: A rota duplicada no final do arquivo original também foi corrigida/removida para consistência.
+router.get('/books/:id/status', contentController.getBookStatus);
 
 module.exports = router;
