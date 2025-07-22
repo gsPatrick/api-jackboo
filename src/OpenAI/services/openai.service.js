@@ -150,6 +150,48 @@ class VisionService {
       throw new Error(`Falha na geração do roteiro: ${error.message}`);
     }
   }
+
+
+// <-- INÍCIO DA NOVA FUNÇÃO ADICIONADA -->
+  async generateBookThemeAndTitle(characterDescription) {
+    try {
+      console.log(`[VisionService] Gerando TEMA e TÍTULO aleatórios para o livro...`);
+      const systemPrompt = `You are a creative writer for children's books (ages 4-7). Based on the character's visual description, generate a simple, fun, and safe theme, and a catchy title for a 10-page coloring book.
+
+      The theme should be a short concept, like "A Day at the Beach", "Treasure Hunt in the Forest", "Space Adventure", "Making Cookies", or "A Magical Garden".
+      The title should be engaging and related to the theme.
+
+      **CRITICAL:** Your response MUST be a valid JSON object with two keys: "theme" and "title".
+      Example: { "theme": "A Picnic in the Park", "title": "The Great Picnic Adventure" }`;
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Generate the theme and title for a character described as: "${characterDescription}"` }
+        ],
+        max_tokens: 100,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      if (!result.theme || !result.title) {
+        throw new Error('A IA não retornou o tema e o título no formato JSON esperado.');
+      }
+
+      console.log(`[VisionService] Tema e Título gerados:`, result);
+      return result;
+
+    } catch (error) {
+      console.error('[VisionService] Erro ao gerar tema e título do livro:', error.message);
+      // Retorna um fallback em caso de erro para não quebrar o fluxo principal
+      return {
+        theme: 'A Fun Day of Adventures',
+        title: 'The Magical Adventure Book'
+      };
+    }
+  }
+
 }
 
 module.exports = new VisionService();

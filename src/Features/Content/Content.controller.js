@@ -1,26 +1,20 @@
-
 const contentService = require('./Content.service');
 
 class ContentController {
 
-  async createCharacter(req, res, next) { // Adicionado 'next' para tratamento de erro
+  async createCharacter(req, res, next) {
     try {
-      // --- LOG DE DEPURAÇÃO CRÍTICO ---
       console.log("[Controller] Chegou em createCharacter.");
       console.log("[Controller] req.file:", req.file);
       console.log("[Controller] req.body:", req.body);
-      // ---------------------------------
 
       if (!req.file) {
-        // Se depois de todas as correções o req.file ainda for undefined,
-        // lançamos um erro claro aqui.
         throw new Error("O servidor não recebeu o arquivo. Verifique a configuração do middleware de upload.");
       }
 
       const character = await contentService.createCharacter(req.user.id, req.file);
       res.status(201).json(character);
     } catch (error) {
-      // Passa o erro para o middleware de tratamento de erro do app.js
       next(error);
     }
   }
@@ -36,8 +30,14 @@ class ContentController {
 
   async createColoringBook(req, res, next) {
     try {
-      const book = await contentService.createColoringBook(req.user.id, req.body);
-      res.status(202).json({ message: "Seu livro de colorir está sendo gerado! Ele aparecerá em sua biblioteca em breve.", book });
+      const { characterId } = req.body;
+
+      if (!characterId) {
+        return res.status(400).json({ error: 'characterId é obrigatório.' });
+      }
+
+      const result = await contentService.createColoringBook(req.user.id, { characterId });
+      res.status(202).json(result); 
     } catch (error) {
       next(error);
     }
@@ -107,23 +107,6 @@ class ContentController {
         next(error);
       }
     }
-
-     async createColoringBook(req, res, next) {
-    try {
-      const { characterId, pageCount, theme } = req.body;
-
-      // Validação básica
-      if (!characterId || !pageCount || !theme) {
-        return res.status(400).json({ error: 'characterId, pageCount, e theme são obrigatórios.' });
-      }
-
-      const result = await contentService.createColoringBook(req.user.id, { characterId, pageCount, theme });
-      // Retorna 202 Accepted, pois o processo é assíncrono
-      res.status(202).json(result); 
-    } catch (error) {
-      next(error);
-    }
-  }
 
    async updateCharacterName(req, res, next) {
         try {
