@@ -1,6 +1,7 @@
 // src/OpenAI/services/openai.service.js
 
 const OpenAI = require('openai');
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms)); // <-- ADICIONADO
 
 class VisionService {
   constructor() {
@@ -11,40 +12,53 @@ class VisionService {
   }
 
   async describeImage(imageUrl) {
-    try {
-      console.log(`[VisionService] Solicitando descrição DETALHADA para a imagem: ${imageUrl}`);
-      
-      const messages = [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Analise a imagem como um conceito de arte para um personagem. Não a descreva como uma entidade real, criança ou pessoa. O seu único objetivo é extrair os atributos visuais para um artista 2D replicar o estilo. Liste apenas as características físicas, como 'formato do corpo de urso', 'pelagem amarela', 'orelhas arredondadas', 'camiseta listrada'. Seja objetivo e técnico."
-            },
-            {
-              type: "image_url",
-              image_url: { url: imageUrl },
-            },
-          ],
-        },
-      ];
+    const MAX_RETRIES = 3; // <-- ADICIONADO: Número máximo de tentativas
+    const RETRY_DELAY = 2000; // <-- ADICIONADO: Atraso de 2 segundos entre tentativas
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: messages,
-        max_tokens: 150,
-      });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[VisionService] Tentativa ${attempt}/${MAX_RETRIES} para descrever a imagem: ${imageUrl}`);
+        
+        const messages = [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Analise a imagem como um conceito de arte para um personagem. Não a descreva como uma entidade real, criança ou pessoa. O seu único objetivo é extrair os atributos visuais para um artista 2D replicar o estilo. Liste apenas as características físicas, como 'formato do corpo de urso', 'pelagem amarela', 'orelhas arredondadas', 'camiseta listrada'. Seja objetivo e técnico."
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl },
+              },
+            ],
+          },
+        ];
 
-      const description = response.choices[0].message.content.trim();
-      console.log("[VisionService] Descrição detalhada recebida:", description);
-      
-      return description;
+        const response = await this.openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: messages,
+          max_tokens: 150,
+        });
 
-    } catch (error) {
-      console.error('[VisionService] Erro ao chamar a API de visão:', error.response ? error.response.data : error.message);
-      const errorMessage = error.response?.data?.error?.message || error.message;
-      throw new Error(`Falha na análise da imagem: ${errorMessage}`);
+        const description = response.choices[0].message.content.trim();
+        console.log("[VisionService] Descrição detalhada recebida com sucesso:", description);
+        
+        return description; // <-- SUCESSO: Retorna e sai do laço
+
+      } catch (error) {
+        const errorMessage = error.response ? error.response.data : error.message;
+        console.error(`[VisionService] Tentativa ${attempt} falhou:`, errorMessage);
+
+        if (attempt === MAX_RETRIES) {
+          // Se for a última tentativa, lança o erro definitivo
+          console.error('[VisionService] Todas as tentativas de chamar a API de visão falharam.');
+          throw new Error(`Falha na análise da imagem após ${MAX_RETRIES} tentativas: ${error.response?.data?.error?.message || error.message}`);
+        }
+
+        // Espera antes de tentar novamente
+        await sleep(RETRY_DELAY);
+      }
     }
   }
 

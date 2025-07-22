@@ -94,7 +94,6 @@ class AdminBookGeneratorService {
             console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
         }
 
-        // --- CORREÇÃO: Chamando a função diretamente na instância importada, que é a forma correta. ---
         const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
         console.log(`[AdminGenerator] Descrição sanitizada para prompt: "${sanitizedDescription}"`);
 
@@ -122,6 +121,9 @@ class AdminBookGeneratorService {
     }
     
     static async generateSingleColoringPage(bookVariationId, pageNumber, prompt, characterDescription) {
+        const MAX_RETRIES = 3; // <-- ADICIONADO
+        const RETRY_DELAY = 5000; // <-- ADICIONADO: 5 segundos para APIs de imagem
+
         console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${prompt}`);
         
         let pageRecord = await BookContentPage.create({
@@ -135,40 +137,56 @@ class AdminBookGeneratorService {
             return null; 
         });
 
-        if (!pageRecord) return;
+        if (!pageRecord) return; // Se a criação do registro falhou, não há como continuar
 
-        try {
-            const generationId = await leonardoService.startColoringPageGeneration(prompt, characterDescription);
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                console.log(`[AdminGenerator] PÁGINA ${pageNumber}, TENTATIVA ${attempt}/${MAX_RETRIES}`);
 
-            let finalImageUrl = null;
-            const MAX_POLLS = 30;
-            for (let poll = 0; poll < MAX_POLLS; poll++) {
-                await sleep(5000);
-                const result = await leonardoService.checkGenerationStatus(generationId);
-                if (result.isComplete) {
-                    finalImageUrl = result.imageUrl;
-                    break;
+                const generationId = await leonardoService.startColoringPageGeneration(prompt, characterDescription);
+
+                let finalImageUrl = null;
+                const MAX_POLLS = 30;
+                for (let poll = 0; poll < MAX_POLLS; poll++) {
+                    await sleep(5000);
+                    const result = await leonardoService.checkGenerationStatus(generationId);
+                    if (result.isComplete) {
+                        finalImageUrl = result.imageUrl;
+                        break;
+                    }
                 }
+
+                if (!finalImageUrl) {
+                    throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
+                }
+
+                const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
+
+                await pageRecord.update({
+                    imageUrl: localPageUrl,
+                    status: 'completed',
+                });
+                console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso na tentativa ${attempt}.`);
+                
+                return; // <-- SUCESSO: Sai da função e do laço
+
+            } catch (pageError) {
+                console.error(`[AdminGenerator] Erro na TENTATIVA ${attempt} de gerar a página ${pageNumber}:`, pageError.message);
+
+                if (attempt === MAX_RETRIES) {
+                    // Se esta foi a última tentativa, marca a página como falha e lança o erro
+                    console.error(`[AdminGenerator] FALHA FINAL ao gerar a página ${pageNumber} após ${MAX_RETRIES} tentativas.`);
+                    await pageRecord.update({
+                        status: 'failed',
+                        errorDetails: `Falhou após ${MAX_RETRIES} tentativas. Último erro: ${pageError.message}`,
+                    });
+                    // Lança o erro para que o Promise.all no chamador possa capturá-lo
+                    throw pageError;
+                }
+
+                // Espera antes da próxima tentativa
+                await sleep(RETRY_DELAY);
             }
-
-            if (!finalImageUrl) {
-                throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
-            }
-
-            const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
-
-            await pageRecord.update({
-                imageUrl: localPageUrl,
-                status: 'completed',
-            });
-            console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso.`);
-
-        } catch (pageError) {
-            console.error(`[AdminGenerator] Erro ao gerar a página ${pageNumber}:`, pageError.message);
-            await pageRecord.update({
-                status: 'failed',
-                errorDetails: pageError.message,
-            });
         }
     }
 
