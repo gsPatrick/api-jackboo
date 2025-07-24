@@ -48,5 +48,5 @@ router.use('/admin/assets', adminAssetRoutes); // <-- NOVO: Adicionar rotas Admi
 router.use('/admin/generator', adminGeneratorRoutes); // <-- NOVO
 router.use('/admin/assets', adminAssetRoutes);
 router.use('/admin/books', adminBookRoutes); // Diga ao Express para usar as rotas de livros
-router.use('/leonardo', leonardoAdminRoutes);
+router.use('/admin/leonardo', leonardoAdminRoutes);
 module.exports = router;
