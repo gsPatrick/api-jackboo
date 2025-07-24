@@ -14,7 +14,7 @@ const startServer = async () => {
     console.log('✅ Conexão estabelecida com sucesso.');
 
     // Sincroniza o banco de dados (em produção, prefira usar migrations)
-    await db.sequelize.sync({ force: false });
+    await db.sequelize.sync({ force: true });
     console.log('🔄 Banco de dados sincronizado.');
 
     // Inicia o agendador de tarefas

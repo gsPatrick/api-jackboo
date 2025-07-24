@@ -296,6 +296,50 @@ class LeonardoAdminService {
       throw new Error('Falha ao deletar o elemento.');
     }
   }
+
+  
+
+async listAllElements() {
+        try {
+            console.log(`[LeonardoAdmin] Buscando todos os elements para o userId: ${this.userId}...`);
+            const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
+            const leonardoElements = response.data?.user_elements || [];
+
+            // Sincroniza cada elemento com a base de dados local
+            for (const element of leonardoElements) {
+                const sourceLeonardoDatasetId = element.datasetId;
+                let localDataset = null;
+
+                // Se o elemento da API tiver um datasetId, tenta encontrá-lo em nosso DB local
+                if (sourceLeonardoDatasetId) {
+                    localDataset = await LeonardoDataset.findOne({ 
+                        where: { leonardoDatasetId: sourceLeonardoDatasetId } 
+                    });
+                }
+
+                // Cria ou atualiza o elemento em nosso banco de dados
+                await LeonardoElement.upsert({
+                    leonardoElementId: String(element.id),
+                    name: element.name || 'Elemento Sem Nome',
+                    description: element.description,
+                    status: element.status,
+                    // CORREÇÃO CRÍTICA: Salva o ID do nosso DB local, ou null se não for encontrado
+                    sourceDatasetId: localDataset ? localDataset.id : null,
+                });
+            }
+
+            // Retorna a lista completa do nosso DB, agora com as associações corretas
+            return LeonardoElement.findAll({
+                include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
+                order: [['createdAt', 'DESC']],
+            });
+            
+        } catch (error) {
+            console.error('Erro ao listar elements:', error.response ? error.response.data : error.message);
+            throw new Error('Falha ao buscar a lista de Elements no Leonardo.AI.');
+        }
+
+    }
 }
 
 module.exports = new LeonardoAdminService();

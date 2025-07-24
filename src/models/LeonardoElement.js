@@ -5,7 +5,6 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class LeonardoElement extends Model {
     static associate(models) {
-      // Associação com o dataset usado para o treinamento
       this.belongsTo(models.LeonardoDataset, {
         foreignKey: 'sourceDatasetId',
         as: 'sourceDataset',
@@ -14,14 +13,12 @@ module.exports = (sequelize, DataTypes) => {
   }
 
   LeonardoElement.init({
-    // ID único retornado pela API da Leonardo.AI ao criar o elemento.
     leonardoElementId: {
-      type: DataTypes.STRING, // O ID do elemento pode ser uma string
+      type: DataTypes.STRING,
       allowNull: false,
       unique: true,
       field: 'leonardo_element_id',
     },
-    // Nome do elemento para exibição no nosso painel.
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -30,18 +27,17 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
-    // Para registrar o status do treinamento (ex: PENDING, COMPLETE, FAILED)
     status: {
         type: DataTypes.STRING,
         defaultValue: 'PENDING',
     },
-    // Referência ao nosso dataset local que foi usado para o treinamento.
     sourceDatasetId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      // --- CORREÇÃO AQUI ---
+      allowNull: true, // Permitir que seja nulo
       field: 'source_dataset_id',
       references: {
-        model: 'leonardo_datasets', // nome da tabela
+        model: 'leonardo_datasets',
         key: 'id'
       }
     }
