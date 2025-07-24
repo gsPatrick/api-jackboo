@@ -18,7 +18,7 @@ const adminOpenAISettingRoutes = require('../OpenAI/Admin/AdminOpenAISetting.rou
 const adminAssetRoutes = require('../Features-Admin/Assets/AdminAsset.routes'); // <-- NOVO: Rotas Admin de Assets
 const adminGeneratorRoutes = require('../Features-Admin/BookGenerator/AdminBookGenerator.routes'); // <-- NOVO
 const adminBookRoutes = require('../Features-Admin/Books/AdminBooks.routes'); // Importe as novas rotas
-const leonardoAdminRoutes = require('./Features-Admin/LeonardoAdmin/LeonardoAdmin.routes');
+const leonardoAdminRoutes = require('../Features-Admin/LeonardoAdmin/LeonardoAdmin.routes');
 
 const router = Router();
 
