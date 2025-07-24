@@ -1,8 +1,10 @@
 // src/Features/Content/Content.service.js
+
 const { Character, Book, BookVariation, BookContentPage } = require('../../models');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
+const promptService = require('../../OpenAI/services/prompt.service'); // <-- MUDANÇA: Importado o novo serviço de prompts
 
 if (!process.env.APP_URL) {
   throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
@@ -25,7 +27,10 @@ class ContentService {
     });
 
     try {
-      // --- INÍCIO DA LÓGICA DE RETENTATIVA CORRIGIDA ---
+      // <-- MUDANÇA: Buscar as configurações de prompt definidas pelo Admin para o fluxo do USUÁRIO.
+      const descriptionPromptConfig = await promptService.getPrompt('USER_character_description');
+      const generationPromptConfig = await promptService.getPrompt('USER_character_drawing');
+
       let detailedDescription = null;
       const MAX_RETRIES = 3;
       const RETRY_DELAY = 2000;
@@ -33,14 +38,15 @@ class ContentService {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
           console.log(`[ContentService] Passo 1, Tentativa ${attempt}/${MAX_RETRIES}: Obtendo descrição da imagem...`);
-          const descriptionAttempt = await visionService.describeImage(publicImageUrl);
           
-          // Verifica se a IA se recusou a analisar a imagem
+          // <-- MUDANÇA: Passar o template do prompt do admin para o serviço de visão.
+          // É necessário que o método `describeImage` em `openai.service.js` aceite este segundo parâmetro.
+          const descriptionAttempt = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
+          
           if (descriptionAttempt.toLowerCase().includes("i'm sorry") || descriptionAttempt.toLowerCase().includes("i cannot")) {
               throw new Error("A IA de visão recusou a análise nesta tentativa. Tentando novamente.");
           }
           
-          // Se a descrição for válida, armazena e sai do laço
           detailedDescription = descriptionAttempt;
           console.log('[ContentService] Descrição válida obtida com sucesso.');
           break;
@@ -49,16 +55,13 @@ class ContentService {
           console.error(`[ContentService] Tentativa ${attempt} de obter descrição falhou: ${error.message}`);
           
           if (attempt === MAX_RETRIES) {
-            // Se todas as tentativas falharem, lança um erro definitivo
             console.error('[ContentService] Todas as tentativas de obter a descrição da imagem falharam.');
             throw new Error("A IA de visão não conseguiu processar a imagem após múltiplas tentativas. Por favor, tente uma imagem diferente.");
           }
           
-          // Espera antes da próxima tentativa
           await sleep(RETRY_DELAY);
         }
       }
-      // --- FIM DA LÓGICA DE RETENTATIVA CORRIGIDA ---
       
       await character.update({ description: `Nossa IA entendeu seu desenho como: "${detailedDescription}".` });
 
@@ -70,7 +73,9 @@ class ContentService {
         .replace(/-/g, '')   
         .trim();             
 
-      const finalPrompt = `A cute character based on this detailed description: "${cleanedDescription}". The character must have a happy expression and be smiling, and should be facing forward. Create a full body 2D cartoon illustration on a simple white background.`;
+      // <-- MUDANÇA: O prompt final agora é construído a partir do template do admin.
+      // O template deve conter a variável {{DESCRIPTION}} para ser substituída.
+      const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', cleanedDescription);
       
       console.log('[ContentService] Passo 3: Carregando imagem guia para Leonardo.Ai...');
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
@@ -115,7 +120,6 @@ class ContentService {
         name: 'Ops! Falha na Geração',
         description: `Ocorreu um erro durante o processo: ${error.message}`
       });
-      // Re-lança o erro para que o middleware de tratamento de erro do Express o capture
       throw error; 
     }
   }
@@ -131,9 +135,15 @@ class ContentService {
       throw new Error('Personagem não encontrado ou não pertence ao usuário.');
     }
 
+    // <-- MUDANÇA: Buscar todas as configs de prompt necessárias para este fluxo.
+    const themeTitlePromptConfig = await promptService.getPrompt('USER_book_theme_and_title');
+    const storylinePromptConfig = await promptService.getPrompt('USER_coloring_storyline');
+    const pageGenPromptConfig = await promptService.getPrompt('USER_coloring_page_generation');
+
     const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
     let characterDescription = 'A cute and friendly character.';
     try {
+        // A busca pela descrição não precisa de prompt customizável, pois é uma análise técnica.
         const fetchedDescription = await visionService.describeImage(characterImageUrl);
         if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
             characterDescription = fetchedDescription.replace(/\n/g, ' ').replace(/-/g, '').trim();
@@ -142,7 +152,9 @@ class ContentService {
         console.warn(`[ContentService] AVISO: Falha ao obter descrição visual para o tema. Usando descrição padrão. Erro: ${descError.message}`);
     }
 
-    const { theme, title } = await visionService.generateBookThemeAndTitle(characterDescription);
+    // <-- MUDANÇA: Passar o template do admin para gerar tema e título.
+    // É necessário que o método `generateBookThemeAndTitle` em `openai.service.js` aceite este segundo parâmetro.
+    const { theme, title } = await visionService.generateBookThemeAndTitle(characterDescription, themeTitlePromptConfig.basePromptText);
     const pageCount = 10;
 
     console.log(`[ContentService] Criando livro de colorir com TEMA: "${theme}", TÍTULO: "${title}"`);
@@ -168,14 +180,23 @@ class ContentService {
         const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
         
         console.log('[ContentService] Gerando roteiro para as páginas...');
-        const pagePrompts = await visionService.generateColoringBookStoryline(character.name, sanitizedDescription, theme, pageCount);
+        // <-- MUDANÇA: Passar o template do admin para gerar o roteiro.
+        // É necessário que `generateColoringBookStoryline` aceite este último parâmetro.
+        const pagePrompts = await visionService.generateColoringBookStoryline(character.name, sanitizedDescription, theme, pageCount, storylinePromptConfig.basePromptText);
 
         for (let i = 0; i < pagePrompts.length; i++) {
           const pageNumber = i + 1;
-          const prompt = pagePrompts[i];
-          console.log(`[ContentService] Gerando página ${pageNumber}/${pageCount}: ${prompt}`);
+          const promptDePagina = pagePrompts[i];
+          console.log(`[ContentService] Gerando página ${pageNumber}/${pageCount}: ${promptDePagina}`);
 
-          const generationId = await leonardoService.startColoringPageGeneration(prompt, sanitizedDescription);
+          // <-- MUDANÇA: Construir o prompt final do Leonardo usando o template do admin.
+          // O template deve ter as variáveis {{CHARACTER_DESCRIPTION}} e {{PAGE_PROMPT}}.
+          const finalLeonardoPrompt = pageGenPromptConfig.basePromptText
+            .replace('{{CHARACTER_DESCRIPTION}}', sanitizedDescription)
+            .replace('{{PAGE_PROMPT}}', promptDePagina);
+          
+          // <-- MUDANÇA: O método `startColoringPageGeneration` deve ser ajustado para receber o prompt final já montado.
+          const generationId = await leonardoService.startColoringPageGeneration(finalLeonardoPrompt);
 
           let finalImageUrl = null;
           const MAX_POLLS = 30;
@@ -199,7 +220,7 @@ class ContentService {
             pageNumber,
             pageType: 'coloring_page',
             imageUrl: localPageUrl,
-            illustrationPrompt: prompt,
+            illustrationPrompt: promptDePagina, // Salva o prompt individual da página para referência
             status: 'completed'
           });
         }
@@ -233,11 +254,10 @@ class ContentService {
     return character;
   }
 
-
   async getBookStatus(userId, bookId) {
     const book = await Book.findOne({
         where: { id: bookId, authorId: userId },
-        attributes: ['id', 'status', 'title', 'finalPdfUrl'], // Retorna apenas o necessário
+        attributes: ['id', 'status', 'title', 'finalPdfUrl'],
         include: [{
             model: BookVariation,
             as: 'variations',
@@ -245,13 +265,13 @@ class ContentService {
             include: [{
                 model: BookContentPage,
                 as: 'pages',
-                attributes: ['pageNumber', 'status', 'imageUrl'] // Para mostrar o progresso das páginas
+                attributes: ['pageNumber', 'status', 'imageUrl']
             }]
         }]
     });
     if (!book) throw new Error('Livro não encontrado ou não pertence ao usuário.');
     return book;
-}
+  }
 }
 
 module.exports = new ContentService();

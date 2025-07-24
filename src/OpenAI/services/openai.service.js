@@ -1,7 +1,7 @@
 // src/OpenAI/services/openai.service.js
 
 const OpenAI = require('openai');
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms)); // <-- ADICIONADO
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class VisionService {
   constructor() {
@@ -11,29 +11,35 @@ class VisionService {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
-  async describeImage(imageUrl) {
-    const MAX_RETRIES = 3; // <-- ADICIONADO: Número máximo de tentativas
-    const RETRY_DELAY = 2000; // <-- ADICIONADO: Atraso de 2 segundos entre tentativas
+  /**
+   * Descreve uma imagem usando um template de prompt dinâmico.
+   * @param {string} imageUrl - A URL pública da imagem a ser analisada.
+   * @param {string} promptTemplate - O template do prompt que será enviado à IA. Deve ser buscado do DB.
+   * @returns {Promise<string>} A descrição gerada pela IA.
+   */
+  async describeImage(imageUrl, promptTemplate) {
+    if (!promptTemplate) {
+      throw new Error('[VisionService] O template de prompt para descrição da imagem não foi fornecido.');
+    }
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         console.log(`[VisionService] Tentativa ${attempt}/${MAX_RETRIES} para descrever a imagem: ${imageUrl}`);
-        
-        const messages = [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analise a imagem como um conceito de arte para um personagem. Não a descreva como uma entidade real, criança ou pessoa. O seu único objetivo é extrair os atributos visuais para um artista 2D replicar o estilo. Liste apenas as características físicas, como 'formato do corpo de urso', 'pelagem amarela', 'orelhas arredondadas', 'camiseta listrada'. Seja objetivo e técnico."
-              },
-              {
-                type: "image_url",
-                image_url: { url: imageUrl },
-              },
-            ],
-          },
-        ];
+
+        const messages = [{
+          role: "user",
+          content: [{
+            type: "text",
+            // Usa o prompt dinâmico recebido como parâmetro
+            text: promptTemplate
+          }, {
+            type: "image_url",
+            image_url: { url: imageUrl },
+          }, ],
+        }, ];
 
         const response = await this.openai.chat.completions.create({
           model: "gpt-4o",
@@ -43,30 +49,131 @@ class VisionService {
 
         const description = response.choices[0].message.content.trim();
         console.log("[VisionService] Descrição detalhada recebida com sucesso:", description);
-        
-        return description; // <-- SUCESSO: Retorna e sai do laço
+
+        return description;
 
       } catch (error) {
         const errorMessage = error.response ? error.response.data : error.message;
         console.error(`[VisionService] Tentativa ${attempt} falhou:`, errorMessage);
 
         if (attempt === MAX_RETRIES) {
-          // Se for a última tentativa, lança o erro definitivo
           console.error('[VisionService] Todas as tentativas de chamar a API de visão falharam.');
           throw new Error(`Falha na análise da imagem após ${MAX_RETRIES} tentativas: ${error.response?.data?.error?.message || error.message}`);
         }
 
-        // Espera antes de tentar novamente
         await sleep(RETRY_DELAY);
       }
     }
   }
 
+  /**
+   * Gera o roteiro de um livro de colorir usando um template de prompt do sistema.
+   * @param {string} characterName - Nome do personagem.
+   * @param {string} characterDescription - Descrição visual do personagem.
+   * @param {string} theme - O tema do livro.
+   * @param {number} pageCount - O número de páginas.
+   * @param {string} systemPromptTemplate - O template do prompt de sistema (instruções para a IA).
+   * @returns {Promise<string[]>} Um array de prompts, um para cada página.
+   */
+  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount, systemPromptTemplate) {
+    if (!systemPromptTemplate) {
+        throw new Error('[VisionService] O template de prompt para gerar o roteiro do livro não foi fornecido.');
+    }
+
+    try {
+      console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
+
+      // Monta o prompt do sistema dinamicamente
+      const systemPrompt = systemPromptTemplate
+        .replace(/{{PAGE_COUNT}}/g, pageCount)
+        .replace(/{{THEME}}/g, theme)
+        .replace(/{{CHARACTER_NAME}}/g, characterName)
+        .replace(/{{CHARACTER_DESCRIPTION}}/g, characterDescription);
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [{
+            role: "system",
+            content: systemPrompt
+          },
+          {
+            role: "user",
+            content: `Create the complete visual story in ${pageCount} scenes for the theme "${theme}". Follow ALL directing rules.`
+          }
+        ],
+        max_tokens: 350 * pageCount,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+
+      if (!result.pages || !Array.isArray(result.pages) || result.pages.length === 0) {
+        throw new Error('A IA não retornou a lista de páginas no formato esperado.');
+      }
+
+      console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
+      const sanitizedPages = result.pages.map(prompt => this.sanitizePromptForSafety(prompt));
+      return sanitizedPages;
+
+    } catch (error) {
+      console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
+      throw new Error(`Falha na geração do roteiro: ${error.message}`);
+    }
+  }
+
+  /**
+   * Gera um tema e título para um livro usando um template de prompt do sistema.
+   * @param {string} characterDescription - A descrição visual do personagem.
+   * @param {string} systemPromptTemplate - O template de prompt de sistema para a IA.
+   * @returns {Promise<{theme: string, title: string}>}
+   */
+  async generateBookThemeAndTitle(characterDescription, systemPromptTemplate) {
+    if (!systemPromptTemplate) {
+        throw new Error('[VisionService] O template de prompt para gerar tema e título não foi fornecido.');
+    }
+
+    try {
+      console.log(`[VisionService] Gerando TEMA e TÍTULO aleatórios para o livro...`);
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [{
+            role: "system",
+            content: systemPromptTemplate
+          },
+          {
+            role: "user",
+            content: `Generate the theme and title for a character described as: "${characterDescription}"`
+          }
+        ],
+        max_tokens: 100,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      if (!result.theme || !result.title) {
+        throw new Error('A IA não retornou o tema e o título no formato JSON esperado.');
+      }
+
+      console.log(`[VisionService] Tema e Título gerados:`, result);
+      return result;
+
+    } catch (error) {
+      console.error('[VisionService] Erro ao gerar tema e título do livro:', error.message);
+      return {
+        theme: 'A Fun Day of Adventures',
+        title: 'The Magical Adventure Book'
+      };
+    }
+  }
+
+  // --- Funções Auxiliares (Não modificadas) ---
+
   sanitizeDescriptionForColoring(description) {
     if (!description) return '';
     const colorWords = [
-      'amarela', 'amarelo', 'laranja', 'azul', 'azuis', 'marrom', 'verde', 
-      'vermelho', 'rosa', 'preto', 'branco', 'cinza', 'roxo', 'violeta', 
+      'amarela', 'amarelo', 'laranja', 'azul', 'azuis', 'marrom', 'verde',
+      'vermelho', 'rosa', 'preto', 'branco', 'cinza', 'roxo', 'violeta',
       'dourado', 'prateado', 'colorido', 'colorida'
     ];
     const regex = new RegExp('\\b(' + colorWords.join('|') + ')\\b', 'gi');
@@ -82,116 +189,6 @@ class VisionService {
     const regex = new RegExp('\\b(' + forbiddenWords.join('|') + ')\\b', 'gi');
     return prompt.replace(regex, 'friendly figures');
   }
-
-  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount) {
-    try {
-      console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
-
-      const systemPrompt = `You are a senior art director and storyboarder for a premium coloring book publisher, creating content for a young audience (ages 4-7). Your task is to create a complete and sequential visual story in ${pageCount} scenes for a book with the central theme "${theme}".
-
-      THE MAIN CHARACTER:
-      - His name is "${characterName}" (NEVER use his name in the final output).
-      - His visual description is: "${characterDescription}".
-
-      **NON-NEGOTIABLE DIRECTIONAL RULES:**
-
-      1.  **COMPLETE NARRATIVE ARC:**
-          - The ${pageCount} scenes must tell a clear story with a beginning, middle, and end.
-          - The first scene must introduce the setting and the character's initial motivation.
-          - The middle scenes must develop the journey with actions, discoveries, or small challenges.
-          - The final scene must provide a satisfying visual conclusion.
-
-      2.  **TOTAL IMMERSION (THE GOLDEN RULE):**
-          - The character must NEVER break the "fourth wall" (look at the reader). He must be completely immersed in the scene, focused on his actions.
-          - **Direct the Gaze:** Describe where the character is looking (e.g., "looking at the star he is holding," "looking down at the cookie dough").
-          - **Constant Action:** No static poses. The character must always be in motion or interacting with something.
-
-      3.  **DETAILED SCENE CHECKLIST (for each page):**
-          - **Action and Pose:** Describe the exact action and pose (e.g., "crouching, in profile, with an expression of curiosity").
-          - **Thematic Setting:** The setting must be rich and 100% focused on the theme "${theme}".
-          - **Key Interactive Objects (2-3):** List 2-3 clear objects the character interacts with.
-          - **Narrative Background:** The background must complement the story with clear, large shapes, easy to color.
-
-      4.  **SAFETY & STYLE RULES:**
-          - **Do NOT use sensitive words** like "child," "boy," "baby." Use neutral terms like "friendly figures" or "other characters."
-          - The style is LINE ART for a coloring book. No color, no shadows.
-
-      **MANDATORY OUTPUT FORMAT:**
-      Your response MUST be a JSON object with a single key "pages", which is an array of ${pageCount} strings. Each string is a complete and detailed scene prompt, **WRITTEN ENTIRELY IN ENGLISH**.`;
-      
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Create the complete visual story in ${pageCount} scenes for the theme "${theme}". Follow ALL directing rules, especially the rule about NOT looking at the camera and omitting the character's name.`
-          }
-        ],
-        max_tokens: 350 * pageCount,
-      });
-
-      const result = JSON.parse(response.choices[0].message.content);
-      
-      if (!result.pages || !Array.isArray(result.pages) || result.pages.length === 0) {
-        throw new Error('A IA não retornou a lista de páginas no formato esperado.');
-      }
-      
-      console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
-      
-      // --- CORREÇÃO: Usando arrow function (=>) para garantir que 'this' se refere à instância da classe VisionService. ---
-      const sanitizedPages = result.pages.map(prompt => this.sanitizePromptForSafety(prompt));
-      
-      return sanitizedPages;
-
-    } catch (error) {
-      console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
-      throw new Error(`Falha na geração do roteiro: ${error.message}`);
-    }
-  }
-
-
-// <-- INÍCIO DA NOVA FUNÇÃO ADICIONADA -->
-  async generateBookThemeAndTitle(characterDescription) {
-    try {
-      console.log(`[VisionService] Gerando TEMA e TÍTULO aleatórios para o livro...`);
-      const systemPrompt = `You are a creative writer for children's books (ages 4-7). Based on the character's visual description, generate a simple, fun, and safe theme, and a catchy title for a 10-page coloring book.
-
-      The theme should be a short concept, like "A Day at the Beach", "Treasure Hunt in the Forest", "Space Adventure", "Making Cookies", or "A Magical Garden".
-      The title should be engaging and related to the theme.
-
-      **CRITICAL:** Your response MUST be a valid JSON object with two keys: "theme" and "title".
-      Example: { "theme": "A Picnic in the Park", "title": "The Great Picnic Adventure" }`;
-
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate the theme and title for a character described as: "${characterDescription}"` }
-        ],
-        max_tokens: 100,
-      });
-
-      const result = JSON.parse(response.choices[0].message.content);
-      if (!result.theme || !result.title) {
-        throw new Error('A IA não retornou o tema e o título no formato JSON esperado.');
-      }
-
-      console.log(`[VisionService] Tema e Título gerados:`, result);
-      return result;
-
-    } catch (error) {
-      console.error('[VisionService] Erro ao gerar tema e título do livro:', error.message);
-      // Retorna um fallback em caso de erro para não quebrar o fluxo principal
-      return {
-        theme: 'A Fun Day of Adventures',
-        title: 'The Magical Adventure Book'
-      };
-    }
-  }
-
 }
 
 module.exports = new VisionService();

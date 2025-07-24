@@ -18,6 +18,7 @@ const adminOpenAISettingRoutes = require('../OpenAI/Admin/AdminOpenAISetting.rou
 const adminAssetRoutes = require('../Features-Admin/Assets/AdminAsset.routes'); // <-- NOVO: Rotas Admin de Assets
 const adminGeneratorRoutes = require('../Features-Admin/BookGenerator/AdminBookGenerator.routes'); // <-- NOVO
 const adminBookRoutes = require('../Features-Admin/Books/AdminBooks.routes'); // Importe as novas rotas
+const leonardoAdminRoutes = require('./Features-Admin/LeonardoAdmin/LeonardoAdmin.routes');
 
 const router = Router();
 
@@ -47,5 +48,6 @@ router.use('/admin/assets', adminAssetRoutes); // <-- NOVO: Adicionar rotas Admi
 router.use('/admin/generator', adminGeneratorRoutes); // <-- NOVO
 router.use('/admin/assets', adminAssetRoutes);
 router.use('/admin/books', adminBookRoutes); // Diga ao Express para usar as rotas de livros
+router.use('/api/admin/leonardo', leonardoAdminRoutes);
 
 module.exports = router;
