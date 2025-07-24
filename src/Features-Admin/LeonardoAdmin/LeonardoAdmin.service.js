@@ -16,13 +16,13 @@ class LeonardoAdminService {
     // ========================================================================
     // ATENÇÃO: ID de usuário HARDCODED conforme solicitado.
     // Substitua o valor abaixo pelo seu ID de usuário real da Leonardo.AI.
-    this.userId = 'SEU_ID_DE_USUARIO_LEONARDO_AQUI'; 
+    this.userId = 'bd50f328-6afd-4493-8b75-9bfe21beab8d'; 
     // ========================================================================
 
     if (!this.token) {
       throw new Error('LEONARDO_API_KEY deve estar configurada no seu arquivo .env.');
     }
-    if (this.userId === 'SEU_ID_DE_USUARIO_LEONARDO_AQUI' || !this.userId) {
+    if (this.userId === 'bd50f328-6afd-4493-8b75-9bfe21beab8d' || !this.userId) {
         console.warn('[LeonardoAdminService] AVISO: O ID de usuário do Leonardo não foi configurado. As funcionalidades de "Elements" não funcionarão corretamente.');
     }
 
