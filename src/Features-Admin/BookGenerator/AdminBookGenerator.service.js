@@ -2,6 +2,7 @@
 const { Book, BookVariation, BookContentPage, Character, sequelize } = require('../../models');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
+const promptService = require('../../OpenAI/services/prompt.service'); // <-- MUDANÇA: Importado o serviço de prompts
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
 const ADMIN_USER_ID = 1;
@@ -82,11 +83,16 @@ class AdminBookGeneratorService {
         const pageCount = bookVariation.pageCount;
         const theme = book.genre;
 
+        // <-- MUDANÇA: Buscar prompts do banco de dados
+        const storylinePromptConfig = await promptService.getPrompt('ADMIN_coloring_storyline');
+        const pageGenPromptConfig = await promptService.getPrompt('ADMIN_coloring_page_generation');
+
         console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
         const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
         let characterDescription = 'A cute and friendly character.';
         try {
-            const fetchedDescription = await visionService.describeImage(characterImageUrl);
+            // A análise da imagem não precisa de prompt customizável do admin
+            const fetchedDescription = await visionService.describeImage(characterImageUrl, "Describe this character for an image generation AI. Focus on visual elements, style, and mood.");
             if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
                 characterDescription = fetchedDescription.replace(/\n/g, ' ').replace(/-/g, '').trim();
             }
@@ -98,11 +104,13 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Descrição sanitizada para prompt: "${sanitizedDescription}"`);
 
         console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
+        // <-- MUDANÇA: Passar o template do admin para gerar o roteiro
         const pagePrompts = await visionService.generateColoringBookStoryline(
             character.name,
             sanitizedDescription,
             theme,
-            pageCount
+            pageCount,
+            storylinePromptConfig.basePromptText // Passa o prompt do admin aqui
         );
 
         if (!pagePrompts || pagePrompts.length === 0) {
@@ -111,39 +119,46 @@ class AdminBookGeneratorService {
         
         console.log(`[AdminGenerator] Roteiro com ${pagePrompts.length} páginas recebido. Iniciando geração das imagens...`);
         
-        const pageGenerationPromises = pagePrompts.map((prompt, index) => {
+        const pageGenerationPromises = pagePrompts.map((promptDePagina, index) => {
             const pageNumber = index + 1;
-            return this.generateSingleColoringPage(bookVariation.id, pageNumber, prompt, sanitizedDescription);
+            // <-- MUDANÇA: Construir o prompt final do Leonardo usando o template do admin
+            const finalLeonardoPrompt = pageGenPromptConfig.basePromptText
+              .replace('{{CHARACTER_DESCRIPTION}}', sanitizedDescription)
+              .replace('{{PAGE_PROMPT}}', promptDePagina);
+              
+            return this.generateSingleColoringPage(bookVariation.id, pageNumber, promptDePagina, finalLeonardoPrompt);
         });
 
         await Promise.all(pageGenerationPromises);
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
     
-    static async generateSingleColoringPage(bookVariationId, pageNumber, prompt, characterDescription) {
-        const MAX_RETRIES = 3; // <-- ADICIONADO
-        const RETRY_DELAY = 5000; // <-- ADICIONADO: 5 segundos para APIs de imagem
+    // <-- MUDANÇA: Adicionado 'finalLeonardoPrompt' como parâmetro
+    static async generateSingleColoringPage(bookVariationId, pageNumber, originalPrompt, finalLeonardoPrompt) {
+        const MAX_RETRIES = 3; 
+        const RETRY_DELAY = 5000;
 
-        console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${prompt}`);
+        console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${originalPrompt}`);
         
         let pageRecord = await BookContentPage.create({
             bookVariationId,
             pageNumber,
             pageType: 'coloring_page',
-            illustrationPrompt: prompt,
+            illustrationPrompt: originalPrompt, // Salva o prompt original para referência
             status: 'generating',
         }).catch(err => {
             console.error(`[AdminGenerator] Falha crítica ao criar o registro inicial da página ${pageNumber}:`, err.message);
             return null; 
         });
 
-        if (!pageRecord) return; // Se a criação do registro falhou, não há como continuar
+        if (!pageRecord) return;
 
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 console.log(`[AdminGenerator] PÁGINA ${pageNumber}, TENTATIVA ${attempt}/${MAX_RETRIES}`);
 
-                const generationId = await leonardoService.startColoringPageGeneration(prompt, characterDescription);
+                // <-- MUDANÇA: Passa o prompt final para o serviço do Leonardo
+                const generationId = await leonardoService.startColoringPageGeneration(finalLeonardoPrompt);
 
                 let finalImageUrl = null;
                 const MAX_POLLS = 30;
@@ -168,23 +183,20 @@ class AdminBookGeneratorService {
                 });
                 console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso na tentativa ${attempt}.`);
                 
-                return; // <-- SUCESSO: Sai da função e do laço
+                return;
 
             } catch (pageError) {
                 console.error(`[AdminGenerator] Erro na TENTATIVA ${attempt} de gerar a página ${pageNumber}:`, pageError.message);
 
                 if (attempt === MAX_RETRIES) {
-                    // Se esta foi a última tentativa, marca a página como falha e lança o erro
                     console.error(`[AdminGenerator] FALHA FINAL ao gerar a página ${pageNumber} após ${MAX_RETRIES} tentativas.`);
                     await pageRecord.update({
                         status: 'failed',
                         errorDetails: `Falhou após ${MAX_RETRIES} tentativas. Último erro: ${pageError.message}`,
                     });
-                    // Lança o erro para que o Promise.all no chamador possa capturá-lo
                     throw pageError;
                 }
 
-                // Espera antes da próxima tentativa
                 await sleep(RETRY_DELAY);
             }
         }
