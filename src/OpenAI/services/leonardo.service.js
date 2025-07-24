@@ -1,5 +1,3 @@
-// src/OpenAI/services/leonardo.service.js
-
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
@@ -136,7 +134,7 @@ class LeonardoService {
    * @param {string} finalPrompt - O prompt de texto completo e já formatado para a página.
    * @returns {Promise<string>} O ID do job de geração.
    */
-  async startColoringPageGeneration(finalPrompt) { // <-- MUDANÇA: Recebe o prompt final
+  async startColoringPageGeneration(finalPrompt) { 
     if (!finalPrompt) {
         throw new Error('[LeonardoService] O prompt para a geração da página de colorir não foi fornecido.');
     }

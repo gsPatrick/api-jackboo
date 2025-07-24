@@ -1,8 +1,7 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.service.js
-const { Book, BookVariation, BookContentPage, Character, sequelize } = require('../../models');
+const { Book, BookVariation, BookContentPage, Character, sequelize, OpenAISetting } = require('../../models');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
-const promptService = require('../../OpenAI/services/prompt.service'); // <-- MUDANÇA: Importado o serviço de prompts
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
 const ADMIN_USER_ID = 1;
@@ -11,10 +10,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 class AdminBookGeneratorService {
 
     static async generateBookPreview(bookType, generationData) {
-        const { theme, title, characterId, printFormatId, pageCount, location, summary } = generationData;
+        const { theme, title, characterId, printFormatId, pageCount, aiTemplateId } = generationData;
 
-        if (!bookType || !title || !characterId || !printFormatId || !pageCount || !theme) {
-            throw new Error("Dados insuficientes fornecidos para a geração do livro.");
+        if (!bookType || !title || !characterId || !printFormatId || !pageCount || !theme || !aiTemplateId) {
+            throw new Error("Dados insuficientes fornecidos (incluindo Template de IA) para a geração do livro.");
         }
         
         const character = await Character.findByPk(characterId);
@@ -30,13 +29,10 @@ class AdminBookGeneratorService {
                 printFormatId,
                 status: 'gerando',
                 genre: theme,
-                storyPrompt: { theme, location, summary }
+                storyPrompt: { theme, generationData } // Salva os dados da geração para referência
             }, { transaction: t });
 
-            let dbBookType = bookType === 'coloring' ? 'colorir' : 'historia';
-            if (!['colorir', 'historia'].includes(dbBookType)) {
-                throw new Error(`Tipo de livro desconhecido: ${bookType}`);
-            }
+            const dbBookType = bookType === 'coloring' ? 'colorir' : 'historia';
 
             await BookVariation.create({
                 bookId: book.id,
@@ -54,78 +50,73 @@ class AdminBookGeneratorService {
             throw new Error("Falha ao criar os registros iniciais do livro.");
         }
 
-        try {
-            console.log(`[AdminGenerator] INICIANDO geração síncrona para o Livro ID: ${book.id}`);
-            
-            const fullBook = await this.findBookById(book.id); 
+        (async () => {
+            try {
+                console.log(`[AdminGenerator] INICIANDO geração assíncrona para o Livro ID: ${book.id}`);
+                const fullBook = await this.findBookById(book.id); 
 
-            if (bookType === 'coloring') {
-                await this.generateColoringBookContent(fullBook);
-            } else if (bookType === 'story') {
-                throw new Error("A geração de livros de história ainda não foi implementada.");
+                if (bookType === 'coloring') {
+                    await this.generateColoringBookContent(fullBook, aiTemplateId);
+                } else if (bookType === 'story') {
+                    throw new Error("A geração de livros de história ainda não foi implementada com a nova lógica.");
+                }
+
+                await book.update({ status: 'privado' });
+                console.log(`[AdminGenerator] Livro ID ${book.id} gerado COM SUCESSO!`);
+
+            } catch (error) {
+                console.error(`[AdminGenerator] Erro fatal durante a geração do livro ID ${book.id}:`, error.message);
+                await book.update({ status: 'falha_geracao' });
             }
+        })(); // Self-invoking async function to not block the response
 
-            await book.update({ status: 'privado' });
-            console.log(`[AdminGenerator] Livro ID ${book.id} gerado COM SUCESSO!`);
-
-        } catch (error) {
-            console.error(`[AdminGenerator] Erro fatal durante a geração do livro ID ${book.id}:`, error.message);
-            await book.update({ status: 'falha_geracao' });
-            throw error; 
-        }
-
-        return book;
+        return book; // Retorna o livro imediatamente
     }
 
-    static async generateColoringBookContent(book) {
+    static async generateColoringBookContent(book, aiTemplateId) {
         const bookVariation = book.variations[0];
         const character = book.mainCharacter;
         const pageCount = bookVariation.pageCount;
         const theme = book.genre;
 
-        // <-- MUDANÇA: Buscar prompts do banco de dados
-        const storylinePromptConfig = await promptService.getPrompt('ADMIN_coloring_storyline');
-        const pageGenPromptConfig = await promptService.getPrompt('ADMIN_coloring_page_generation');
+        const mainTemplate = await OpenAISetting.findByPk(aiTemplateId, {
+            include: [{ model: OpenAISetting, as: 'helperPrompt' }]
+        });
 
-        console.log(`[AdminGenerator] Obtendo descrição visual para o personagem ${character.name}...`);
-        const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        let characterDescription = 'A cute and friendly character.';
-        try {
-            // A análise da imagem não precisa de prompt customizável do admin
-            const fetchedDescription = await visionService.describeImage(characterImageUrl, "Describe this character for an image generation AI. Focus on visual elements, style, and mood.");
-            if (fetchedDescription && !fetchedDescription.toLowerCase().includes("i'm sorry")) {
-                characterDescription = fetchedDescription.replace(/\n/g, ' ').replace(/-/g, '').trim();
-            }
-        } catch (descError) {
-            console.warn(`[AdminGenerator] AVISO: Falha ao obter descrição visual. Usando descrição padrão. Erro: ${descError.message}`);
+        if (!mainTemplate) {
+            throw new Error(`O template de IA com ID ${aiTemplateId} não foi encontrado.`);
         }
 
-        const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
-        console.log(`[AdminGenerator] Descrição sanitizada para prompt: "${sanitizedDescription}"`);
+        const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
+        let characterDescription;
 
-        console.log(`[AdminGenerator] Gerando roteiro para ${pageCount} páginas sobre "${theme}"...`);
-        // <-- MUDANÇA: Passar o template do admin para gerar o roteiro
+        if (mainTemplate.helperPrompt) {
+            console.log(`[AdminGenerator] Usando IA Ajudante "${mainTemplate.helperPrompt.name}" para descrever o personagem.`);
+            characterDescription = await visionService.describeImage(characterImageUrl, mainTemplate.helperPrompt.basePromptText);
+        } else {
+            console.log(`[AdminGenerator] Usando descrição genérica pois não há IA Ajudante associada.`);
+            characterDescription = `A simple drawing of ${character.name}.`;
+        }
+        
+        const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
+        
+        console.log(`[AdminGenerator] Usando template principal "${mainTemplate.name}" para gerar roteiro de ${pageCount} páginas...`);
         const pagePrompts = await visionService.generateColoringBookStoryline(
             character.name,
             sanitizedDescription,
             theme,
             pageCount,
-            storylinePromptConfig.basePromptText // Passa o prompt do admin aqui
+            mainTemplate.basePromptText // O prompt principal do template selecionado dita como criar o roteiro
         );
 
         if (!pagePrompts || pagePrompts.length === 0) {
-            throw new Error('A IA não conseguiu gerar o roteiro. O array de prompts de página está vazio.');
+            throw new Error('A IA não conseguiu gerar o roteiro das páginas.');
         }
-        
-        console.log(`[AdminGenerator] Roteiro com ${pagePrompts.length} páginas recebido. Iniciando geração das imagens...`);
         
         const pageGenerationPromises = pagePrompts.map((promptDePagina, index) => {
             const pageNumber = index + 1;
-            // <-- MUDANÇA: Construir o prompt final do Leonardo usando o template do admin
-            const finalLeonardoPrompt = pageGenPromptConfig.basePromptText
-              .replace('{{CHARACTER_DESCRIPTION}}', sanitizedDescription)
-              .replace('{{PAGE_PROMPT}}', promptDePagina);
-              
+            // O prompt final do Leonardo é construído manualmente aqui, mas poderia vir de outro template no futuro
+            const finalLeonardoPrompt = `line art, coloring book page for kids, ${sanitizedDescription}, ${promptDePagina}, clean lines, no shading, white background`;
             return this.generateSingleColoringPage(bookVariation.id, pageNumber, promptDePagina, finalLeonardoPrompt);
         });
 
@@ -133,9 +124,8 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
     }
     
-    // <-- MUDANÇA: Adicionado 'finalLeonardoPrompt' como parâmetro
     static async generateSingleColoringPage(bookVariationId, pageNumber, originalPrompt, finalLeonardoPrompt) {
-        const MAX_RETRIES = 3; 
+        const MAX_RETRIES = 3;
         const RETRY_DELAY = 5000;
 
         console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${originalPrompt}`);
@@ -144,10 +134,10 @@ class AdminBookGeneratorService {
             bookVariationId,
             pageNumber,
             pageType: 'coloring_page',
-            illustrationPrompt: originalPrompt, // Salva o prompt original para referência
+            illustrationPrompt: originalPrompt,
             status: 'generating',
         }).catch(err => {
-            console.error(`[AdminGenerator] Falha crítica ao criar o registro inicial da página ${pageNumber}:`, err.message);
+            console.error(`[AdminGenerator] Falha crítica ao criar o registro da página ${pageNumber}:`, err.message);
             return null; 
         });
 
@@ -157,9 +147,7 @@ class AdminBookGeneratorService {
             try {
                 console.log(`[AdminGenerator] PÁGINA ${pageNumber}, TENTATIVA ${attempt}/${MAX_RETRIES}`);
 
-                // <-- MUDANÇA: Passa o prompt final para o serviço do Leonardo
                 const generationId = await leonardoService.startColoringPageGeneration(finalLeonardoPrompt);
-
                 let finalImageUrl = null;
                 const MAX_POLLS = 30;
                 for (let poll = 0; poll < MAX_POLLS; poll++) {
@@ -171,32 +159,22 @@ class AdminBookGeneratorService {
                     }
                 }
 
-                if (!finalImageUrl) {
-                    throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
-                }
+                if (!finalImageUrl) throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
 
                 const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
-
-                await pageRecord.update({
-                    imageUrl: localPageUrl,
-                    status: 'completed',
-                });
-                console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso na tentativa ${attempt}.`);
-                
+                await pageRecord.update({ imageUrl: localPageUrl, status: 'completed' });
+                console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso.`);
                 return;
 
             } catch (pageError) {
                 console.error(`[AdminGenerator] Erro na TENTATIVA ${attempt} de gerar a página ${pageNumber}:`, pageError.message);
-
                 if (attempt === MAX_RETRIES) {
-                    console.error(`[AdminGenerator] FALHA FINAL ao gerar a página ${pageNumber} após ${MAX_RETRIES} tentativas.`);
                     await pageRecord.update({
                         status: 'failed',
                         errorDetails: `Falhou após ${MAX_RETRIES} tentativas. Último erro: ${pageError.message}`,
                     });
                     throw pageError;
                 }
-
                 await sleep(RETRY_DELAY);
             }
         }
@@ -209,19 +187,14 @@ class AdminBookGeneratorService {
                 {
                     model: BookVariation,
                     as: 'variations',
-                    include: [{
-                        model: BookContentPage,
-                        as: 'pages',
-                    }]
+                    include: [{ model: BookContentPage, as: 'pages' }]
                 }
             ],
-            order: [
-                [{ model: BookVariation, as: 'variations' }, { model: BookContentPage, as: 'pages' }, 'pageNumber', 'ASC']
-            ]
+            order: [[{ model: BookVariation, as: 'variations' }, { model: BookContentPage, as: 'pages' }, 'pageNumber', 'ASC']]
         });
         if (!book) throw new Error('Livro não encontrado.');
         return book;
     }
 }
 
-module.exports = AdminBookGeneratorService;
+module.exports = new AdminBookGeneratorService;
