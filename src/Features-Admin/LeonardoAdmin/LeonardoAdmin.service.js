@@ -13,17 +13,14 @@ class LeonardoAdminService {
     this.token = process.env.LEONARDO_API_KEY;
     this.apiUrl = 'https://cloud.leonardo.ai/api/rest/v1';
     
-    // ========================================================================
-    // ATENÇÃO: ID de usuário HARDCODED conforme solicitado.
-    // Substitua o valor abaixo pelo seu ID de usuário real da Leonardo.AI.
+    // ID de usuário da sua conta Leonardo.AI
     this.userId = 'bd50f328-6afd-4493-8b75-9bfe21beab8d'; 
-    // ========================================================================
 
     if (!this.token) {
       throw new Error('LEONARDO_API_KEY deve estar configurada no seu arquivo .env.');
     }
-    if (this.userId === 'bd50f328-6afd-4493-8b75-9bfe21beab8d' || !this.userId) {
-        console.warn('[LeonardoAdminService] AVISO: O ID de usuário do Leonardo não foi configurado. As funcionalidades de "Elements" não funcionarão corretamente.');
+    if (this.userId === 'SEU_ID_DE_USUARIO_LEONARDO_AQUI' || !this.userId) {
+        console.warn('[LeonardoAdminService] AVISO: O ID de usuário do Leonardo não foi configurado.');
     }
 
     this.headers = {
@@ -37,20 +34,10 @@ class LeonardoAdminService {
   // MÉTODOS PARA GERENCIAMENTO DE DATASETS
   // ======================================================
 
-  /**
-   * Lista os datasets que estão registrados na nossa base de dados.
-   * @returns {Promise<LeonardoDataset[]>}
-   */
   async listDatasets() {
     return LeonardoDataset.findAll({ order: [['name', 'ASC']] });
   }
 
-  /**
-   * Cria um dataset na API do Leonardo e salva a referência no nosso DB.
-   * @param {string} name - Nome do dataset.
-   * @param {string} description - Descrição opcional.
-   * @returns {Promise<LeonardoDataset>}
-   */
   async createDataset(name, description) {
     try {
       console.log(`[LeonardoAdmin] Criando dataset "${name}" na API do Leonardo...`);
@@ -60,7 +47,6 @@ class LeonardoAdminService {
       if (!leonardoDatasetId) {
         throw new Error('A API do Leonardo não retornou um ID de dataset válido.');
       }
-      console.log(`[LeonardoAdmin] Dataset criado com sucesso na Leonardo. ID: ${leonardoDatasetId}`);
 
       const newLocalDataset = await LeonardoDataset.create({
         leonardoDatasetId: leonardoDatasetId,
@@ -75,11 +61,6 @@ class LeonardoAdminService {
     }
   }
 
-  /**
-   * Busca detalhes de um dataset específico na API do Leonardo.
-   * @param {number} localDatasetId - O ID do dataset na nossa tabela.
-   * @returns {Promise<object>}
-   */
   async getDatasetDetails(localDatasetId) {
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
@@ -93,12 +74,6 @@ class LeonardoAdminService {
     }
   }
 
-  /**
-   * Faz o upload de uma imagem do nosso servidor para um dataset no Leonardo.
-   * @param {number} localDatasetId - O ID do dataset na nossa tabela.
-   * @param {object} file - O objeto 'file' do Multer.
-   * @returns {Promise<{message: string, imageId: string}>}
-   */
   async uploadImageToDataset(localDatasetId, file) {
     if (!file) throw new Error('Nenhum arquivo fornecido para upload.');
 
@@ -106,7 +81,6 @@ class LeonardoAdminService {
     if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
 
     try {
-      console.log('[LeonardoAdmin] Solicitando URL pré-assinada...');
       const presignedResponse = await axios.post(
         `${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}/upload`,
         { extension: file.mimetype.split('/')[1] },
@@ -118,7 +92,6 @@ class LeonardoAdminService {
       const s3UploadFields = JSON.parse(uploadDetails.fields);
       const leonardoImageId = uploadDetails.id;
 
-      console.log(`[LeonardoAdmin] Fazendo upload do arquivo para S3 com ID de imagem: ${leonardoImageId}...`);
       const formData = new FormData();
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
@@ -126,36 +99,25 @@ class LeonardoAdminService {
       formData.append('file', fs.createReadStream(file.path));
 
       await axios.post(s3UploadUrl, formData, { headers: formData.getHeaders() });
-
-      console.log('[LeonardoAdmin] Upload concluído com sucesso.');
       
       return { message: 'Imagem enviada com sucesso para o dataset.', imageId: leonardoImageId };
-
     } catch (error) {
       console.error('Erro no processo de upload:', error.response ? error.response.data : error.message);
       throw new Error('Falha ao enviar imagem para o dataset no Leonardo.AI.');
     }
   }
 
-  /**
-   * Deleta um dataset no Leonardo e na nossa base de dados.
-   * @param {number} localDatasetId - O ID do dataset na nossa tabela.
-   * @returns {Promise<{message: string}>}
-   */
   async deleteDataset(localDatasetId) {
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
     
     try {
-      console.log(`[LeonardoAdmin] Deletando dataset ${localDataset.leonardoDatasetId} da API do Leonardo...`);
       await axios.delete(`${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}`, { headers: this.headers });
-
       await localDataset.destroy();
-
       return { message: 'Dataset deletado com sucesso em ambos os sistemas.' };
     } catch (error) {
         console.error('Erro ao deletar dataset:', error.response ? error.response.data : error.message);
-        throw new Error('Falha ao deletar o dataset. Pode ter sido removido apenas de um dos sistemas.');
+        throw new Error('Falha ao deletar o dataset.');
     }
   }
 
@@ -163,29 +125,26 @@ class LeonardoAdminService {
   // MÉTODOS PARA GERENCIAMENTO DE ELEMENTS (LoRAs)
   // ======================================================
 
-  /**
-   * Lista todos os elementos personalizados da conta principal do Leonardo e sincroniza com o DB local.
-   * @returns {Promise<LeonardoElement[]>}
-   */
   async listAllElements() {
     try {
       console.log(`[LeonardoAdmin] Buscando todos os elements para o userId: ${this.userId}...`);
       const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
       const leonardoElements = response.data?.user_elements || [];
 
-      // Sincroniza com a base de dados local.
-      // O ID '1' para sourceDatasetId é um placeholder para elementos criados fora da plataforma.
-      // O ideal seria tornar este campo nulo no modelo (allowNull: true).
       for (const element of leonardoElements) {
-        await LeonardoElement.findOrCreate({
-          where: { leonardoElementId: element.id },
-          defaults: {
-            leonardoElementId: String(element.id), // Garante que o ID seja string
+        const sourceLeonardoDatasetId = element.datasetId;
+        let localDataset = null;
+
+        if (sourceLeonardoDatasetId) {
+            localDataset = await LeonardoDataset.findOne({ where: { leonardoDatasetId: sourceLeonardoDatasetId } });
+        }
+
+        await LeonardoElement.upsert({
+            leonardoElementId: String(element.id),
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
             status: element.status,
-            sourceDatasetId: 1, 
-          }
+            sourceDatasetId: localDataset ? localDataset.id : null,
         });
       }
 
@@ -200,14 +159,8 @@ class LeonardoAdminService {
     }
   }
 
-  /**
-   * Inicia o treinamento de um novo Element (LoRA).
-   * @param {object} trainingData - Dados do formulário de treinamento.
-   * @returns {Promise<LeonardoElement>}
-   */
   async trainNewElement(trainingData) {
     const { name, localDatasetId, lora_focus, description, instance_prompt } = trainingData;
-
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
       throw new Error('Dataset de origem não encontrado em nossa base de dados.');
@@ -215,7 +168,7 @@ class LeonardoAdminService {
 
     const payload = {
       name,
-      description,
+      description: description || "", // CORREÇÃO: Garante que seja string vazia se nulo.
       datasetId: localDataset.leonardoDatasetId,
       lora_focus,
       sd_version: 'FLUX_DEV',
@@ -251,11 +204,6 @@ class LeonardoAdminService {
     }
   }
   
-  /**
-   * Busca os detalhes de um Element e atualiza seu status no nosso DB.
-   * @param {number} localElementId - O ID do elemento na nossa tabela.
-   * @returns {Promise<object>}
-   */
   async getElementDetails(localElementId) {
     const localElement = await LeonardoElement.findByPk(localElementId);
     if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
@@ -275,11 +223,6 @@ class LeonardoAdminService {
     }
   }
 
-  /**
-   * Deleta um Element no Leonardo e na nossa base de dados.
-   * @param {number} localElementId - O ID do elemento na nossa tabela.
-   * @returns {Promise<{message: string}>}
-   */
   async deleteElement(localElementId) {
     const localElement = await LeonardoElement.findByPk(localElementId);
     if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
@@ -287,59 +230,13 @@ class LeonardoAdminService {
     try {
       console.log(`[LeonardoAdmin] Deletando elemento ${localElement.leonardoElementId} da API do Leonardo...`);
       await axios.delete(`${this.apiUrl}/elements/${localElement.leonardoElementId}`, { headers: this.headers });
-
       await localElement.destroy();
-
       return { message: 'Elemento deletado com sucesso em ambos os sistemas.' };
     } catch (error) {
       console.error('Erro ao deletar elemento:', error.response ? error.response.data : error.message);
       throw new Error('Falha ao deletar o elemento.');
     }
   }
-
-  
-
-async listAllElements() {
-        try {
-            console.log(`[LeonardoAdmin] Buscando todos os elements para o userId: ${this.userId}...`);
-            const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
-            const leonardoElements = response.data?.user_elements || [];
-
-            // Sincroniza cada elemento com a base de dados local
-            for (const element of leonardoElements) {
-                const sourceLeonardoDatasetId = element.datasetId;
-                let localDataset = null;
-
-                // Se o elemento da API tiver um datasetId, tenta encontrá-lo em nosso DB local
-                if (sourceLeonardoDatasetId) {
-                    localDataset = await LeonardoDataset.findOne({ 
-                        where: { leonardoDatasetId: sourceLeonardoDatasetId } 
-                    });
-                }
-
-                // Cria ou atualiza o elemento em nosso banco de dados
-                await LeonardoElement.upsert({
-                    leonardoElementId: String(element.id),
-                    name: element.name || 'Elemento Sem Nome',
-                    description: element.description,
-                    status: element.status,
-                    // CORREÇÃO CRÍTICA: Salva o ID do nosso DB local, ou null se não for encontrado
-                    sourceDatasetId: localDataset ? localDataset.id : null,
-                });
-            }
-
-            // Retorna a lista completa do nosso DB, agora com as associações corretas
-            return LeonardoElement.findAll({
-                include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
-                order: [['createdAt', 'DESC']],
-            });
-            
-        } catch (error) {
-            console.error('Erro ao listar elements:', error.response ? error.response.data : error.message);
-            throw new Error('Falha ao buscar a lista de Elements no Leonardo.AI.');
-        }
-
-    }
 }
 
 module.exports = new LeonardoAdminService();
