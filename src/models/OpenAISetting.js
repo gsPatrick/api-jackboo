@@ -1,3 +1,4 @@
+// src/models/OpenAISetting.js
 'use strict';
 const { Model } = require('sequelize');
 
@@ -10,42 +11,38 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: 'adminAssetId',
         as: 'baseAssets'
       });
+
+      // --- NOVA ASSOCIAÇÃO ---
+      // Um template pode ter um "template ajudante"
+      this.belongsTo(models.OpenAISetting, {
+        foreignKey: 'helperPromptId',
+        as: 'helperPrompt',
+        allowNull: true
+      });
     }
   }
 
   OpenAISetting.init({
-    type: {
-      type: DataTypes.STRING, // Alterado de ENUM para STRING para mais flexibilidade
-      allowNull: false,
-      unique: true,
-    },
-    basePromptText: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-    model: {
-      type: DataTypes.STRING,
-      defaultValue: 'dall-e-3'
-    },
-    size: {
-      type: DataTypes.STRING,
-      defaultValue: '1024x1024'
-    },
-    quality: {
-      type: DataTypes.ENUM('standard', 'hd'),
-      defaultValue: 'standard'
-    },
-    style: {
-      type: DataTypes.ENUM('vivid', 'natural'),
-      defaultValue: 'vivid'
-    },
-    maxImageDescriptions: {
+    type: { type: DataTypes.STRING, allowNull: false, unique: true },
+    name: { type: DataTypes.STRING, allowNull: false }, // Adicionando o campo nome que faltava
+    basePromptText: { type: DataTypes.TEXT, allowNull: false },
+    model: { type: DataTypes.STRING, defaultValue: 'dall-e-3' },
+    size: { type: DataTypes.STRING, defaultValue: '1024x1024' },
+    quality: { type: DataTypes.ENUM('standard', 'hd'), defaultValue: 'standard' },
+    style: { type: DataTypes.ENUM('vivid', 'natural'), defaultValue: 'vivid' },
+    maxImageDescriptions: { type: DataTypes.INTEGER, defaultValue: 5 },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+    
+    // --- NOVO CAMPO ---
+    helperPromptId: {
       type: DataTypes.INTEGER,
-      defaultValue: 5
-    },
-    isActive: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
+      allowNull: true,
+      references: {
+        model: 'openai_settings', // Auto-referência à mesma tabela
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL'
     }
   }, {
     sequelize,
