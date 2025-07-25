@@ -19,7 +19,7 @@ const adminAssetRoutes = require('../Features-Admin/Assets/AdminAsset.routes'); 
 const adminGeneratorRoutes = require('../Features-Admin/BookGenerator/AdminBookGenerator.routes'); // <-- NOVO
 const adminBookRoutes = require('../Features-Admin/Books/AdminBooks.routes'); // Importe as novas rotas
 const leonardoAdminRoutes = require('../Features-Admin/LeonardoAdmin/LeonardoAdmin.routes');
-const adminAIHelperRoutes = require('./src/Features-Admin/AIHelper/AdminAIHelper.routes');
+const adminAIHelperRoutes = require('../src/Features-Admin/AIHelper/AdminAIHelper.routes');
 
 const router = Router();
 
