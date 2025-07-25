@@ -1,28 +1,17 @@
-// src/Features-Admin/LeonardoAdmin/LeonardoAdmin.service.js
+// src/OpenAI/services/leonardo.service.js
 
 const axios = require('axios');
-const FormData = require('form-data');
 const fs = require('fs');
-const { LeonardoDataset, LeonardoElement } = require('../../models');
+const FormData = require('form-data');
+const path = require('path');
 
-class LeonardoAdminService {
-  /**
-   * Configura as variáveis de conexão com a API do Leonardo.AI.
-   */
+class LeonardoService {
   constructor() {
     this.token = process.env.LEONARDO_API_KEY;
     this.apiUrl = 'https://cloud.leonardo.ai/api/rest/v1';
-    
-    // ID de usuário da sua conta Leonardo.AI
-    this.userId = 'bd50f328-6afd-4493-8b75-9bfe21beab8d'; 
-
     if (!this.token) {
-      throw new Error('LEONARDO_API_KEY deve estar configurada no seu arquivo .env.');
+      throw new Error('LEONARDO_API_KEY não está configurado.');
     }
-    if (this.userId === 'SEU_ID_DE_USUARIO_LEONARDO_AQUI' || !this.userId) {
-        console.warn('[LeonardoAdminService] AVISO: O ID de usuário do Leonardo não foi configurado.');
-    }
-
     this.headers = {
       'Authorization': `Bearer ${this.token}`,
       'Content-Type': 'application/json',
@@ -30,213 +19,198 @@ class LeonardoAdminService {
     };
   }
 
-  // ======================================================
-  // MÉTODOS PARA GERENCIAMENTO DE DATASETS
-  // ======================================================
-
-  async listDatasets() {
-    return LeonardoDataset.findAll({ order: [['name', 'ASC']] });
-  }
-
-  async createDataset(name, description) {
+  /**
+   * Faz o upload de uma imagem local para os servidores da Leonardo.Ai.
+   */
+  async uploadImageToLeonardo(filePath, mimetype) {
     try {
-      console.log(`[LeonardoAdmin] Criando dataset "${name}" na API do Leonardo...`);
-      const response = await axios.post(`${this.apiUrl}/datasets`, { name, description }, { headers: this.headers });
-
-      const leonardoDatasetId = response.data?.insert_datasets_one?.id;
-      if (!leonardoDatasetId) {
-        throw new Error('A API do Leonardo não retornou um ID de dataset válido.');
+      const extension = mimetype.split('/')[1];
+      if (!['png', 'jpg', 'jpeg', 'webp'].includes(extension)) {
+        throw new Error(`Extensão de arquivo não suportada para upload para Leonardo.Ai: ${extension}`);
       }
 
-      const newLocalDataset = await LeonardoDataset.create({
-        leonardoDatasetId: leonardoDatasetId,
-        name: name,
-        description: description,
-      });
-
-      return newLocalDataset;
-    } catch (error) {
-      console.error('Erro ao criar dataset:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao criar o dataset no Leonardo.AI.');
-    }
-  }
-
-  async getDatasetDetails(localDatasetId) {
-    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
-    if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
-
-    try {
-      const response = await axios.get(`${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}`, { headers: this.headers });
-      return response.data?.datasets_by_pk;
-    } catch (error) {
-      console.error('Erro ao buscar detalhes do dataset:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao buscar detalhes do dataset no Leonardo.AI.');
-    }
-  }
-
-  async uploadImageToDataset(localDatasetId, file) {
-    if (!file) throw new Error('Nenhum arquivo fornecido para upload.');
-
-    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
-    if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
-
-    try {
-      const presignedResponse = await axios.post(
-        `${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}/upload`,
-        { extension: file.mimetype.split('/')[1] },
-        { headers: this.headers }
-      );
-
-      const uploadDetails = presignedResponse.data.uploadDatasetImage;
-      const s3UploadUrl = uploadDetails.url;
-      const s3UploadFields = JSON.parse(uploadDetails.fields);
+      const presignedUrlPayload = { extension: extension };
+      const presignedResponse = await axios.post(`${this.apiUrl}/init-image`, presignedUrlPayload, { headers: this.headers });
+      
+      const uploadDetails = presignedResponse.data.uploadInitImage;
       const leonardoImageId = uploadDetails.id;
+      const s3UploadUrl = uploadDetails.url;
+      const s3UploadFields = JSON.parse(uploadDetails.fields); 
 
       const formData = new FormData();
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
       }
-      formData.append('file', fs.createReadStream(file.path));
+      formData.append('file', fs.createReadStream(filePath)); 
 
-      await axios.post(s3UploadUrl, formData, { headers: formData.getHeaders() });
-      
-      return { message: 'Imagem enviada com sucesso para o dataset.', imageId: leonardoImageId };
-    } catch (error) {
-      console.error('Erro no processo de upload:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao enviar imagem para o dataset no Leonardo.AI.');
-    }
-  }
-
-  async deleteDataset(localDatasetId) {
-    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
-    if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
-    
-    try {
-      await axios.delete(`${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}`, { headers: this.headers });
-      await localDataset.destroy();
-      return { message: 'Dataset deletado com sucesso em ambos os sistemas.' };
-    } catch (error) {
-        console.error('Erro ao deletar dataset:', error.response ? error.response.data : error.message);
-        throw new Error('Falha ao deletar o dataset.');
-    }
-  }
-
-  // ======================================================
-  // MÉTODOS PARA GERENCIAMENTO DE ELEMENTS (LoRAs)
-  // ======================================================
-
-  async listAllElements() {
-    try {
-      console.log(`[LeonardoAdmin] Buscando todos os elements para o userId: ${this.userId}...`);
-      const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
-      const leonardoElements = response.data?.user_elements || [];
-
-      for (const element of leonardoElements) {
-        const sourceLeonardoDatasetId = element.datasetId;
-        let localDataset = null;
-
-        if (sourceLeonardoDatasetId) {
-            localDataset = await LeonardoDataset.findOne({ where: { leonardoDatasetId: sourceLeonardoDatasetId } });
-        }
-
-        await LeonardoElement.upsert({
-            leonardoElementId: String(element.id),
-            name: element.name || 'Elemento Sem Nome',
-            description: element.description,
-            status: element.status,
-            sourceDatasetId: localDataset ? localDataset.id : null,
-        });
-      }
-
-      return LeonardoElement.findAll({
-        include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
-        order: [['createdAt', 'DESC']],
+      await axios.post(s3UploadUrl, formData, {
+        headers: formData.getHeaders(),
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
       });
-      
+
+      console.log(`[LeonardoService] Imagem guia local ${filePath} carregada com sucesso para Leonardo.Ai com ID: ${leonardoImageId}`);
+      return leonardoImageId;
+
     } catch (error) {
-      console.error('Erro ao listar elements:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao buscar a lista de Elements no Leonardo.AI.');
+      const status = error.response?.status;
+      const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno durante o upload da imagem.';
+      console.error(`[LeonardoService] Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
+      throw new Error(`Falha ao carregar imagem guia para Leonardo.Ai: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
 
-  async trainNewElement(trainingData) {
-    const { name, localDatasetId, lora_focus, description, instance_prompt } = trainingData;
-    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
-    if (!localDataset) {
-      throw new Error('Dataset de origem não encontrado em nossa base de dados.');
+  /**
+   * Inicia o processo de geração de imagem de personagem na Leonardo.Ai.
+   * Aceita um elementId (userLoraId) dinâmico.
+   */
+  async startImageGeneration(prompt, leonardoInitImageId, elementId) { 
+    if (!elementId) {
+        throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração.");
     }
 
-    const payload = {
-      name,
-      description: description || "", // CORREÇÃO: Garante que seja string vazia se nulo.
-      datasetId: localDataset.leonardoDatasetId,
-      lora_focus,
-      sd_version: 'FLUX_DEV',
-      instance_prompt: lora_focus === 'Character' ? instance_prompt : null,
-      num_train_epochs: 135,
-      learning_rate: 0.0005,
-      train_text_encoder: true,
-      resolution: 1024,
+    const generationPayload = {
+      prompt: prompt,
+      sd_version: "FLUX_DEV", 
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }],
+      num_images: 4,
+      width: 1120,
+      height: 1120,
+      controlnets: [{ preprocessorId: 299, initImageType: "UPLOADED", initImageId: leonardoInitImageId, strengthType: "Mid" }],
+      contrast: 3.5,
+      ultra: false,
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", 
+      scheduler: "LEONARDO", 
+      public: true,          
+      nsfw: true,            
     };
 
     try {
-      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento...');
-      const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
-
-      const elementId = response.data?.sdTrainingJob?.id;
-      if (!elementId) {
-        throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
+      console.log('[LeonardoService] Iniciando geração de personagem (payload final):', JSON.stringify(generationPayload, null, 2));
+      const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
+      const generationId = response.data?.sdGenerationJob?.generationId;
+      if (!generationId) {
+        throw new Error('A API do Leonardo não retornou um ID de geração válido.');
       }
-
-      const newElement = await LeonardoElement.create({
-        leonardoElementId: String(elementId),
-        name: name,
-        description: description,
-        status: 'PENDING',
-        sourceDatasetId: localDataset.id,
-      });
-
-      return newElement;
-
+      return generationId;
     } catch (error) {
-      console.error('Erro ao iniciar treinamento de elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao iniciar o treinamento do elemento no Leonardo.AI.');
+      const status = error.response?.status;
+      const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
+      console.error(`[LeonardoService] Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
+      throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
   
-  async getElementDetails(localElementId) {
-    const localElement = await LeonardoElement.findByPk(localElementId);
-    if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
-
+  /**
+   * Verifica o status de uma geração de imagem.
+   */
+  async checkGenerationStatus(generationId) {
     try {
-      const response = await axios.get(`${this.apiUrl}/elements/${localElement.leonardoElementId}`, { headers: this.headers });
-      const details = response.data?.elements_by_pk;
+      const response = await axios.get(`${this.apiUrl}/generations/${generationId}`, { headers: this.headers });
+      const generationData = response.data?.generations_by_pk;
 
-      if (details && details.status !== localElement.status) {
-        await localElement.update({ status: details.status });
+      if (!generationData) { throw new Error("Resposta inválida ao verificar o status da geração."); }
+
+      console.log(`[LeonardoService] Polling... Status da geração ${generationId}: ${generationData.status}`);
+
+      if (generationData.status === 'COMPLETE') {
+        const imageUrl = generationData.generated_images?.[0]?.url;
+        if (!imageUrl) { throw new Error("Geração completa, mas a URL da imagem não foi encontrada."); }
+        return { isComplete: true, imageUrl: imageUrl };
       }
+      
+      if (generationData.status === 'FAILED') { throw new Error("A geração da imagem no Leonardo falhou."); }
 
-      return details;
+      return { isComplete: false, imageUrl: null };
     } catch (error) {
-      console.error('Erro ao buscar detalhes do elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao buscar detalhes do elemento no Leonardo.AI.');
+      console.error(`[LeonardoService] Erro ao verificar o status da geração ${generationId}:`, error.response ? error.response.data : error.message);
+      throw new Error(`Erro ao verificar o status da geração: ${error.message}`);
     }
   }
 
-  async deleteElement(localElementId) {
-    const localElement = await LeonardoElement.findByPk(localElementId);
-    if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
+  /**
+   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
+   * Aceita um elementId (userLoraId) dinâmico.
+   */
+  async startColoringPageGeneration(finalPrompt, elementId) { 
+    if (!elementId) {
+        throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da página de colorir.");
+    }
+    const generationPayload = {
+      prompt: finalPrompt,
+      sd_version: "FLUX_DEV",
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }],
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }],
+      num_images: 1,
+      width: 1024,
+      height: 1024,
+      contrast: 2.5,
+      scheduler: "LEONARDO",
+      guidance_scale: 7,
+      public: true,
+      nsfw: true,
+      ultra: false,
+    };
 
     try {
-      console.log(`[LeonardoAdmin] Deletando elemento ${localElement.leonardoElementId} da API do Leonardo...`);
-      await axios.delete(`${this.apiUrl}/elements/${localElement.leonardoElementId}`, { headers: this.headers });
-      await localElement.destroy();
-      return { message: 'Elemento deletado com sucesso em ambos os sistemas.' };
+      console.log('[LeonardoService] Iniciando geração de PÁGINA DE COLORIR. Payload:', JSON.stringify(generationPayload, null, 2));
+      const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
+      const generationId = response.data?.sdGenerationJob?.generationId;
+      if (!generationId) {
+        throw new Error('A API do Leonardo não retornou um ID de geração válido para a página de colorir.');
+      }
+      console.log(`[LeonardoService] Geração de página de colorir iniciada com sucesso. Job ID: ${generationId}`);
+      return generationId;
     } catch (error) {
-      console.error('Erro ao deletar elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao deletar o elemento.');
+      const status = error.response?.status;
+      const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
+      console.error(`[LeonardoService] Falha na comunicação com a API do Leonardo (página de colorir): [${status || 'N/A'}] ${JSON.stringify(details)}`);
+      throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
+    }
+  }
+
+  /**
+   * Inicia a geração de uma ILUSTRAÇÃO DE LIVRO DE HISTÓRIA ou CAPA na Leonardo.Ai.
+   * Aceita um elementId (userLoraId) dinâmico.
+   */
+  async startStoryIllustrationGeneration(finalPrompt, elementId) {
+    if (!elementId) {
+        throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da ilustração.");
+    }
+    const generationPayload = {
+        prompt: finalPrompt,
+        sd_version: "FLUX_DEV",
+        modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+        userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
+        num_images: 1,
+        width: 1024,
+        height: 1024,
+        contrast: 3.0,
+        scheduler: "LEONARDO",
+        guidance_scale: 7,
+        public: true,
+        nsfw: true,
+        ultra: false,
+    };
+
+    try {
+        console.log('[LeonardoService] Iniciando geração de ILUSTRAÇÃO/CAPA. Payload:', JSON.stringify(generationPayload, null, 2));
+        const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
+        const generationId = response.data?.sdGenerationJob?.generationId;
+        if (!generationId) {
+            throw new Error('A API do Leonardo não retornou um ID de geração válido para a ilustração.');
+        }
+        console.log(`[LeonardoService] Geração de ilustração iniciada com sucesso. Job ID: ${generationId}`);
+        return generationId;
+    } catch (error) {
+        const status = error.response?.status;
+        const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
+        console.error(`[LeonardoService] Falha na comunicação com a API do Leonardo (ilustração): [${status || 'N/A'}] ${JSON.stringify(details)}`);
+        throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
 }
 
-module.exports = new LeonardoAdminService();
+module.exports = new LeonardoService();

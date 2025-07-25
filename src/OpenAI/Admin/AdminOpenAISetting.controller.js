@@ -1,106 +1,67 @@
-// src/Features-Admin/LeonardoAdmin/LeonardoAdmin.controller.js
-const leonardoAdminService = require('./LeonardoAdmin.service');
+const adminOpenAISettingService = require('./AdminOpenAISetting.service');
 
-class LeonardoAdminController {
-    async listDatasets(req, res, next) {
-        try {
-            const datasets = await leonardoAdminService.listDatasets();
-            res.status(200).json(datasets);
-        } catch (error) {
-            next(error);
-        }
+class AdminOpenAISettingController {
+  // --- CRUD de Configurações OpenAI ---
+  async listSettings(req, res) {
+    try {
+      const settings = await adminOpenAISettingService.listSettings();
+      res.status(200).json(settings);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar configurações da OpenAI.', error: error.message });
     }
+  }
 
-    async createDataset(req, res, next) {
-        try {
-            const { name, description } = req.body;
-            if (!name) {
-                return res.status(400).json({ message: 'O nome do dataset é obrigatório.' });
-            }
-            const dataset = await leonardoAdminService.createDataset(name, description);
-            res.status(201).json(dataset);
-        } catch (error) {
-            next(error);
-        }
+  async getSettingByType(req, res) {
+    try {
+      const { type } = req.params;
+      const setting = await adminOpenAISettingService.findSettingByType(type);
+      res.status(200).json(setting);
+    } catch (error) {
+      res.status(404).json({ message: error.message });
     }
+  }
 
-    async getDatasetDetails(req, res, next) {
-        try {
-            const { id } = req.params;
-            const details = await leonardoAdminService.getDatasetDetails(id);
-            res.status(200).json(details);
-        } catch (error) {
-            if (error.message.includes('não encontrado')) {
-                return res.status(404).json({ message: error.message });
-            }
-            next(error);
-        }
+  async createOrUpdateSetting(req, res) {
+    try {
+      const { type } = req.params;
+      const { baseAssetIds, ...settingData } = req.body; // baseAssetIds é o array de IDs
+      const setting = await adminOpenAISettingService.createOrUpdateSetting(type, settingData, baseAssetIds);
+      res.status(200).json(setting);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
     }
-    
-    async uploadImage(req, res, next) {
-        try {
-            const { id } = req.params; // ID do nosso dataset local
-            if (!req.file) {
-                return res.status(400).json({ message: 'Nenhum arquivo de imagem foi enviado.' });
-            }
-            const result = await leonardoAdminService.uploadImageToDataset(id, req.file);
-            res.status(200).json(result);
-        } catch (error) {
-            next(error);
-        }
-    }
+  }
 
-    async deleteDataset(req, res, next) {
-        try {
-            const { id } = req.params;
-            const result = await leonardoAdminService.deleteDataset(id);
-            res.status(200).json(result);
-        } catch (error) {
-            next(error);
-        }
+  async deleteSetting(req, res) {
+    try {
+      const { type } = req.params;
+      const result = await adminOpenAISettingService.deleteSetting(type);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(404).json({ message: error.message });
     }
+  }
 
-    async listElements(req, res, next) {
-        try {
-            const elements = await leonardoAdminService.listAllElements();
-            res.status(200).json(elements);
-        } catch (error) {
-            next(error);
-        }
+  // --- Listagem de Histórico de Geração ---
+  async listGeneratedImageLogs(req, res) {
+    try {
+      const result = await adminOpenAISettingService.listGeneratedImageLogs(req.query);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar histórico de gerações de imagem.', error: error.message });
     }
-    
-    async trainElement(req, res, next) {
-        try {
-            const { name, localDatasetId, lora_focus } = req.body;
-            if (!name || !localDatasetId || !lora_focus) {
-                return res.status(400).json({ message: 'Campos obrigatórios (name, localDatasetId, lora_focus) não fornecidos.'});
-            }
-            const newElement = await leonardoAdminService.trainNewElement(req.body);
-            res.status(202).json(newElement); // 202 Accepted, pois o processo foi iniciado
-        } catch (error) {
-            next(error);
-        }
-    }
+  }
 
-    async getElementDetails(req, res, next) {
-        try {
-            const { id } = req.params;
-            const details = await leonardoAdminService.getElementDetails(id);
-            res.status(200).json(details);
-        } catch (error) {
-            next(error);
-        }
+  async createOrUpdateSetting(req, res) {
+    try {
+      const { type } = req.params;
+      const { baseAssetIds, ...settingData } = req.body; // Separa os IDs do resto dos dados
+      const setting = await adminOpenAISettingService.createOrUpdateSetting(type, settingData, baseAssetIds);
+      res.status(200).json(setting);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
     }
-
-    async deleteElement(req, res, next) {
-        try {
-            const { id } = req.params;
-            const result = await leonardoAdminService.deleteElement(id);
-            res.status(200).json(result);
-        } catch (error) {
-            next(error);
-        }
-    }
+  }
 }
 
-module.exports = new LeonardoAdminController();
+module.exports = new AdminOpenAISettingController();

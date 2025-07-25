@@ -30,6 +30,9 @@ class LeonardoAdminController {
             const details = await leonardoAdminService.getDatasetDetails(id);
             res.status(200).json(details);
         } catch (error) {
+            if (error.message.includes('não encontrado')) {
+                return res.status(404).json({ message: error.message });
+            }
             next(error);
         }
     }
@@ -37,6 +40,9 @@ class LeonardoAdminController {
     async uploadImage(req, res, next) {
         try {
             const { id } = req.params; // ID do nosso dataset local
+            if (!req.file) {
+                return res.status(400).json({ message: 'Nenhum arquivo de imagem foi enviado.' });
+            }
             const result = await leonardoAdminService.uploadImageToDataset(id, req.file);
             res.status(200).json(result);
         } catch (error) {
@@ -54,7 +60,7 @@ class LeonardoAdminController {
         }
     }
 
-       async listElements(req, res, next) {
+    async listElements(req, res, next) {
         try {
             const elements = await leonardoAdminService.listAllElements();
             res.status(200).json(elements);
@@ -65,7 +71,6 @@ class LeonardoAdminController {
     
     async trainElement(req, res, next) {
         try {
-            // Validações básicas dos dados do corpo
             const { name, localDatasetId, lora_focus } = req.body;
             if (!name || !localDatasetId || !lora_focus) {
                 return res.status(400).json({ message: 'Campos obrigatórios (name, localDatasetId, lora_focus) não fornecidos.'});

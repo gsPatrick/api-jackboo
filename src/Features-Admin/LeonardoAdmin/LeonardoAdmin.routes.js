@@ -28,6 +28,10 @@ router.post(
 // Deleta um dataset (no Leonardo e no nosso DB)
 router.delete('/datasets/:id', controller.deleteDataset);
 
+
+// --- Rotas para Gerenciamento de Elements (LoRAs) ---
+
+// Sincroniza e lista todos os Elements do usuário
 router.get('/elements', controller.listElements);
 
 // Inicia o treinamento de um novo Element
