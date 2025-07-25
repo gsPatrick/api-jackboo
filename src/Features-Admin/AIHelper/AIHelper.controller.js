@@ -1,5 +1,5 @@
 // src/Features-Admin/AIHelper/AdminAIHelper.controller.js
-const AdminAIHelperService = require('./AdminAIHelper.service');
+const AdminAIHelperService = require('./AIHelper.service');
 
 class AdminAIHelperController {
   async generateText(req, res, next) {
