@@ -146,35 +146,20 @@ class LeonardoAdminService {
       throw new Error('Falha ao buscar a lista de Elements.');
     }
   }
-async trainNewElement(trainingData) {
+  async trainNewElement(trainingData) {
     const { name, localDatasetId, lora_focus, description, instance_prompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
       throw new Error('Dataset de origem não encontrado.');
     }
 
-    // --- INÍCIO DA CORREÇÃO ---
-    // Objeto de configuração com os parâmetros corretos baseados na documentação
     const trainingParams = {
-        Style: {
-            num_train_epochs: 60,
-            learning_rate: 0.00001,
-        },
-        Object: {
-            num_train_epochs: 140,
-            learning_rate: 0.0004,
-        },
-        Character: {
-            num_train_epochs: 135,
-            learning_rate: 0.0005,
-        },
-        Environment: { // Adicionando Environment como uma opção segura
-            num_train_epochs: 100, // Valor seguro
-            learning_rate: 0.0001, // Valor seguro
-        }
+        Style: { num_train_epochs: 60, learning_rate: 0.00001 },
+        Object: { num_train_epochs: 140, learning_rate: 0.0004 },
+        Character: { num_train_epochs: 135, learning_rate: 0.0005 },
+        Environment: { num_train_epochs: 100, learning_rate: 0.0001 }
     };
 
-    // Seleciona os parâmetros corretos. Usa 'Style' como fallback seguro.
     const params = trainingParams[lora_focus] || trainingParams.Style;
     
     if (!instance_prompt) {
@@ -190,15 +175,21 @@ async trainNewElement(trainingData) {
       sd_version: 'FLUX_DEV',
       train_text_encoder: true,
       resolution: 1024,
-      ...params // Adiciona os parâmetros dinâmicos (num_train_epochs e learning_rate)
+      ...params
     };
-    // --- FIM DA CORREÇÃO ---
 
     try {
       console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento com payload:', payload);
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
+
+      // --- INÍCIO DA MUDANÇA DE DEPURAÇÃO ---
+      // Loga o corpo inteiro da resposta da API para podermos ver o que ela realmente retornou.
+      console.log('[LeonardoAdmin] RESPOSTA COMPLETA DA API LEONARDO:', JSON.stringify(response.data, null, 2));
+      // --- FIM DA MUDANÇA DE DEPURAÇÃO ---
+
       const elementId = response.data?.sdTrainingJob?.id;
       if (!elementId) {
+        // Agora, o log acima nos dirá por que 'elementId' é nulo.
         throw new Error('A API não retornou um ID de job de treinamento válido.');
       }
 
@@ -216,6 +207,7 @@ async trainNewElement(trainingData) {
       throw new Error('Falha ao iniciar o treinamento do elemento.');
     }
   }
+
   
   async getElementDetails(localElementId) {
     const localElement = await LeonardoElement.findByPk(localElementId);
