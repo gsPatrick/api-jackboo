@@ -11,9 +11,6 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: 'adminAssetId',
         as: 'baseAssets'
       });
-
-      // --- NOVA ASSOCIAÇÃO ---
-      // Um template pode ter um "template ajudante"
       this.belongsTo(models.OpenAISetting, {
         foreignKey: 'helperPromptId',
         as: 'helperPrompt',
@@ -24,25 +21,22 @@ module.exports = (sequelize, DataTypes) => {
 
   OpenAISetting.init({
     type: { type: DataTypes.STRING, allowNull: false, unique: true },
-    name: { type: DataTypes.STRING, allowNull: false }, // Adicionando o campo nome que faltava
+    name: { type: DataTypes.STRING, allowNull: false },
     basePromptText: { type: DataTypes.TEXT, allowNull: false },
-    model: { type: DataTypes.STRING, defaultValue: 'dall-e-3' },
-    size: { type: DataTypes.STRING, defaultValue: '1024x1024' },
-    quality: { type: DataTypes.ENUM('standard', 'hd'), defaultValue: 'standard' },
-    style: { type: DataTypes.ENUM('vivid', 'natural'), defaultValue: 'vivid' },
-    maxImageDescriptions: { type: DataTypes.INTEGER, defaultValue: 5 },
+    model: { type: DataTypes.STRING, defaultValue: 'gpt-4o' }, // Mudado para gpt-4o como padrão
     isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
-    
-    // --- NOVO CAMPO ---
     helperPromptId: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: {
-        model: 'openai_settings', // Auto-referência à mesma tabela
-        key: 'id'
-      },
+      references: { model: 'openai_settings', key: 'id' },
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
+    },
+    // NOVO CAMPO PARA ASSOCIAR O ELEMENT
+    defaultElementId: {
+      type: DataTypes.STRING, // Armazena o leonardoElementId que é uma string
+      allowNull: true,
+      comment: 'ID do Element (LoRA) do Leonardo.AI associado a este template.'
     }
   }, {
     sequelize,

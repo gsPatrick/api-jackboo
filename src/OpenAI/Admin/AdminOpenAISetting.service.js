@@ -9,7 +9,6 @@ class AdminOpenAISettingService {
         order: [['type', 'ASC']],
         include: [
             { model: AdminAsset, as: 'baseAssets' },
-            // --- INCLUIR A NOVA ASSOCIAÇÃO ---
             { model: OpenAISetting, as: 'helperPrompt', attributes: ['id', 'type', 'name'] }
         ]
     });
@@ -20,7 +19,6 @@ class AdminOpenAISettingService {
         where: { type },
         include: [
             { model: AdminAsset, as: 'baseAssets' },
-            // --- INCLUIR A NOVA ASSOCIAÇÃO ---
             { model: OpenAISetting, as: 'helperPrompt', attributes: ['id', 'type', 'name'] }
         ] 
     });
@@ -30,47 +28,52 @@ class AdminOpenAISettingService {
     return setting;
   }
 
-  // --- MÉTODO MODIFICADO ---
-  async createOrUpdateSetting(type, data, baseAssetIds = []) {
-    // Agora 'data' pode conter 'helperPromptId'
+  /**
+   * MODIFICADO: Agora lida com todos os campos do formulário, incluindo o 'defaultElementId'.
+   * O parâmetro 'baseAssetIds' foi removido pois não estava sendo usado no front-end recente.
+   */
+  async createOrUpdateSetting(type, data) {
     if (!data.name || !data.basePromptText) {
       throw new Error('Campos obrigatórios (name, basePromptText) não foram fornecidos.');
     }
     
-    if (baseAssetIds && baseAssetIds.length > 0) {
-        const existingAssets = await AdminAsset.count({ where: { id: { [Op.in]: baseAssetIds } } }); 
-        if (existingAssets !== baseAssetIds.length) {
-            throw new Error('Um ou mais IDs de assets base fornecidos não são válidos.');
-        }
-    }
-
     let finalSetting;
 
     await sequelize.transaction(async (t) => {
-        // Se helperPromptId for uma string vazia, converte para null
+        // Converte strings vazias para null para as chaves estrangeiras e campos opcionais
         if (data.helperPromptId === '') {
             data.helperPromptId = null;
         }
+        if (data.defaultElementId === '') {
+            data.defaultElementId = null;
+        }
+
+        // Dados que serão usados para criar ou atualizar o registro
+        const settingData = {
+            name: data.name,
+            basePromptText: data.basePromptText,
+            helperPromptId: data.helperPromptId,
+            defaultElementId: data.defaultElementId, // Novo campo
+            model: data.model,
+            isActive: data.isActive,
+            type: type // Garante que o tipo seja sempre o da URL
+        };
 
         const [setting, created] = await OpenAISetting.findOrCreate({
             where: { type },
-            defaults: { ...data, type: type },
+            defaults: settingData,
             transaction: t,
         });
 
         if (!created) {
-            const updateData = { ...data };
+            // Se não foi criado, atualiza com os novos dados
+            // Remove 'type' dos dados de atualização para evitar erros
+            const updateData = { ...settingData };
             delete updateData.type;
             await setting.update(updateData, { transaction: t });
         }
 
-        if (baseAssetIds && Array.isArray(baseAssetIds)) {
-            const assets = await AdminAsset.findAll({ where: { id: baseAssetIds }, transaction: t });
-            await setting.setBaseAssets(assets, { transaction: t });
-        } else {
-            await setting.setBaseAssets([], { transaction: t });
-        }
-
+        // Recarrega a instância com as associações para retornar ao front-end
         finalSetting = await OpenAISetting.findByPk(setting.id, {
             include: [
                 { model: AdminAsset, as: 'baseAssets' },
@@ -87,11 +90,12 @@ class AdminOpenAISettingService {
     return finalSetting;
   }
 
-  // O método delete não precisa de alteração, o 'onDelete: SET NULL' cuida da referência.
   async deleteSetting(type) {
-    const setting = await this.findSettingByType(type);
-    if (!setting) throw new Error(`Configuração OpenAI para o tipo "${type}" não encontrada.`);
-    await setting.destroy(); // Associações em cascata serão tratadas pelo DB/Sequelize
+    const setting = await OpenAISetting.findOne({ where: { type } });
+    if (!setting) {
+      throw new Error(`Configuração OpenAI para o tipo "${type}" não encontrada.`);
+    }
+    await setting.destroy();
     return { message: 'Configuração deletada com sucesso.' };
   }
 }
