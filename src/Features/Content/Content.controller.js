@@ -1,3 +1,4 @@
+// src/Features/Content/Content.controller.js
 const contentService = require('./Content.service');
 
 class ContentController {
@@ -5,13 +6,9 @@ class ContentController {
   async createCharacter(req, res, next) {
     try {
       console.log("[Controller] Chegou em createCharacter.");
-      console.log("[Controller] req.file:", req.file);
-      console.log("[Controller] req.body:", req.body);
-
       if (!req.file) {
         throw new Error("O servidor não recebeu o arquivo. Verifique a configuração do middleware de upload.");
       }
-
       const character = await contentService.createCharacter(req.user.id, req.file);
       res.status(201).json(character);
     } catch (error) {
@@ -31,11 +28,9 @@ class ContentController {
   async createColoringBook(req, res, next) {
     try {
       const { characterId } = req.body;
-
       if (!characterId) {
         return res.status(400).json({ error: 'characterId é obrigatório.' });
       }
-
       const result = await contentService.createColoringBook(req.user.id, { characterId });
       res.status(202).json(result); 
     } catch (error) {
@@ -45,8 +40,16 @@ class ContentController {
 
   async createStoryBook(req, res, next) {
     try {
-      const book = await contentService.createStoryBook(req.user.id, req.body);
-      res.status(202).json({ message: "Sua aventura está sendo criada! Seu livro aparecerá em sua biblioteca em breve.", book });
+      // Extrai os novos campos do corpo da requisição
+      const { characterId, theme, summary } = req.body;
+
+      // Validação dos campos obrigatórios
+      if (!characterId || !theme || !summary) {
+        return res.status(400).json({ error: 'Os campos characterId, theme e summary são obrigatórios.' });
+      }
+
+      const result = await contentService.createStoryBook(req.user.id, { characterId, theme, summary });
+      res.status(202).json(result);
     } catch (error) {
       next(error);
     }
@@ -62,79 +65,75 @@ class ContentController {
   }
 
   async deleteCharacter(req, res, next) {
-        try {
-            const { id } = req.params;
-            await contentService.deleteCharacter(id, req.user.id);
-            res.status(204).send();
-        } catch (error) {
-            next(error);
-        }
+    try {
+      const { id } = req.params;
+      await contentService.deleteCharacter(id, req.user.id);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
     }
+  }
 
   async getMyRoyalties(req, res, next) {
-        try {
-            const royalties = await contentService.findRoyaltiesByUser(req.user.id);
-            res.status(200).json(royalties);
-        } catch (error) {
-            next(error);
-        }
+    try {
+      const royalties = await contentService.findRoyaltiesByUser(req.user.id);
+      res.status(200).json(royalties);
+    } catch (error) {
+      next(error);
     }
+  }
 
   async requestPayout(req, res, next) {
-      try {
-        const { royaltyIds } = req.body;
-        const result = await contentService.requestRoyaltyPayout(req.user.id, royaltyIds);
-        res.status(200).json(result);
-      } catch (error) {
-        next(error);
-      }
+    try {
+      const { royaltyIds } = req.body;
+      const result = await contentService.requestRoyaltyPayout(req.user.id, royaltyIds);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
     }
+  }
 
   async getMyBadges(req, res, next) {
-        try {
-            const badges = await contentService.findBadgesByUser(req.user.id);
-            res.status(200).json(badges);
-        } catch (error) {
-            next(error);
-        }
+    try {
+      const badges = await contentService.findBadgesByUser(req.user.id);
+      res.status(200).json(badges);
+    } catch (error) {
+      next(error);
     }
+  }
 
   async getMySubscriptionPayments(req, res, next) {
-      try {
-        const payments = await contentService.findSubscriptionPaymentHistoryByUser(req.user.id);
-        res.status(200).json(payments);
-      } catch (error) {
-        next(error);
-      }
-    }
-
-   async updateCharacterName(req, res, next) {
-        try {
-            const { id } = req.params;
-            const { name } = req.body;
-            if (!name || name.trim() === '') {
-                return res.status(400).json({ message: 'O nome não pode ser vazio.' });
-            }
-            const updatedCharacter = await contentService.updateCharacterName(id, req.user.id, name);
-            res.status(200).json(updatedCharacter);
-        } catch (error) {
-            next(error);
-        }
-    }
-
-     async getBookStatus(req, res, next) {
     try {
-        const { id } = req.params; // 'id' é o ID do livro na URL
-        // CORREÇÃO AQUI: Invertendo a ordem dos parâmetros.
-        // O primeiro parâmetro do serviço é o userId (req.user.id), o segundo é o bookId (id).
-        const bookStatus = await contentService.getBookStatus(req.user.id, id);
-        res.status(200).json(bookStatus);
+      const payments = await contentService.findSubscriptionPaymentHistoryByUser(req.user.id);
+      res.status(200).json(payments);
     } catch (error) {
-        next(error);
+      next(error);
     }
+  }
 
-}
+  async updateCharacterName(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name } = req.body;
+      if (!name || name.trim() === '') {
+        return res.status(400).json({ message: 'O nome não pode ser vazio.' });
+      }
+      const updatedCharacter = await contentService.updateCharacterName(id, req.user.id, name);
+      res.status(200).json(updatedCharacter);
+    } catch (error) {
+      next(error);
+    }
+  }
 
+  async getBookStatus(req, res, next) {
+    try {
+      const { id } = req.params;
+      const bookStatus = await contentService.getBookStatus(req.user.id, id);
+      res.status(200).json(bookStatus);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new ContentController();

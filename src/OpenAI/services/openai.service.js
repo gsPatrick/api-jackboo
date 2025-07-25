@@ -13,9 +13,6 @@ class VisionService {
 
   /**
    * Descreve uma imagem usando um template de prompt dinâmico.
-   * @param {string} imageUrl - A URL pública da imagem a ser analisada.
-   * @param {string} promptTemplate - O template do prompt que será enviado à IA. Deve ser buscado do DB.
-   * @returns {Promise<string>} A descrição gerada pela IA.
    */
   async describeImage(imageUrl, promptTemplate) {
     if (!promptTemplate) {
@@ -33,7 +30,6 @@ class VisionService {
           role: "user",
           content: [{
             type: "text",
-            // Usa o prompt dinâmico recebido como parâmetro
             text: promptTemplate
           }, {
             type: "image_url",
@@ -68,12 +64,6 @@ class VisionService {
 
   /**
    * Gera o roteiro de um livro de colorir usando um template de prompt do sistema.
-   * @param {string} characterName - Nome do personagem.
-   * @param {string} characterDescription - Descrição visual do personagem.
-   * @param {string} theme - O tema do livro.
-   * @param {number} pageCount - O número de páginas.
-   * @param {string} systemPromptTemplate - O template do prompt de sistema (instruções para a IA).
-   * @returns {Promise<string[]>} Um array de prompts, um para cada página.
    */
   async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount, systemPromptTemplate) {
     if (!systemPromptTemplate) {
@@ -83,7 +73,6 @@ class VisionService {
     try {
       console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
 
-      // Monta o prompt do sistema dinamicamente
       const systemPrompt = systemPromptTemplate
         .replace(/{{PAGE_COUNT}}/g, pageCount)
         .replace(/{{THEME}}/g, theme)
@@ -123,9 +112,6 @@ class VisionService {
 
   /**
    * Gera um tema e título para um livro usando um template de prompt do sistema.
-   * @param {string} characterDescription - A descrição visual do personagem.
-   * @param {string} systemPromptTemplate - O template de prompt de sistema para a IA.
-   * @returns {Promise<{theme: string, title: string}>}
    */
   async generateBookThemeAndTitle(characterDescription, systemPromptTemplate) {
     if (!systemPromptTemplate) {
@@ -167,8 +153,66 @@ class VisionService {
     }
   }
 
-  // --- Funções Auxiliares (Não modificadas) ---
+  /**
+   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, agora recebendo o resumo do usuário.
+   * @param {string} summary - O resumo da história fornecido pelo usuário.
+   * @returns {Promise<Array<{page_text: string, illustration_prompt: string}>>} Um array de objetos de página.
+   */
+  async generateStoryBookStoryline(characterName, characterDescription, theme, summary, sceneCount, systemPromptTemplate) {
+    if (!systemPromptTemplate) {
+        throw new Error('[VisionService] O template de prompt para gerar o roteiro do livro de história não foi fornecido.');
+    }
 
+    try {
+      console.log(`[VisionService] Gerando roteiro de HISTÓRIA ILUSTRADA com base no resumo do usuário.`);
+
+      const finalSystemPrompt = systemPromptTemplate
+        .replace(/{{SCENE_COUNT}}/g, sceneCount)
+        .replace(/{{THEME}}/g, theme)
+        .replace(/{{CHARACTER_NAME}}/g, characterName)
+        .replace(/{{CHARACTER_DESCRIPTION}}/g, characterDescription)
+        .replace(/{{USER_SUMMARY}}/g, summary); // Injeta o resumo do usuário no template
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [{
+            role: "system",
+            content: finalSystemPrompt
+          },
+          {
+            role: "user",
+            content: `Generate a story with ${sceneCount} scenes based on the provided summary and theme. For each scene, provide the text and a detailed visual prompt for an illustration.`
+          }
+        ],
+        max_tokens: 400 * sceneCount,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+
+      if (!result.story_pages || !Array.isArray(result.story_pages) || result.story_pages.length === 0) {
+        throw new Error('A IA não retornou o roteiro no formato JSON esperado (chave "story_pages").');
+      }
+
+      console.log("[VisionService] Roteiro do livro de história recebido com sucesso.");
+      
+      const sanitizedStoryPages = result.story_pages.map(page => ({
+          ...page,
+          illustration_prompt: this.sanitizePromptForSafety(page.illustration_prompt)
+      }));
+
+      return sanitizedStoryPages;
+
+    } catch (error) {
+      console.error(`[VisionService] Erro ao gerar o roteiro do livro de história: ${error.message}`);
+      throw new Error(`Falha na geração do roteiro da história: ${error.message}`);
+    }
+  }
+
+
+  /**
+   * Remove palavras relacionadas a cores de uma descrição, para páginas de colorir.
+   */
   sanitizeDescriptionForColoring(description) {
     if (!description) return '';
     const colorWords = [
@@ -180,6 +224,9 @@ class VisionService {
     return description.replace(regex, '').replace(/\s\s+/g, ' ').trim();
   }
 
+  /**
+   * Remove palavras sensíveis de um prompt para evitar bloqueios da API de imagem.
+   */
   sanitizePromptForSafety(prompt) {
     if (!prompt) return '';
     const forbiddenWords = [

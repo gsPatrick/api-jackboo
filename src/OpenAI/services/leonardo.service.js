@@ -1,3 +1,5 @@
+// src/OpenAI/services/leonardo.service.js
+
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
@@ -19,7 +21,6 @@ class LeonardoService {
 
   /**
    * Faz o upload de uma imagem local para os servidores da Leonardo.Ai.
-   * (Não modificado)
    */
   async uploadImageToLeonardo(filePath, mimetype) {
     try {
@@ -62,10 +63,6 @@ class LeonardoService {
 
   /**
    * Inicia o processo de geração de imagem de personagem na Leonardo.Ai.
-   * (Não modificado - já era flexível)
-   * @param {string} prompt - O prompt de texto completo para a geração.
-   * @param {string} leonardoInitImageId - O ID da imagem guia.
-   * @returns {Promise<string>} O ID do job de geração.
    */
   async startImageGeneration(prompt, leonardoInitImageId) { 
     const generationPayload = {
@@ -103,7 +100,6 @@ class LeonardoService {
   
   /**
    * Verifica o status de uma geração de imagem.
-   * (Não modificado)
    */
   async checkGenerationStatus(generationId) {
     try {
@@ -130,9 +126,7 @@ class LeonardoService {
   }
 
   /**
-   * MODIFICADO: Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
-   * @param {string} finalPrompt - O prompt de texto completo e já formatado para a página.
-   * @returns {Promise<string>} O ID do job de geração.
+   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
    */
   async startColoringPageGeneration(finalPrompt) { 
     if (!finalPrompt) {
@@ -140,7 +134,7 @@ class LeonardoService {
     }
 
     const generationPayload = {
-      prompt: finalPrompt, // Usa o prompt dinâmico recebido
+      prompt: finalPrompt,
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }],
@@ -170,6 +164,47 @@ class LeonardoService {
       const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
       console.error(`[LeonardoService] Falha na comunicação com a API do Leonardo (página de colorir): [${status || 'N/A'}] ${JSON.stringify(details)}`);
       throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
+    }
+  }
+
+  /**
+   * Inicia a geração de uma ILUSTRAÇÃO DE LIVRO DE HISTÓRIA ou CAPA na Leonardo.Ai.
+   */
+  async startStoryIllustrationGeneration(finalPrompt) {
+    if (!finalPrompt) {
+        throw new Error('[LeonardoService] O prompt para a geração da ilustração não foi fornecido.');
+    }
+
+    const generationPayload = {
+        prompt: finalPrompt,
+        sd_version: "FLUX_DEV",
+        modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+        userElements: [{ userLoraId: 106054, weight: 0.85 }],
+        num_images: 1,
+        width: 1024,
+        height: 1024,
+        contrast: 3.0,
+        scheduler: "LEONARDO",
+        guidance_scale: 7,
+        public: true,
+        nsfw: true,
+        ultra: false,
+    };
+
+    try {
+        console.log('[LeonardoService] Iniciando geração de ILUSTRAÇÃO/CAPA. Payload:', JSON.stringify(generationPayload, null, 2));
+        const response = await axios.post(`${this.apiUrl}/generations`, generationPayload, { headers: this.headers });
+        const generationId = response.data?.sdGenerationJob?.generationId;
+        if (!generationId) {
+            throw new Error('A API do Leonardo não retornou um ID de geração válido para a ilustração.');
+        }
+        console.log(`[LeonardoService] Geração de ilustração iniciada com sucesso. Job ID: ${generationId}`);
+        return generationId;
+    } catch (error) {
+        const status = error.response?.status;
+        const details = error.response?.data?.error || error.response?.data?.details || 'Erro interno.';
+        console.error(`[LeonardoService] Falha na comunicação com a API do Leonardo (ilustração): [${status || 'N/A'}] ${JSON.stringify(details)}`);
+        throw new Error(`Falha na comunicação com a API do Leonardo: [${status || 'N/A'}] ${JSON.stringify(details)}`);
     }
   }
 }
