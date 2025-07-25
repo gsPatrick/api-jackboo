@@ -146,12 +146,16 @@ class LeonardoAdminService {
       throw new Error('Falha ao buscar a lista de Elements.');
     }
   }
-
-  async trainNewElement(trainingData) {
+async trainNewElement(trainingData) {
     const { name, localDatasetId, lora_focus, description, instance_prompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
       throw new Error('Dataset de origem não encontrado.');
+    }
+
+    // Validação final e construção do payload
+    if (!instance_prompt) {
+        throw new Error('O campo "Instance Prompt" é obrigatório para o treinamento.');
     }
 
     const payload = {
@@ -159,14 +163,16 @@ class LeonardoAdminService {
       description: description || "",
       datasetId: localDataset.leonardoDatasetId,
       lora_focus,
+      instance_prompt: instance_prompt, // <-- CORREÇÃO: Enviando sempre
       sd_version: 'FLUX_DEV',
+      num_train_epochs: 135,
+      learning_rate: 0.0005,
+      train_text_encoder: true,
+      resolution: 1024,
     };
 
-    if (lora_focus === 'Character') {
-      payload.instance_prompt = instance_prompt;
-    }
-
     try {
+      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento com payload:', payload);
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
       const elementId = response.data?.sdTrainingJob?.id;
       if (!elementId) {
@@ -182,7 +188,8 @@ class LeonardoAdminService {
       });
 
     } catch (error) {
-      console.error('Erro ao iniciar treinamento:', error.response ? error.response.data : error.message);
+      const errorDetails = error.response ? error.response.data : error.message;
+      console.error('Erro ao iniciar treinamento:', errorDetails);
       throw new Error('Falha ao iniciar o treinamento do elemento.');
     }
   }
