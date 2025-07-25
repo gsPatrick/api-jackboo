@@ -1,6 +1,6 @@
 // src/Features-Admin/Characters/AdminCharacter.routes.js
 const { Router } = require('express');
-const controller = require('./AdminCharacter.controller');
+const controller = require('./AdminCharacters.controller');
 const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 const { uploadAdminAsset } = require('../../Utils/multerConfig');
 
