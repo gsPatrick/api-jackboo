@@ -114,18 +114,11 @@ class LeonardoAdminService {
   // (Mudança nesta seção)
   // ======================================================
 
-  async listAllElements() {
+async listAllElements() {
     try {
-      console.log(`[LeonardoAdmin] Buscando todos os elements para o userId: ${this.userId}...`);
       const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
-      
-      // ======================================================
-      // A CORREÇÃO ESTÁ AQUI
-      // A API agora retorna 'user_loras' em vez de 'user_elements'.
-      // ======================================================
       const leonardoElements = response.data?.user_loras || [];
 
-      // Sincroniza os dados da API do Leonardo com o seu banco de dados local
       for (const element of leonardoElements) {
         const sourceLeonardoDatasetId = element.datasetId;
         let localDataset = null;
@@ -138,14 +131,13 @@ class LeonardoAdminService {
             leonardoElementId: String(element.id),
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
-            status: element.status, // Atualiza o status (de PENDING para COMPLETE, etc.)
+            status: element.status,
             sourceDatasetId: localDataset ? localDataset.id : null,
-            // Adicionando o campo 'focus' que vem da API
-            lora_focus: element.focus || 'Style',
+            // CORREÇÃO AQUI: Mapeando 'focus' da API para 'lora_focus' no nosso DB
+            lora_focus: element.focus || 'Style', 
         });
       }
 
-      // Retorna a lista atualizada do seu banco de dados
       return LeonardoElement.findAll({
         include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
         order: [['createdAt', 'DESC']],
