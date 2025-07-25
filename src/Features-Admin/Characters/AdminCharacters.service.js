@@ -21,67 +21,7 @@ class AdminCharacterService {
      * GERAÇÃO COMPLETA: Cria um personagem oficial a partir de um desenho, usando o fluxo de IA.
      * Semelhante ao fluxo do usuário, mas usa templates de IA de 'ADMIN'.
      */
-    async createOfficialCharacter(file) {
-        if (!file) throw new Error('O arquivo do desenho é obrigatório.');
-        
-        const originalDrawingUrl = `/uploads/admin-assets/${file.filename}`;
-        const publicImageUrl = `${APP_URL}${originalDrawingUrl}`;
-
-        const character = await Character.create({
-            userId: ADMIN_USER_ID,
-            name: "Gerando personagem via IA...",
-            originalDrawingUrl,
-        });
-
-        (async () => {
-            try {
-                // Busca os templates de IA específicos para o fluxo de ADMIN
-                const descriptionPromptConfig = await promptService.getPrompt('ADMIN_character_description');
-                const generationPromptConfig = await promptService.getPrompt('ADMIN_character_drawing');
-
-                const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
-                await character.update({ description: `IA descreveu o desenho como: "${detailedDescription}"` });
-
-                const cleanedDescription = detailedDescription.replace(/\n/g, ' ').trim();
-                const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', cleanedDescription);
-                
-                const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
-                const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId);
-                
-                await character.update({ generationJobId: generationId });
-
-                let finalImageUrl = null;
-                const MAX_POLLS = 20; // ~1.5 minutos de polling
-                for (let i = 0; i < MAX_POLLS; i++) {
-                    await sleep(5000); 
-                    const result = await leonardoService.checkGenerationStatus(generationId);
-                    if (result.isComplete) {
-                        finalImageUrl = result.imageUrl;
-                        break;
-                    }
-                }
-                if (!finalImageUrl) throw new Error("A geração da imagem demorou muito para responder.");
-                
-                const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl, 'admin-assets');
-
-                await character.update({
-                    generatedCharacterUrl: localGeneratedUrl,
-                    name: 'Novo Personagem Oficial'
-                });
-                console.log(`[AdminCharService] Personagem oficial ${character.id} gerado com sucesso.`);
-
-            } catch (error) {
-                console.error(`[AdminCharService] Erro na geração do personagem oficial ${character.id}:`, error.message);
-                await character.update({
-                    name: 'Falha na Geração via IA',
-                    description: `Erro: ${error.message}`
-                });
-            }
-        })();
-        
-        return character; // Retorna imediatamente
-    }
-
+  
     /**
      * UPLOAD DIRETO: Cria um personagem oficial a partir de uma imagem final.
      */
@@ -125,6 +65,69 @@ class AdminCharacterService {
         }
         await character.destroy();
         return { message: 'Personagem deletado com sucesso.' };
+    }
+
+
+      async createOfficialCharacter(file, { descriptionTemplateType, drawingTemplateType }) {
+        if (!file || !descriptionTemplateType || !drawingTemplateType) {
+            throw new Error('Arquivo do desenho e os dois templates de IA são obrigatórios.');
+        }
+        
+        const originalDrawingUrl = `/uploads/admin-assets/${file.filename}`;
+        const publicImageUrl = `${APP_URL}${originalDrawingUrl}`;
+
+        const character = await Character.create({
+            userId: ADMIN_USER_ID,
+            name: "Gerando personagem via IA...",
+            originalDrawingUrl,
+        });
+
+        (async () => {
+            try {
+                // Busca os templates de IA ESCOLHIDOS pelo admin no front-end
+                const descriptionPromptConfig = await promptService.getPrompt(descriptionTemplateType);
+                const generationPromptConfig = await promptService.getPrompt(drawingTemplateType);
+
+                const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
+                await character.update({ description: `IA descreveu o desenho como: "${detailedDescription}"` });
+
+                const cleanedDescription = detailedDescription.replace(/\n/g, ' ').trim();
+                const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', cleanedDescription);
+                
+                const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
+                const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId);
+                
+                await character.update({ generationJobId: generationId });
+
+                let finalImageUrl = null;
+                const MAX_POLLS = 20;
+                for (let i = 0; i < MAX_POLLS; i++) {
+                    await sleep(5000); 
+                    const result = await leonardoService.checkGenerationStatus(generationId);
+                    if (result.isComplete) {
+                        finalImageUrl = result.imageUrl;
+                        break;
+                    }
+                }
+                if (!finalImageUrl) throw new Error("A geração da imagem demorou muito para responder.");
+                
+                const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl, 'admin-assets');
+
+                await character.update({
+                    generatedCharacterUrl: localGeneratedUrl,
+                    name: 'Novo Personagem Oficial'
+                });
+
+            } catch (error) {
+                console.error(`[AdminCharService] Erro na geração do personagem oficial ${character.id}:`, error.message);
+                await character.update({
+                    name: 'Falha na Geração via IA',
+                    description: `Erro: ${error.message}`
+                });
+            }
+        })();
+        
+        return character;
     }
 }
 

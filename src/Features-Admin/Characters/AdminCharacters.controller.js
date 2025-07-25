@@ -11,12 +11,11 @@ class AdminCharacterController {
         }
     }
     
-    // Controller para GERAÇÃO COMPLETA via IA
     async createOfficialCharacter(req, res, next) {
         try {
-            // Este fluxo não precisa de 'name' no body, apenas o arquivo do desenho
-            const character = await AdminCharacterService.createOfficialCharacter(req.file);
-            // Retorna 202 Accepted pois a geração completa é um processo longo
+            // Extrai os tipos dos templates do corpo da requisição
+            const { descriptionTemplateType, drawingTemplateType } = req.body;
+            const character = await AdminCharacterService.createOfficialCharacter(req.file, { descriptionTemplateType, drawingTemplateType });
             res.status(202).json(character);
         } catch (error) {
             next(error);
