@@ -192,7 +192,7 @@ async trainNewElement(trainingData) {
       console.error('Erro ao iniciar treinamento:', errorDetails);
       throw new Error('Falha ao iniciar o treinamento do elemento.');
     }
-  }
+  } 
   
   async getElementDetails(localElementId) {
     const localElement = await LeonardoElement.findByPk(localElementId);
