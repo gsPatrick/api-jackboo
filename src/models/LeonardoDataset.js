@@ -4,11 +4,14 @@ const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class LeonardoDataset extends Model {
-    static associate(models) {
-      // Futuramente, pode-se associar a um modelo de treinamento, por exemplo.
+     static associate(models) {
+      // UM DATASET TEM MUITAS IMAGENS
+      this.hasMany(models.DatasetImage, {
+        foreignKey: 'datasetId',
+        as: 'images'
+      });
     }
   }
-
   LeonardoDataset.init({
     // ID único retornado pela API da Leonardo.AI ao criar o dataset.
     leonardoDatasetId: {
