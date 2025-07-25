@@ -116,6 +116,17 @@ class AdminTaxonomiesService {
     await format.destroy();
     return { message: 'Formato de impressão deletado com sucesso.' };
   }
+
+  async listAllAiSettings() {
+    return OpenAISetting.findAll({
+      where: { isActive: true },
+      // AQUI ESTÁ A CORREÇÃO: Retornando todos os campos importantes
+      attributes: ['id', 'type', 'name', 'defaultElementId'], 
+      order: [['type', 'ASC']]
+    });
+  }
+
+
 }
 
 module.exports = new AdminTaxonomiesService();
