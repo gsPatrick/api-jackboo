@@ -1,98 +1,131 @@
-// src/Features-Admin/Characters/AdminCharacters.service.js
+// src/Features-Admin/Characters/AdminCharacter.service.js
 const { Character } = require('../../models');
-const { deleteFile } = require('../../Utils/FileHelper'); // Importar o helper para deletar arquivos
+const visionService = require('../../OpenAI/services/openai.service');
+const leonardoService = require('../../OpenAI/services/leonardo.service');
+const promptService = require('../../OpenAI/services/prompt.service');
+const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
-// Defina o ID do usuário "Sistema" ou "Admin Principal"
-// É uma boa prática ter isso em um arquivo de configuração (.env), mas aqui funciona.
-const SYSTEM_USER_ID = 1; 
+const APP_URL = process.env.APP_URL;
+const ADMIN_USER_ID = 1; // ID do usuário admin/sistema
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-class AdminCharactersService {
-  /**
-   * Lista todos os personagens pertencentes ao usuário sistema (oficiais).
-   */
-  async listOfficialCharacters() {
-    return Character.findAll({
-      where: { userId: SYSTEM_USER_ID },
-      order: [['createdAt', 'DESC']],
-    });
-  }
-
-  /**
-   * Cria um novo personagem oficial.
-   * O admin faz o upload de uma imagem que será usada como a imagem "final".
-   * @param {object} characterData - Dados do personagem (name, description, etc.).
-   * @param {object} file - Arquivo de imagem do personagem (do multer).
-   */
-  async createOfficialCharacter(characterData, file) {
-    const { name, description, traits } = characterData;
-
-    if (!file) {
-      throw new Error('A imagem do personagem é obrigatória.');
+class AdminCharacterService {
+    async listOfficialCharacters() {
+        const characters = await Character.findAll({
+            order: [['createdAt', 'DESC']],
+        });
+        return { characters };
     }
-    // A URL será relativa à pasta pública, para ser servida corretamente.
-    const characterImageUrl = `/uploads/admin-assets/${file.filename}`;
     
-    // Para um personagem oficial, o desenho original e o gerado são o mesmo.
-    // Usamos o mesmo URL para ambos para manter a consistência do modelo.
-    const newCharacter = await Character.create({
-      userId: SYSTEM_USER_ID,
-      name,
-      description: description || null,
-      traits: traits ? JSON.parse(traits) : null, // Garante que traits seja um JSON
-      originalDrawingUrl: characterImageUrl,
-      generatedCharacterUrl: characterImageUrl,
-    });
+    /**
+     * GERAÇÃO COMPLETA: Cria um personagem oficial a partir de um desenho, usando o fluxo de IA.
+     * Semelhante ao fluxo do usuário, mas usa templates de IA de 'ADMIN'.
+     */
+    async createOfficialCharacter(file) {
+        if (!file) throw new Error('O arquivo do desenho é obrigatório.');
+        
+        const originalDrawingUrl = `/uploads/admin-assets/${file.filename}`;
+        const publicImageUrl = `${APP_URL}${originalDrawingUrl}`;
 
-    return newCharacter;
-  }
+        const character = await Character.create({
+            userId: ADMIN_USER_ID,
+            name: "Gerando personagem via IA...",
+            originalDrawingUrl,
+        });
 
-  /**
-   * Busca um personagem oficial por ID para garantir que ele pertence ao sistema.
-   */
-  async findOfficialCharacterById(id) {
-    const character = await Character.findOne({
-      where: { id, userId: SYSTEM_USER_ID }
-    });
-    if (!character) throw new Error('Personagem oficial não encontrado.');
-    return character;
-  }
-  
-  /**
-   * Atualiza um personagem oficial.
-   * @param {number} id - ID do personagem.
-   * @param {object} updateData - Dados a serem atualizados.
-   * @param {object} [file] - Novo arquivo de imagem (opcional).
-   */
-  async updateOfficialCharacter(id, updateData, file) {
-    const character = await this.findOfficialCharacterById(id);
-    
-    if (file) {
-      // Se uma nova imagem for enviada, deleta a antiga e atualiza as URLs.
-      const oldImageUrl = character.generatedCharacterUrl;
-      await deleteFile(oldImageUrl); // Deleta o arquivo antigo do servidor
-      
-      const newUrl = `/uploads/admin-assets/${file.filename}`;
-      updateData.originalDrawingUrl = newUrl;
-      updateData.generatedCharacterUrl = newUrl;
+        (async () => {
+            try {
+                // Busca os templates de IA específicos para o fluxo de ADMIN
+                const descriptionPromptConfig = await promptService.getPrompt('ADMIN_character_description');
+                const generationPromptConfig = await promptService.getPrompt('ADMIN_character_drawing');
+
+                const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
+                await character.update({ description: `IA descreveu o desenho como: "${detailedDescription}"` });
+
+                const cleanedDescription = detailedDescription.replace(/\n/g, ' ').trim();
+                const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', cleanedDescription);
+                
+                const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
+                const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId);
+                
+                await character.update({ generationJobId: generationId });
+
+                let finalImageUrl = null;
+                const MAX_POLLS = 20; // ~1.5 minutos de polling
+                for (let i = 0; i < MAX_POLLS; i++) {
+                    await sleep(5000); 
+                    const result = await leonardoService.checkGenerationStatus(generationId);
+                    if (result.isComplete) {
+                        finalImageUrl = result.imageUrl;
+                        break;
+                    }
+                }
+                if (!finalImageUrl) throw new Error("A geração da imagem demorou muito para responder.");
+                
+                const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl, 'admin-assets');
+
+                await character.update({
+                    generatedCharacterUrl: localGeneratedUrl,
+                    name: 'Novo Personagem Oficial'
+                });
+                console.log(`[AdminCharService] Personagem oficial ${character.id} gerado com sucesso.`);
+
+            } catch (error) {
+                console.error(`[AdminCharService] Erro na geração do personagem oficial ${character.id}:`, error.message);
+                await character.update({
+                    name: 'Falha na Geração via IA',
+                    description: `Erro: ${error.message}`
+                });
+            }
+        })();
+        
+        return character; // Retorna imediatamente
     }
 
-    if(updateData.traits && typeof updateData.traits === 'string') {
-        updateData.traits = JSON.parse(updateData.traits);
+    /**
+     * UPLOAD DIRETO: Cria um personagem oficial a partir de uma imagem final.
+     */
+    async createOfficialCharacterByUpload(name, file) {
+        if (!name || !file) {
+            throw new Error('Nome e arquivo de imagem são obrigatórios.');
+        }
+
+        const imageUrl = `/uploads/admin-assets/${file.filename}`;
+
+        const character = await Character.create({
+            name,
+            originalDrawingUrl: imageUrl,
+            generatedCharacterUrl: imageUrl,
+            description: 'Descrição sendo gerada pela IA...',
+            userId: ADMIN_USER_ID
+        });
+
+        (async () => {
+            try {
+                const publicImageUrl = `${APP_URL}${imageUrl}`;
+                const descriptionPromptConfig = await promptService.getPrompt('ADMIN_character_description');
+                const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
+                
+                await character.update({ description: detailedDescription });
+                console.log(`[AdminCharService] Descrição para o personagem ${character.id} (upload) gerada com sucesso.`);
+
+            } catch (error) {
+                console.error(`[AdminCharService] Erro ao gerar descrição (upload) para o personagem ${character.id}:`, error.message);
+                await character.update({ description: 'Falha ao gerar descrição automática.' });
+            }
+        })();
+
+        return character;
     }
 
-    await character.update(updateData);
-    return character;
-  }
-
-  /**
-   * Deleta um personagem oficial e seu arquivo de imagem associado.
-   */
-  async deleteOfficialCharacter(id) {
-    const character = await this.findOfficialCharacterById(id);
-    // O hook `afterDestroy` no model Character já cuida de deletar o arquivo.
-    await character.destroy();
-    return { message: 'Personagem oficial deletado com sucesso.' };
-  }
+    async deleteOfficialCharacter(id) {
+        const character = await Character.findByPk(id);
+        if (!character) {
+            throw new Error('Personagem não encontrado.');
+        }
+        await character.destroy();
+        return { message: 'Personagem deletado com sucesso.' };
+    }
 }
 
-module.exports = new AdminCharactersService();
+module.exports = new AdminCharacterService();

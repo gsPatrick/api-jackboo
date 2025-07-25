@@ -1,26 +1,33 @@
-// src/Features-Admin/Characters/AdminCharacters.routes.js
-
+// src/Features-Admin/Characters/AdminCharacter.routes.js
 const { Router } = require('express');
-const adminCharactersController = require('./AdminCharacters.controller');
+const controller = require('./AdminCharacter.controller');
 const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
-const { uploadAdminAsset } = require('../../Utils/multerConfig'); // Middleware para upload
+const { uploadAdminAsset } = require('../../Utils/multerConfig');
 
 const router = Router();
-
-// Protege todas as rotas de gerenciamento de personagens oficiais
 router.use(isAuthenticated, isAdmin);
 
-// GET /api/admin/characters - Lista todos os personagens oficiais
-router.get('/', adminCharactersController.list);
+router.get('/', controller.listOfficialCharacters);
+router.delete('/:id', controller.deleteOfficialCharacter);
 
-// POST /api/admin/characters - Cria um novo personagem oficial
-// O middleware 'uploadAdminAsset' processa o arquivo do campo 'characterImage'
-router.post('/', uploadAdminAsset.single('characterImage'), adminCharactersController.create);
+/**
+ * Rota para criar personagem via UPLOAD DIRETO de imagem final.
+ * Campo do FormData: 'characterImage'
+ */
+router.post(
+    '/upload', 
+    uploadAdminAsset.single('characterImage'), 
+    controller.createOfficialCharacterByUpload
+);
 
-// PUT /api/admin/characters/:id - Atualiza um personagem oficial
-router.put('/:id', uploadAdminAsset.single('characterImage'), adminCharactersController.update);
-
-// DELETE /api/admin/characters/:id - Deleta um personagem oficial
-router.delete('/:id', adminCharactersController.delete);
+/**
+ * Rota para GERAÇÃO COMPLETA via IA a partir de um desenho.
+ * Campo do FormData: 'drawing'
+ */
+router.post(
+    '/',
+    uploadAdminAsset.single('drawing'),
+    controller.createOfficialCharacter
+);
 
 module.exports = router;
