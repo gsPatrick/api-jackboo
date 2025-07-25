@@ -146,7 +146,7 @@ class LeonardoAdminService {
       throw new Error('Falha ao buscar a lista de Elements.');
     }
   }
-  async trainNewElement(trainingData) {
+async trainNewElement(trainingData) {
     const { name, localDatasetId, lora_focus, description, instance_prompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
@@ -182,22 +182,23 @@ class LeonardoAdminService {
       console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento com payload:', payload);
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
 
-      // --- INÍCIO DA MUDANÇA DE DEPURAÇÃO ---
-      // Loga o corpo inteiro da resposta da API para podermos ver o que ela realmente retornou.
       console.log('[LeonardoAdmin] RESPOSTA COMPLETA DA API LEONARDO:', JSON.stringify(response.data, null, 2));
-      // --- FIM DA MUDANÇA DE DEPURAÇÃO ---
 
-      const elementId = response.data?.sdTrainingJob?.id;
+      // --- INÍCIO DA CORREÇÃO ---
+      // A API retorna o ID do Element em 'userLoraId'.
+      const elementId = response.data?.sdTrainingJob?.userLoraId;
+      // --- FIM DA CORREÇÃO ---
+
       if (!elementId) {
-        // Agora, o log acima nos dirá por que 'elementId' é nulo.
-        throw new Error('A API não retornou um ID de job de treinamento válido.');
+        throw new Error('A API não retornou um ID de job de treinamento válido (userLoraId).');
       }
 
       return LeonardoElement.create({
+        // O ID que salvamos é o ID do Element, não do job. A API parece retornar o mesmo para ambos.
         leonardoElementId: String(elementId),
         name,
         description,
-        status: 'PENDING',
+        status: 'PENDING', // O status inicial é pendente/treinando
         sourceDatasetId: localDataset.id,
       });
 
