@@ -1,5 +1,5 @@
 // src/Features-Admin/Characters/AdminCharacter.controller.js
-const AdminCharacterService = require('./AdminCharacters.service');
+const AdminCharacterService = require('./AdminCharacter.service');
 
 class AdminCharacterController {
     async listOfficialCharacters(req, res, next) {
@@ -11,18 +11,17 @@ class AdminCharacterController {
         }
     }
     
+    // MODIFICADO: Extrai o elementId do corpo
     async createOfficialCharacter(req, res, next) {
         try {
-            // Extrai os tipos dos templates do corpo da requisição
-            const { descriptionTemplateType, drawingTemplateType } = req.body;
-            const character = await AdminCharacterService.createOfficialCharacter(req.file, { descriptionTemplateType, drawingTemplateType });
+            const { elementId } = req.body;
+            const character = await AdminCharacterService.createOfficialCharacter(req.file, { elementId });
             res.status(202).json(character);
         } catch (error) {
             next(error);
         }
     }
 
-    // Controller para o fluxo de upload direto.
     async createOfficialCharacterByUpload(req, res, next) {
         try {
             const { name } = req.body;

@@ -1,5 +1,4 @@
 // src/OpenAI/services/leonardo.service.js
-
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
@@ -60,15 +59,19 @@ class LeonardoService {
     }
   }
 
-
   /**
    * Inicia o processo de geração de imagem de personagem na Leonardo.Ai.
+   * Aceita um elementId (userLoraId) dinâmico.
    */
-  async startImageGeneration(prompt, leonardoInitImageId) { 
+  async startImageGeneration(prompt, leonardoInitImageId, elementId) { 
+    if (!elementId) {
+        throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração.");
+    }
+
     const generationPayload = {
       prompt: prompt,
       sd_version: "FLUX_DEV", 
-      userElements: [{ userLoraId: 106054, weight: 1 }],
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }],
       num_images: 4,
       width: 1120,
       height: 1120,
@@ -127,8 +130,12 @@ class LeonardoService {
 
   /**
    * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
+   * Aceita um elementId dinâmico.
    */
-  async startColoringPageGeneration(finalPrompt) { 
+  async startColoringPageGeneration(finalPrompt, elementId) { 
+    if (!elementId) {
+        throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da página de colorir.");
+    }
     if (!finalPrompt) {
         throw new Error('[LeonardoService] O prompt para a geração da página de colorir não foi fornecido.');
     }
@@ -138,7 +145,7 @@ class LeonardoService {
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }],
-      userElements: [{ userLoraId: 106054, weight: 0.80 }],
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }],
       num_images: 1,
       width: 1024,
       height: 1024,
@@ -169,8 +176,12 @@ class LeonardoService {
 
   /**
    * Inicia a geração de uma ILUSTRAÇÃO DE LIVRO DE HISTÓRIA ou CAPA na Leonardo.Ai.
+   * Aceita um elementId dinâmico.
    */
-  async startStoryIllustrationGeneration(finalPrompt) {
+  async startStoryIllustrationGeneration(finalPrompt, elementId) {
+    if (!elementId) {
+        throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da ilustração.");
+    }
     if (!finalPrompt) {
         throw new Error('[LeonardoService] O prompt para a geração da ilustração não foi fornecido.');
     }
@@ -179,7 +190,7 @@ class LeonardoService {
         prompt: finalPrompt,
         sd_version: "FLUX_DEV",
         modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-        userElements: [{ userLoraId: 106054, weight: 0.85 }],
+        userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
         num_images: 1,
         width: 1024,
         height: 1024,

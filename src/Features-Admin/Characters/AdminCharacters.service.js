@@ -6,7 +6,7 @@ const promptService = require('../../OpenAI/services/prompt.service');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
 const APP_URL = process.env.APP_URL;
-const ADMIN_USER_ID = 1; // ID do usuário admin/sistema
+const ADMIN_USER_ID = 1;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class AdminCharacterService {
@@ -17,60 +17,10 @@ class AdminCharacterService {
         return { characters };
     }
     
-    /**
-     * GERAÇÃO COMPLETA: Cria um personagem oficial a partir de um desenho, usando o fluxo de IA.
-     * Semelhante ao fluxo do usuário, mas usa templates de IA de 'ADMIN'.
-     */
-  
-    /**
-     * UPLOAD DIRETO: Cria um personagem oficial a partir de uma imagem final.
-     */
-    async createOfficialCharacterByUpload(name, file) {
-        if (!name || !file) {
-            throw new Error('Nome e arquivo de imagem são obrigatórios.');
-        }
-
-        const imageUrl = `/uploads/admin-assets/${file.filename}`;
-
-        const character = await Character.create({
-            name,
-            originalDrawingUrl: imageUrl,
-            generatedCharacterUrl: imageUrl,
-            description: 'Descrição sendo gerada pela IA...',
-            userId: ADMIN_USER_ID
-        });
-
-        (async () => {
-            try {
-                const publicImageUrl = `${APP_URL}${imageUrl}`;
-                const descriptionPromptConfig = await promptService.getPrompt('ADMIN_character_description');
-                const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
-                
-                await character.update({ description: detailedDescription });
-                console.log(`[AdminCharService] Descrição para o personagem ${character.id} (upload) gerada com sucesso.`);
-
-            } catch (error) {
-                console.error(`[AdminCharService] Erro ao gerar descrição (upload) para o personagem ${character.id}:`, error.message);
-                await character.update({ description: 'Falha ao gerar descrição automática.' });
-            }
-        })();
-
-        return character;
-    }
-
-    async deleteOfficialCharacter(id) {
-        const character = await Character.findByPk(id);
-        if (!character) {
-            throw new Error('Personagem não encontrado.');
-        }
-        await character.destroy();
-        return { message: 'Personagem deletado com sucesso.' };
-    }
-
-
-      async createOfficialCharacter(file, { descriptionTemplateType, drawingTemplateType }) {
-        if (!file || !descriptionTemplateType || !drawingTemplateType) {
-            throw new Error('Arquivo do desenho e os dois templates de IA são obrigatórios.');
+    // MODIFICADO: Aceita elementId em vez de tipos de template
+    async createOfficialCharacter(file, { elementId }) {
+        if (!file || !elementId) {
+            throw new Error('Arquivo do desenho e o Element (modelo de estilo) são obrigatórios.');
         }
         
         const originalDrawingUrl = `/uploads/admin-assets/${file.filename}`;
@@ -84,9 +34,9 @@ class AdminCharacterService {
 
         (async () => {
             try {
-                // Busca os templates de IA ESCOLHIDOS pelo admin no front-end
-                const descriptionPromptConfig = await promptService.getPrompt(descriptionTemplateType);
-                const generationPromptConfig = await promptService.getPrompt(drawingTemplateType);
+                // Usa templates de IA internos e fixos para a estrutura do prompt
+                const descriptionPromptConfig = await promptService.getPrompt('INTERNAL_character_description');
+                const generationPromptConfig = await promptService.getPrompt('INTERNAL_character_drawing_base');
 
                 const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
                 await character.update({ description: `IA descreveu o desenho como: "${detailedDescription}"` });
@@ -95,7 +45,9 @@ class AdminCharacterService {
                 const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', cleanedDescription);
                 
                 const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
-                const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId);
+                
+                // Passa o elementId para o serviço do Leonardo
+                const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, elementId);
                 
                 await character.update({ generationJobId: generationId });
 
@@ -128,6 +80,32 @@ class AdminCharacterService {
         })();
         
         return character;
+    }
+
+    async createOfficialCharacterByUpload(name, file) {
+        // ...código existente sem alterações...
+        if (!name || !file) throw new Error('Nome e arquivo de imagem são obrigatórios.');
+        const imageUrl = `/uploads/admin-assets/${file.filename}`;
+        const character = await Character.create({ name, originalDrawingUrl: imageUrl, generatedCharacterUrl: imageUrl, description: 'Descrição sendo gerada pela IA...', userId: ADMIN_USER_ID });
+        (async () => {
+            try {
+                const publicImageUrl = `${APP_URL}${imageUrl}`;
+                const descriptionPromptConfig = await promptService.getPrompt('INTERNAL_character_description');
+                const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
+                await character.update({ description: detailedDescription });
+            } catch (error) {
+                console.error(`[AdminCharService] Erro ao gerar descrição (upload) para o personagem ${character.id}:`, error.message);
+                await character.update({ description: 'Falha ao gerar descrição automática.' });
+            }
+        })();
+        return character;
+    }
+
+    async deleteOfficialCharacter(id) {
+        const character = await Character.findByPk(id);
+        if (!character) throw new Error('Personagem não encontrado.');
+        await character.destroy();
+        return { message: 'Personagem deletado com sucesso.' };
     }
 }
 
