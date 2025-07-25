@@ -1,6 +1,6 @@
 // src/Features-Admin/AIHelper/AdminAIHelper.routes.js
 const { Router } = require('express');
-const controller = require('./AdminAIHelper.controller');
+const controller = require('./AIHelper.controller');
 const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
 
 const router = Router();
