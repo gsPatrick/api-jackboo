@@ -1,5 +1,5 @@
 // src/Features-Admin/Characters/AdminCharacter.controller.js
-const AdminCharacterService = require('./AdminCharacter.service');
+const AdminCharacterService = require('./AdminCharacters.service');
 
 class AdminCharacterController {
     async listOfficialCharacters(req, res, next) {
