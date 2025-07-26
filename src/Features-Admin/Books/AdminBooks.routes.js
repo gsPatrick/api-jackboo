@@ -23,4 +23,7 @@ router.get('/', controller.listAllBooks);
 // DELETE /api/admin/books/:id - Deleta um livro específico
 router.delete('/:id', controller.deleteOfficialBook);
 
+router.get('/:id', controller.getOfficialBookById); // <-- NOVA ROTA
+
+
 module.exports = router;
