@@ -20,7 +20,15 @@ class ContentService {
     
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
-    const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada, focando em formas, linhas e características principais. A descrição deve ser curta, direta e sem mencionar cores. Comece a descrição com 'um personagem de desenho animado'.";
+    
+    // ✅ CORREÇÃO: Prompt aprimorado com regras estritas para "forçar" uma descrição objetiva.
+    const DEFAULT_DESCRIPTION_PROMPT = `Você é um especialista em analisar imagens de desenhos para criar prompts para outras IAs. Sua tarefa é descrever a imagem fornecida seguindo regras estritas. A descrição será a base para recriar este personagem.
+Regras Obrigatórias:
+1. A descrição DEVE começar com a frase exata 'um personagem de desenho animado'.
+2. NÃO mencione cores. Descreva apenas formas, linhas e características principais (como olhos, boca, cabelo, roupas).
+3. Seja objetivo e direto. Evite adjetivos subjetivos (como 'bonito', 'triste').
+4. Mantenha a descrição curta e focada.
+Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça quadrada, uma antena, olhos grandes e redondos, e corpo retangular.'`;
 
     const character = await Character.create({ userId, name: "Analisando seu desenho...", originalDrawingUrl });
 
@@ -31,7 +39,6 @@ class ContentService {
         throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
       }
 
-      // ✅ AGORA ESTA LINHA FUNCIONA, POIS LeonardoElement FOI IMPORTADO.
       const defaultElement = await LeonardoElement.findByPk(defaultElementId);
       if (!defaultElement || !defaultElement.basePromptText) {
           throw new Error(`O Element padrão (ID: ${defaultElementId}) não foi encontrado ou não tem um prompt base definido.`);
