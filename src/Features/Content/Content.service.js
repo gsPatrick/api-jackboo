@@ -15,7 +15,6 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class ContentService {
 
- // ✅ CORREÇÃO: A função agora aceita um parâmetro 'name' opcional.
  async createCharacter(userId, file, name = null) {
     if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
@@ -31,7 +30,6 @@ Regras Obrigatórias:
 5. Mantenha a descrição curta e focada.
 Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça quadrada, uma antena, olhos grandes e redondos, e corpo retangular.'`;
 
-    // ✅ CORREÇÃO: Usa o nome fornecido ou um placeholder.
     const initialName = name || "Analisando seu desenho...";
     const character = await Character.create({ userId, name: initialName, originalDrawingUrl });
 
@@ -47,16 +45,23 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
           throw new Error(`O Element padrão (ID: ${defaultElementId}) não foi encontrado ou não tem um prompt base definido.`);
       }
 
-      const detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
-      if (detailedDescription.toLowerCase().includes("desculpe") || detailedDescription.toLowerCase().includes("não posso")) {
-        throw new Error("A IA de visão se recusou a descrever a imagem devido a políticas de segurança. Tente um desenho diferente.");
+      let detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
+
+      // ✅ CORREÇÃO: Lógica de resiliência. Se a IA recusar, usa uma descrição padrão.
+      const refusalKeywords = ["desculpe", "não posso", "i'm sorry", "i cannot", "i can't"];
+      const isRefusal = refusalKeywords.some(keyword => detailedDescription.toLowerCase().includes(keyword));
+
+      if (isRefusal) {
+        console.warn(`[ContentService] AVISO: A IA de visão se recusou a descrever a imagem para o personagem ${character.id}. Usando descrição padrão.`);
+        // Esta descrição padrão é genérica o suficiente para sempre funcionar.
+        detailedDescription = "um personagem de desenho animado, uma figura amigável com olhos grandes e um sorriso";
       }
+      
       await character.update({ description: detailedDescription });
 
       const finalPrompt = defaultElement.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
       const leonardoElementId = defaultElement.leonardoElementId;
 
-      // ✅ CORREÇÃO: Se um nome foi fornecido, o placeholder de "Gerando..." não é necessário.
       if (!name) {
         await character.update({ name: "Gerando sua arte..." });
       }
@@ -79,7 +84,6 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
 
       const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl);
       
-      // ✅ CORREÇÃO: Define o nome final. Se foi passado um nome, mantém-se o mesmo. Senão, usa 'Novo Personagem'.
       const finalName = name || 'Novo Personagem';
       await character.update({ generatedCharacterUrl: localGeneratedUrl, name: finalName });
       
@@ -91,7 +95,7 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
       throw error; 
     }
   }
-// ... resto do arquivo sem alterações ...
+
   async findCharactersByUser(userId) {
     return Character.findAll({ where: { userId }, order: [['createdAt', 'DESC']] });
   }
