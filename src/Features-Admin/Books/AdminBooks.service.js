@@ -106,6 +106,45 @@ class AdminBooksService {
     return book;
 }
 
+ /**
+     * ✅ NOVO MÉTODO: Lista todos os livros que NÃO pertencem ao admin.
+     */
+    async listUserBooks(filters = {}) {
+        const { page = 1, limit = 20 } = filters;
+        const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+        const { count, rows } = await Book.findAndCountAll({
+            where: {
+                authorId: { [Op.ne]: ADMIN_USER_ID } // A condição principal: autor NÃO É o admin
+            },
+            include: [
+                { model: BookVariation, as: 'variations', limit: 1 },
+                { model: Character, as: 'mainCharacter', attributes: ['name'] },
+                // Inclui os dados do autor do livro
+                { model: User, as: 'author', attributes: ['id', 'nickname', 'email'] }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(limit, 10),
+            offset: offset,
+            distinct: true,
+        });
+
+        return { totalItems: count, books: rows, totalPages: Math.ceil(count / limit), currentPage: parseInt(page, 10) };
+    }
+
+    /**
+     * ✅ CORREÇÃO: Deleta qualquer livro por ID, sem verificar o autor.
+     * Seguro, pois a rota é protegida pelo middleware isAdmin.
+     */
+    async deleteOfficialBook(id) { // O nome pode ser mantido, mas a lógica é genérica
+        const book = await Book.findByPk(id);
+        if (!book) throw new Error('Livro não encontrado.');
+        
+        await book.destroy();
+        return { message: 'Livro deletado com sucesso.' };
+    }
+    
+
 }
 
 module.exports = new AdminBooksService();

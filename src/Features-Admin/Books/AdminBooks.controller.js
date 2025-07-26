@@ -45,6 +45,15 @@ class AdminBooksController {
             next(error);
         }
     }
+
+     async listUserBooks(req, res, next) {
+        try {
+            const result = await adminBooksService.listUserBooks(req.query);
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new AdminBooksController();
