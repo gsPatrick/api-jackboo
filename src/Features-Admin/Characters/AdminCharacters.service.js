@@ -1,16 +1,47 @@
 // src/Features-Admin/Characters/AdminCharacter.service.js
-const { Character } = require('../../models');
+const { Character, LeonardoElement } = require('../../models');
+const visionService = require('../../OpenAI/services/openai.service');
+const leonardoService = require('../../OpenAI/services/leonardo.service');
+// ✅ CORREÇÃO: Importação do promptService que estava faltando.
+const promptService = require('../../OpenAI/services/prompt.service');
+const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
+if (!process.env.APP_URL) {
+  throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
+}
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const ADMIN_USER_ID = 1; // ID do usuário administrador padrão
 
 class AdminCharacterService {
 
+    async listOfficialCharacters() {
+        const characters = await Character.findAll({
+            where: { userId: ADMIN_USER_ID },
+            order: [['createdAt', 'DESC']]
+        });
+        return { characters };
+    }
 
- // ✅ NOVA FUNÇÃO ADICIONADA: Lógica de geração de IA específica para o Admin
+    async createCharacterByUpload(file, data) {
+        if (!file || !data.name || !data.description) {
+            throw new Error("Imagem, nome e descrição são obrigatórios para o upload direto.");
+        }
+        
+        const imageUrl = `/uploads/admin-assets/${file.filename}`;
+
+        return Character.create({
+            userId: ADMIN_USER_ID,
+            name: data.name,
+            description: data.description,
+            originalDrawingUrl: imageUrl,
+            generatedCharacterUrl: imageUrl,
+        });
+    }
+
     async createCharacterWithIA(file) {
         if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
-        // ✅ CORREÇÃO: Usa o caminho correto para os assets do admin.
         const originalDrawingUrl = `/uploads/admin-assets/${file.filename}`;
         const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
         const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada, focando em formas, linhas e características principais. A descrição deve ser curta, direta e sem mencionar cores. Comece a descrição com 'um personagem de desenho animado'.";
@@ -18,6 +49,7 @@ class AdminCharacterService {
         const character = await Character.create({ userId: ADMIN_USER_ID, name: "Analisando desenho (Admin)...", originalDrawingUrl });
 
         try {
+            // ✅ AGORA ESTA LINHA FUNCIONA, POIS promptService FOI IMPORTADO.
             const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
             const defaultElementId = generationSetting.defaultElementId;
             if (!defaultElementId) {
@@ -38,9 +70,8 @@ class AdminCharacterService {
             const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
             const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, leonardoElementId);
             await character.update({ generationJobId: generationId, name: "Gerando arte (Admin)..." });
-
-            // A geração continua em segundo plano, não precisamos esperar aqui.
-            // O frontend pode fazer polling ou o admin pode verificar a lista mais tarde.
+            
+            // A geração continua em segundo plano. O admin pode verificar a lista mais tarde.
             
             return character;
 
@@ -59,59 +90,6 @@ class AdminCharacterService {
         if (!character) {
             throw new Error("Personagem oficial não encontrado.");
         }
-        await character.destroy();
-        return { message: "Personagem deletado com sucesso." };
-    }
-
-
-    /**
-     * Lista todos os personagens que pertencem ao administrador.
-     */
-    async listOfficialCharacters() {
-        const characters = await Character.findAll({
-            where: {
-                userId: ADMIN_USER_ID
-            },
-            order: [['createdAt', 'DESC']]
-        });
-        return { characters };
-    }
-
-    /**
-     * Cria um personagem diretamente a partir de uma imagem final fornecida.
-     * Não usa IA para geração.
-     */
-    async createCharacterByUpload(file, data) {
-        if (!file || !data.name || !data.description) {
-            throw new Error("Imagem, nome e descrição são obrigatórios para o upload direto.");
-        }
-        
-        const imageUrl = `/uploads/admin-assets/${file.filename}`;
-
-        const character = await Character.create({
-            userId: ADMIN_USER_ID,
-            name: data.name,
-            description: data.description,
-            originalDrawingUrl: imageUrl,
-            generatedCharacterUrl: imageUrl, // A imagem final é a mesma que a original
-        });
-
-        return character;
-    }
-
-    /**
-     * Deleta um personagem oficial.
-     */
-    async deleteCharacter(characterId) {
-        const character = await Character.findOne({
-            where: { id: characterId, userId: ADMIN_USER_ID }
-        });
-
-        if (!character) {
-            throw new Error("Personagem oficial não encontrado.");
-        }
-
-        // O hook no modelo Character cuidará de deletar os arquivos físicos
         await character.destroy();
         return { message: "Personagem deletado com sucesso." };
     }
