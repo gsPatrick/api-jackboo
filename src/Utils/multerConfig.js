@@ -1,61 +1,69 @@
 // src/Utils/multerConfig.js
+
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
-// Função para garantir que o diretório de destino exista
-const ensureDirectoryExists = (dirPath) => {
-    if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-        console.log(`[Multer] Diretório criado: ${dirPath}`);
+// Função para garantir que o diretório de upload exista
+const ensureUploadsDirExists = (dirPath) => {
+    const fullPath = path.resolve(dirPath);
+    if (!fs.existsSync(fullPath)) {
+        console.log(`[Multer] Diretório não encontrado. Criando: ${fullPath}`);
+        fs.mkdirSync(fullPath, { recursive: true });
     }
 };
 
-// --- Configuração para Uploads de Usuários (Desenhos) ---
-const userDrawingsStorage = multer.diskStorage({
+const userDrawingStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dest = path.resolve(process.cwd(), 'uploads', 'user-drawings');
-        ensureDirectoryExists(dest);
-        cb(null, dest);
+        const uploadPath = 'uploads/user-drawings/';
+        ensureUploadsDirExists(uploadPath);
+        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = uuidv4();
-        const extension = path.extname(file.originalname);
-        cb(null, `${uniqueSuffix}${extension}`);
-    }
+        const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+        cb(null, uniqueName);
+    },
 });
 
-// --- Configuração para Uploads de Admin (Assets de Personagens, etc.) ---
-const adminAssetsStorage = multer.diskStorage({
+// ✅ CORREÇÃO: A configuração de storage do admin agora aponta para a mesma pasta do usuário.
+const adminAssetStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // <<<< CORREÇÃO CRÍTICA AQUI
-        // Salva na subpasta 'admin-assets' dentro de 'uploads'
-        const dest = path.resolve(process.cwd(), 'uploads', 'admin-assets');
-        ensureDirectoryExists(dest);
-        cb(null, dest);
+        // Salva na mesma pasta do usuário para simplificar o acesso da IA.
+        const uploadPath = 'uploads/user-drawings/'; 
+        ensureUploadsDirExists(uploadPath);
+        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = uuidv4();
-        const extension = path.extname(file.originalname);
-        cb(null, `${uniqueSuffix}${extension}`);
-    }
+        const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+        cb(null, uniqueName);
+    },
 });
 
-// Filtro de arquivo para aceitar apenas imagens
-const imageFileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-    } else {
-        cb(new Error('Tipo de arquivo não suportado! Apenas imagens são permitidas.'), false);
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const mimetype = allowedTypes.test(file.mimetype);
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+
+    if (mimetype && extname) {
+        return cb(null, true);
     }
+    cb(new Error('Erro: Apenas arquivos de imagem são permitidos!'));
 };
 
-// Exporta os middlewares do Multer configurados
-const uploadUserDrawing = multer({ storage: userDrawingsStorage, fileFilter: imageFileFilter });
-const uploadAdminAsset = multer({ storage: adminAssetsStorage, fileFilter: imageFileFilter });
+const uploadUserDrawing = multer({
+    storage: userDrawingStorage,
+    limits: { fileSize: 1024 * 1024 * 5 }, // Limite de 5MB
+    fileFilter: fileFilter,
+});
+
+const uploadAdminAsset = multer({
+    storage: adminAssetStorage, // Agora usa o storage corrigido
+    limits: { fileSize: 1024 * 1024 * 10 }, // Limite maior para admin
+    fileFilter: fileFilter,
+});
 
 module.exports = {
     uploadUserDrawing,
-    uploadAdminAsset
+    uploadAdminAsset,
 };

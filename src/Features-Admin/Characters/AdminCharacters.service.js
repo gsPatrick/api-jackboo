@@ -2,7 +2,6 @@
 const { Character, LeonardoElement } = require('../../models');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
-// ✅ CORREÇÃO: Importação do promptService que estava faltando.
 const promptService = require('../../OpenAI/services/prompt.service');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 
@@ -11,7 +10,7 @@ if (!process.env.APP_URL) {
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const ADMIN_USER_ID = 1; // ID do usuário administrador padrão
+const ADMIN_USER_ID = 1;
 
 class AdminCharacterService {
 
@@ -28,6 +27,8 @@ class AdminCharacterService {
             throw new Error("Imagem, nome e descrição são obrigatórios para o upload direto.");
         }
         
+        // Esta rota é diferente, pois é para upload DIRETO de um personagem pronto,
+        // então é bom manter em uma pasta separada. A mudança foi no fluxo de IA.
         const imageUrl = `/uploads/admin-assets/${file.filename}`;
 
         return Character.create({
@@ -42,14 +43,14 @@ class AdminCharacterService {
     async createCharacterWithIA(file) {
         if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
-        const originalDrawingUrl = `/uploads/admin-assets/${file.filename}`;
+        // ✅ CORREÇÃO: O caminho da URL agora aponta para a pasta unificada.
+        const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
         const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
         const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada, focando em formas, linhas e características principais. A descrição deve ser curta, direta e sem mencionar cores. Comece a descrição com 'um personagem de desenho animado'.";
 
         const character = await Character.create({ userId: ADMIN_USER_ID, name: "Analisando desenho (Admin)...", originalDrawingUrl });
 
         try {
-            // ✅ AGORA ESTA LINHA FUNCIONA, POIS promptService FOI IMPORTADO.
             const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
             const defaultElementId = generationSetting.defaultElementId;
             if (!defaultElementId) {
@@ -70,8 +71,6 @@ class AdminCharacterService {
             const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
             const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, leonardoElementId);
             await character.update({ generationJobId: generationId, name: "Gerando arte (Admin)..." });
-            
-            // A geração continua em segundo plano. O admin pode verificar a lista mais tarde.
             
             return character;
 
