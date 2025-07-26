@@ -19,9 +19,6 @@ class LeonardoService {
     };
   }
 
-  /**
-   * Faz o upload de uma imagem local para os servidores da Leonardo.Ai.
-   */
   async uploadImageToLeonardo(filePath, mimetype) {
     try {
       const extension = mimetype.split('/')[1];
@@ -60,10 +57,6 @@ class LeonardoService {
     }
   }
 
-  /**
-   * Inicia o processo de geração de imagem de personagem na Leonardo.Ai.
-   * Aceita um elementId (userLoraId) dinâmico.
-   */
   async startImageGeneration(prompt, leonardoInitImageId, elementId) { 
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração.");
@@ -72,7 +65,6 @@ class LeonardoService {
     const generationPayload = {
       prompt: prompt,
       sd_version: "FLUX_DEV", 
-      // ✅ CORREÇÃO: Renomeado de 'userElements' para 'elements' e ajustada a sintaxe interna.
       elements: [{ akUUID: String(elementId), weight: 1 }],
       num_images: 4,
       width: 1120,
@@ -81,7 +73,6 @@ class LeonardoService {
       contrast: 3.5,
       ultra: false,
       styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", 
       scheduler: "LEONARDO", 
       public: true,          
       nsfw: true,            
@@ -103,9 +94,6 @@ class LeonardoService {
     }
   }
   
-  /**
-   * Verifica o status de uma geração de imagem.
-   */
   async checkGenerationStatus(generationId) {
     try {
       const response = await axios.get(`${this.apiUrl}/generations/${generationId}`, { headers: this.headers });
@@ -130,10 +118,6 @@ class LeonardoService {
     }
   }
 
-  /**
-   * Inicia a geração de uma PÁGINA DE COLORIR na Leonardo.Ai.
-   * Aceita um elementId (userLoraId) dinâmico.
-   */
   async startColoringPageGeneration(finalPrompt, elementId) { 
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da página de colorir.");
@@ -141,9 +125,7 @@ class LeonardoService {
     const generationPayload = {
       prompt: finalPrompt,
       sd_version: "FLUX_DEV",
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-      // ✅ CORREÇÃO: Renomeado de 'userElements' para 'elements' e ajustada a sintaxe interna.
-      // O 'elements' existente (para o estilo de colorir) e o novo (para o estilo do personagem) foram combinados.
+      // ✅ CORREÇÃO: Removida a linha `modelId`.
       elements: [
         { akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 },
         { akUUID: String(elementId), weight: 0.80 }
@@ -176,10 +158,6 @@ class LeonardoService {
     }
   }
 
-  /**
-   * Inicia a geração de uma ILUSTRAÇÃO DE LIVRO DE HISTÓRIA ou CAPA na Leonardo.Ai.
-   * Aceita um elementId (userLoraId) dinâmico.
-   */
   async startStoryIllustrationGeneration(finalPrompt, elementId) {
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da ilustração.");
@@ -187,8 +165,7 @@ class LeonardoService {
     const generationPayload = {
         prompt: finalPrompt,
         sd_version: "FLUX_DEV",
-        modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-        // ✅ CORREÇÃO: Renomeado de 'userElements' para 'elements' e ajustada a sintaxe interna.
+        // ✅ CORREÇÃO: Removida a linha `modelId`.
         elements: [{ akUUID: String(elementId), weight: 0.85 }],
         num_images: 1,
         width: 1024,
