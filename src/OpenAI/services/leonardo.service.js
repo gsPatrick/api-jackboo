@@ -64,17 +64,22 @@ class LeonardoService {
 
     const generationPayload = {
       prompt: prompt,
+      negative_prompt: "",
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }], 
       num_images: 4,
       width: 1120,
       height: 1120,
+      guidance_scale: 7,
+      contrast: 3.5,
       controlnets: [{ preprocessorId: 299, initImageType: "UPLOADED", initImageId: leonardoInitImageId, strengthType: "Mid" }],
       styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
-      scheduler: "LEONARDO",
+      presetStyle: "LEONARDO",
+      scheduler: "LEONARDO", 
       public: true,          
       nsfw: true,
+      ultra: false,
     };
 
     try {
@@ -117,22 +122,28 @@ class LeonardoService {
     }
   }
 
+  // ✅ FUNÇÃO PADRONIZADA COM BASE NA SUA CAPTURA
   async startColoringPageGeneration(finalPrompt, elementId) { 
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da página de colorir.");
     }
     const generationPayload = {
       prompt: finalPrompt,
+      negative_prompt: "",
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }], // Peso ajustado para consistência
-      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ✅ PADRONIZADO
-      scheduler: "LEONARDO", // ✅ PADRONIZADO
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }], 
       num_images: 1,
       width: 1024,
       height: 1024,
+      guidance_scale: 7,
+      contrast: 3.5,
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46",
+      presetStyle: "LEONARDO",
+      scheduler: "LEONARDO",
       public: true,
       nsfw: true,
+      ultra: false,
     };
 
     try {
@@ -152,22 +163,28 @@ class LeonardoService {
     }
   }
 
+  // ✅ FUNÇÃO PADRONIZADA COM BASE NA SUA CAPTURA
   async startStoryIllustrationGeneration(finalPrompt, elementId) {
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da ilustração.");
     }
     const generationPayload = {
         prompt: finalPrompt,
+        negative_prompt: "",
         sd_version: "FLUX_DEV",
         modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
         userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
-        styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ✅ PADRONIZADO
-        scheduler: "LEONARDO", // ✅ PADRONIZADO
         num_images: 1,
         width: 1024,
         height: 1024,
+        guidance_scale: 7,
+        contrast: 3.5,
+        styleUUID: "111dc692-d470-4eec-b791-3475abac4c46",
+        presetStyle: "LEONARDO",
+        scheduler: "LEONARDO",
         public: true,
         nsfw: true,
+        ultra: false,
     };
 
     try {
