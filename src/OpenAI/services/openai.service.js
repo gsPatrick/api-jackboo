@@ -139,8 +139,8 @@ Exemplo: {"pages": ["${characters[0].name} e ${characters[1]?.name || 'um amigo'
   }
 
   /**
-   * REATORADO: Gera o roteiro de um livro de HISTÓRIA ILUSTRADO. O prompt do sistema agora é interno.
-   * Não depende mais de um template do banco de dados.
+   * ✅ VERSÃO CORRIGIDA: Gera o roteiro de um livro de HISTÓRIA ILUSTRADO. 
+   * A função duplicada e incorreta foi removida.
    */
     async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
     try {
@@ -152,7 +152,7 @@ Regras:
 1.  **Personagens:** A história DEVE ser sobre estes personagens:
 ${characterDetails}
 2.  **Tema e Resumo:** Siga o tema "${theme}" e o resumo do usuário: "${summary}".
-3.  **Estrutura:** Crie ${sceneCount} cenas.
+3.  **Estrutura:** Crie exatamente ${sceneCount} cenas.
 4.  **Formato de Saída:** Responda com um JSON contendo a chave "story_pages", um array de objetos.
 5.  **Objeto de Cena:** Cada objeto deve ter duas chaves: "page_text" (o texto da página) e "illustration_prompt" (o prompt para a imagem).
 Exemplo: {"story_pages": [{"page_text": "...", "illustration_prompt": "..."}, ...]}`.trim();
@@ -165,76 +165,15 @@ Exemplo: {"story_pages": [{"page_text": "...", "illustration_prompt": "..."}, ..
       });
 
       const result = JSON.parse(response.choices[0].message.content);
-      if (!result.story_pages || !Array.isArray(result.story_pages)) throw new Error('A IA não retornou "story_pages" como um array.');
+      if (!result.story_pages || !Array.isArray(result.story_pages)) throw new Error('A IA não retornou "story_pages" como um array de objetos.');
       
-      console.log("[VisionService] Roteiro do livro de história recebido.");
+      console.log("[VisionService] Roteiro do livro de história recebido com sucesso.");
       return result.story_pages.map(page => ({ ...page, illustration_prompt: this.sanitizePromptForSafety(page.illustration_prompt) }));
     } catch (error) {
       console.error(`[VisionService] Erro ao gerar o roteiro do livro de história: ${error.message}`);
       throw new Error(`Falha na geração do roteiro da história: ${error.message}`);
     }
-  }async generateStoryBookStoryline(characterName, characterDescription, theme, summary, sceneCount) {
-    try {
-      console.log(`[VisionService] Gerando roteiro de HISTÓRIA ILUSTRADA com base no resumo do usuário.`);
-
-      const finalSystemPrompt = `Você é um autor e ilustrador de livros de história infantis. Sua tarefa é transformar um resumo fornecido pelo usuário em um roteiro detalhado, cena por cena.
-Regras Essenciais:
-1.  **Personagem Principal:** O protagonista é "${characterName}", descrito como: "${characterDescription}". Ele deve ser o foco da história.
-2.  **Tema e Resumo:** A história deve seguir o tema "${theme}" e se basear estritamente no seguinte resumo do usuário: "${summary}".
-3.  **Estrutura:** Desenvolva a história em exatamente ${sceneCount} cenas.
-4.  **Formato de Saída OBRIGATÓRIO:** Sua resposta deve ser um objeto JSON bem formado. Este objeto deve conter uma única chave "story_pages", cujo valor é um array de objetos.
-5.  **Objeto de Cena:** Cada objeto no array representa uma cena e deve ter DUAS chaves:
-    a. "page_text": Uma string contendo o texto narrativo para aquela página do livro (2-3 frases curtas e simples).
-    b. "illustration_prompt": Uma string contendo um prompt visual detalhado para a ilustração que acompanhará o texto. Descreva a cena, a ação do personagem e o ambiente.
-6.  **Exemplo de Saída:** 
-    {
-      "story_pages": [
-        {
-          "page_text": "Numa manhã ensolarada, ${characterName} decidiu que iria explorar a misteriosa Caverna Cintilante.",
-          "illustration_prompt": "Cena de dia, ${characterName} está na entrada de uma grande caverna, olhando para dentro com uma expressão curiosa e animada. A entrada da caverna tem cristais brilhantes."
-        },
-        { ... }
-      ]
-    }
-
-Agora, gere o roteiro completo para ${sceneCount} cenas, seguindo TODAS as regras.`.trim();
-      
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [{
-            role: "system",
-            content: finalSystemPrompt
-          },
-          {
-            role: "user",
-            content: `Gere uma história com ${sceneCount} cenas baseada no resumo e tema fornecidos. Para cada cena, forneça o texto e um prompt visual detalhado para a ilustração.`
-          }
-        ],
-        max_tokens: 400 * sceneCount,
-      });
-
-      const result = JSON.parse(response.choices[0].message.content);
-
-      if (!result.story_pages || !Array.isArray(result.story_pages) || result.story_pages.length === 0) {
-        throw new Error('A IA não retornou o roteiro no formato JSON esperado (chave "story_pages").');
-      }
-
-      console.log("[VisionService] Roteiro do livro de história recebido com sucesso.");
-      
-      const sanitizedStoryPages = result.story_pages.map(page => ({
-          ...page,
-          illustration_prompt: this.sanitizePromptForSafety(page.illustration_prompt)
-      }));
-
-      return sanitizedStoryPages;
-
-    } catch (error) {
-      console.error(`[VisionService] Erro ao gerar o roteiro do livro de história: ${error.message}`);
-      throw new Error(`Falha na geração do roteiro da história: ${error.message}`);
-    }
   }
-
 
   /**
    * Remove palavras relacionadas a cores de uma descrição, para páginas de colorir.
