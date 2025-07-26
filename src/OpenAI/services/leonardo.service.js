@@ -64,19 +64,15 @@ class LeonardoService {
 
     const generationPayload = {
       prompt: prompt,
-      sd_version: "FLUX_DEV",
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }], 
+      // ✅ CORREÇÃO FINAL: Usamos o ID do seu Element como o modelId principal.
+      modelId: elementId,
+      // ❌ REMOVIDO: sd_version não é mais necessário.
+      // ❌ REMOVIDO: userElements não é mais necessário.
       num_images: 4,
       width: 1120,
       height: 1120,
       controlnets: [{ preprocessorId: 299, initImageType: "UPLOADED", initImageId: leonardoInitImageId, strengthType: "Mid" }],
-      contrast: 3.5,
-      ultra: false,
-      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
-      scheduler: "LEONARDO", 
-      public: true,          
-      nsfw: true,            
+      scheduler: "LEONARDO"
     };
 
     try {
@@ -105,9 +101,9 @@ class LeonardoService {
       console.log(`[LeonardoService] Polling... Status da geração ${generationId}: ${generationData.status}`);
 
       if (generationData.status === 'COMPLETE') {
-        const imageUrl = generationData.generated_images?.[0]?.url;
-        if (!imageUrl) { throw new Error("Geração completa, mas a URL da imagem não foi encontrada."); }
-        return { isComplete: true, imageUrl: imageUrl };
+        const imageUrls = generationData.generated_images?.map(img => img.url) || [];
+        if (imageUrls.length === 0) { throw new Error("Geração completa, mas a URL da imagem não foi encontrada."); }
+        return { isComplete: true, imageUrl: imageUrls[0] }; // Retorna a primeira imagem por padrão
       }
       
       if (generationData.status === 'FAILED') { throw new Error("A geração da imagem no Leonardo falhou."); }
@@ -125,19 +121,18 @@ class LeonardoService {
     }
     const generationPayload = {
       prompt: finalPrompt,
-      sd_version: "FLUX_DEV",
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }],
-      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }], 
+      // ✅ CORREÇÃO FINAL: Usamos o ID do seu Element como o modelId principal.
+      modelId: elementId,
+      // ✅ Para livros de colorir, podemos AINDA precisar do element base de "coloring page".
+      // Se isso falhar, o próximo passo é remover esta linha também.
+      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.75 }],
+      // ❌ REMOVIDO: sd_version e userElements.
       num_images: 1,
       width: 1024,
       height: 1024,
-      contrast: 2.5,
-      scheduler: "LEONARDO",
       guidance_scale: 7,
       public: true,
       nsfw: true,
-      ultra: false,
     };
 
     try {
@@ -163,18 +158,15 @@ class LeonardoService {
     }
     const generationPayload = {
         prompt: finalPrompt,
-        sd_version: "FLUX_DEV",
-        modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-        userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
+        // ✅ CORREÇÃO FINAL: Usamos o ID do seu Element como o modelId principal.
+        modelId: elementId,
+        // ❌ REMOVIDO: sd_version e userElements.
         num_images: 1,
         width: 1024,
         height: 1024,
-        contrast: 3.0,
-        scheduler: "LEONARDO",
         guidance_scale: 7,
         public: true,
         nsfw: true,
-        ultra: false,
     };
 
     try {
