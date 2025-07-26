@@ -15,4 +15,12 @@ router.get('/:id', controller.getOfficialBookById);
 // DELETE /api/admin/books/:id -> Deleta um livro oficial
 router.delete('/:id', controller.deleteOfficialBook);
 
+
+
+// GET /api/admin/books - Lista todos os livros do admin
+router.get('/', controller.listAllBooks);
+
+// DELETE /api/admin/books/:id - Deleta um livro específico
+router.delete('/:id', controller.deleteOfficialBook);
+
 module.exports = router;

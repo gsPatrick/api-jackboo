@@ -30,6 +30,26 @@ class AdminBooksController {
             next(error);
         }
     }
+
+ async listAllBooks(req, res, next) {
+        try {
+            const result = await AdminBooksService.listAllBooks();
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async deleteOfficialBook(req, res, next) {
+        try {
+            const { id } = req.params;
+            const result = await AdminBooksService.deleteOfficialBook(id);
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
 }
 
 module.exports = new AdminBooksController();
