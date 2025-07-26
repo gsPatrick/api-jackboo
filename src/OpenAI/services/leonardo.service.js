@@ -65,8 +65,7 @@ class LeonardoService {
     const generationPayload = {
       prompt: prompt,
       sd_version: "FLUX_DEV",
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // ✅ REINTRODUZIDO
-      // ✅ REVERTIDO para a sintaxe correta do site oficial
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
       userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }], 
       num_images: 4,
       width: 1120,
@@ -127,9 +126,8 @@ class LeonardoService {
     const generationPayload = {
       prompt: finalPrompt,
       sd_version: "FLUX_DEV",
-      modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // ✅ REINTRODUZIDO
-      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }], // Mantemos 'elements' para o estilo base de colorir
-      // ✅ REVERTIDO para a sintaxe correta do site oficial
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }],
       userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }], 
       num_images: 1,
       width: 1024,
@@ -166,8 +164,7 @@ class LeonardoService {
     const generationPayload = {
         prompt: finalPrompt,
         sd_version: "FLUX_DEV",
-        modelId: "b2614463-296c-462a-9586-aafdb8f00e36", // ✅ REINTRODUZIDO
-        // ✅ REVERTIDO para a sintaxe correta do site oficial
+        modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
         userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
         num_images: 1,
         width: 1024,
