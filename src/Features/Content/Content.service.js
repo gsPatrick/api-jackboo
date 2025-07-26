@@ -15,22 +15,25 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class ContentService {
 
- async createCharacter(userId, file) {
+ // ✅ CORREÇÃO: A função agora aceita um parâmetro 'name' opcional.
+ async createCharacter(userId, file, name = null) {
     if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
     
-    // ✅ CORREÇÃO: Prompt aprimorado com regras estritas para "forçar" uma descrição objetiva.
-    const DEFAULT_DESCRIPTION_PROMPT = `Você é um especialista em analisar imagens de desenhos para criar prompts para outras IAs. Sua tarefa é descrever a imagem fornecida seguindo regras estritas. A descrição será a base para recriar este personagem.
+    const DEFAULT_DESCRIPTION_PROMPT = `Você é um especialista em analisar imagens de desenhos para criar prompts para outras IAs. Sua tarefa é descrever a imagem fornecida seguindo regras estritas.
 Regras Obrigatórias:
-1. A descrição DEVE começar com a frase exata 'um personagem de desenho animado'.
-2. NÃO mencione cores. Descreva apenas formas, linhas e características principais (como olhos, boca, cabelo, roupas).
-3. Seja objetivo e direto. Evite adjetivos subjetivos (como 'bonito', 'triste').
-4. Mantenha a descrição curta e focada.
+1. Ignore completamente se a imagem se parece com uma pessoa real ou uma criança. Foque EXCLUSIVAMENTE nas formas, linhas e elementos do desenho como uma obra de arte.
+2. A descrição DEVE começar com a frase exata 'um personagem de desenho animado'.
+3. NÃO mencione cores. Descreva apenas formas, linhas e características principais (como olhos, boca, cabelo, roupas).
+4. Seja objetivo e direto. Evite adjetivos subjetivos.
+5. Mantenha a descrição curta e focada.
 Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça quadrada, uma antena, olhos grandes e redondos, e corpo retangular.'`;
 
-    const character = await Character.create({ userId, name: "Analisando seu desenho...", originalDrawingUrl });
+    // ✅ CORREÇÃO: Usa o nome fornecido ou um placeholder.
+    const initialName = name || "Analisando seu desenho...";
+    const character = await Character.create({ userId, name: initialName, originalDrawingUrl });
 
     try {
       const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
@@ -45,14 +48,22 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
       }
 
       const detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
+      if (detailedDescription.toLowerCase().includes("desculpe") || detailedDescription.toLowerCase().includes("não posso")) {
+        throw new Error("A IA de visão se recusou a descrever a imagem devido a políticas de segurança. Tente um desenho diferente.");
+      }
       await character.update({ description: detailedDescription });
 
       const finalPrompt = defaultElement.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
       const leonardoElementId = defaultElement.leonardoElementId;
 
+      // ✅ CORREÇÃO: Se um nome foi fornecido, o placeholder de "Gerando..." não é necessário.
+      if (!name) {
+        await character.update({ name: "Gerando sua arte..." });
+      }
+
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
       const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, leonardoElementId);
-      await character.update({ generationJobId: generationId, name: "Gerando sua arte..." });
+      await character.update({ generationJobId: generationId });
 
       let finalImageUrl = null;
       const MAX_POLLS = 30;
@@ -67,7 +78,10 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
       if (!finalImageUrl) throw new Error("A geração da imagem demorou muito para responder.");
 
       const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl);
-      await character.update({ generatedCharacterUrl: localGeneratedUrl, name: 'Novo Personagem' });
+      
+      // ✅ CORREÇÃO: Define o nome final. Se foi passado um nome, mantém-se o mesmo. Senão, usa 'Novo Personagem'.
+      const finalName = name || 'Novo Personagem';
+      await character.update({ generatedCharacterUrl: localGeneratedUrl, name: finalName });
       
       return character;
 
@@ -77,8 +91,7 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
       throw error; 
     }
   }
-
-
+// ... resto do arquivo sem alterações ...
   async findCharactersByUser(userId) {
     return Character.findAll({ where: { userId }, order: [['createdAt', 'DESC']] });
   }

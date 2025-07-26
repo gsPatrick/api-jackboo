@@ -1,6 +1,5 @@
 // src/Features-Admin/Characters/AdminCharacter.controller.js
 const AdminCharacterService = require('./AdminCharacters.service');
-// ❌ O ContentService não é mais necessário aqui.
 
 class AdminCharacterController {
     
@@ -16,6 +15,7 @@ class AdminCharacterController {
     async createOfficialCharacterByUpload(req, res, next) {
         try {
             if (!req.file) throw new Error("Nenhum arquivo de imagem foi enviado.");
+            // O serviço já espera o 'req.body' que contém nome e descrição.
             const character = await AdminCharacterService.createCharacterByUpload(req.file, req.body);
             res.status(201).json(character);
         } catch (error) {
@@ -23,13 +23,15 @@ class AdminCharacterController {
         }
     }
 
-    // ✅ CORREÇÃO DEFINITIVA: Agora chama a função correta do AdminCharacterService,
-    // que sabe o caminho certo para os assets do admin.
     async createOfficialCharacterWithIA(req, res, next) {
         try {
             if (!req.file) throw new Error("Nenhum arquivo de desenho foi enviado.");
-            // Chama o serviço do ADMIN, não o do usuário.
-            const character = await AdminCharacterService.createCharacterWithIA(req.file);
+            // ✅ CORREÇÃO: Pega o nome do corpo do formulário.
+            const { name } = req.body;
+            if (!name) throw new Error("O nome do personagem é obrigatório.");
+            
+            // ✅ CORREÇÃO: Passa o nome para o serviço.
+            const character = await AdminCharacterService.createCharacterWithIA(req.file, name);
             res.status(202).json(character); // 202 Accepted, pois o processo é assíncrono
         } catch (error) {
             next(error);

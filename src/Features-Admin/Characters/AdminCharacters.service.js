@@ -1,11 +1,6 @@
 // src/Features-Admin/Characters/AdminCharacter.service.js
 const { Character } = require('../../models');
-// ✅ CORREÇÃO: Importa o ContentService para reutilizar a lógica de criação de personagem.
 const contentService = require('../../Features/Content/Content.service');
-
-if (!process.env.APP_URL) {
-  throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
-}
 
 const ADMIN_USER_ID = 1;
 
@@ -31,20 +26,19 @@ class AdminCharacterService {
             name: data.name,
             description: data.description,
             originalDrawingUrl: imageUrl,
-            generatedCharacterUrl: imageUrl,
+            generatedCharacterUrl: imageUrl, // Para upload direto, a original e a gerada são a mesma.
         });
     }
 
     /**
-     * ✅ CORREÇÃO: A lógica de geração foi removida e substituída por uma chamada
-     * ao serviço de conteúdo do usuário, passando o ID do admin.
-     * Isso garante que o fluxo seja sempre idêntico.
+     * ✅ CORREÇÃO: A função agora aceita o nome e o passa para o serviço de conteúdo.
      */
-    async createCharacterWithIA(file) {
+    async createCharacterWithIA(file, name) {
         if (!file) throw new Error('A imagem do desenho é obrigatória.');
-        // Reutiliza o mesmo fluxo de criação de personagem do usuário,
-        // apenas garantindo que o personagem seja atribuído ao admin.
-        return contentService.createCharacter(ADMIN_USER_ID, file);
+        if (!name) throw new Error('O nome do personagem é obrigatório.');
+        
+        // Reutiliza o fluxo de criação, passando o ID do admin e o nome fornecido.
+        return contentService.createCharacter(ADMIN_USER_ID, file, name);
     }
 
     async deleteCharacter(characterId) {
