@@ -14,19 +14,19 @@ class AdminBookGeneratorService {
         const t = await sequelize.transaction();
         let book;
         try {
+            // ✅ Agora os ElementIDs vêm diretamente do formulário e são usados sem intermediários.
             const { characterIds, theme, summary, title, printFormatId, elementId, coverElementId, pageCount } = generationData;
             
-            // ✅ LOG ADICIONADO PARA DEBUG: Verifique se o tipo de livro correto está chegando.
-            console.log(`[AdminGenerator] Recebido pedido para gerar livro do tipo: "${bookType}"`);
+            console.log(`[AdminGenerator] Recebido pedido para gerar livro. Miolo Element ID: ${elementId}, Capa Element ID: ${coverElementId}`);
 
             if (!characterIds?.length || !theme || !title || !printFormatId || !elementId || !coverElementId) {
-                throw new Error("Dados insuficientes. Todos os campos, incluindo estilos de IA, são obrigatórios.");
+                throw new Error("Dados insuficientes. Todos os campos, incluindo os Elements de IA, são obrigatórios.");
             }
             if (bookType === 'story' && !summary) {
                 throw new Error("O resumo da história é obrigatório.");
             }
             if (!pageCount || pageCount <= 0) {
-                throw new Error("A contagem de páginas para o miolo é inválida ou não foi fornecida.");
+                throw new Error("A contagem de páginas é inválida.");
             }
 
             const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds } } });
@@ -49,7 +49,6 @@ class AdminBookGeneratorService {
 
             await BookVariation.create({
                 bookId: book.id,
-                // ✅ CORREÇÃO CRÍTICA: A lógica ternária foi corrigida para salvar o tipo certo.
                 type: bookType === 'colorir' ? 'colorir' : 'historia',
                 format: 'digital_pdf',
                 price: 0.00,
@@ -88,11 +87,10 @@ class AdminBookGeneratorService {
     async generateColoringBookContent(book, characters, elementId, coverElementId, innerPageCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
         const characterNames = characters.map(c => c.name).join(' e ');
+        const totalPages = innerPageCount + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${innerPageCount} páginas de colorir...`);
         const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, innerPageCount);
-
-        console.log(`[AdminGenerator] Roteiro de colorir recebido:`, JSON.stringify(pagePrompts, null, 2));
 
         if (!pagePrompts || pagePrompts.length === 0) {
             throw new Error("A IA (GPT) não retornou nenhum prompt para as páginas de colorir.");
@@ -107,7 +105,7 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo...`);
         for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 2;
-            const finalPrompt = `página de livro de colorir, arte de linha, ${pagePrompts[i]}, linhas limpas, fundo branco`;
+            const finalPrompt = `coloring book page, clean line art, simple shapes, white background, ${pagePrompts[i]}`;
             const localPageUrl = await this.generateAndDownloadImage(finalPrompt, elementId, 'coloring');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
         }
@@ -115,17 +113,16 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
         const backCoverPrompt = `Contracapa de livro de colorir com um ícone sobre "${book.genre}".`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
-        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: bookVariation.pageCount, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
+        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
 
     async generateStoryBookContent(book, characters, summary, elementId, coverElementId, sceneCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
         const characterNames = characters.map(c => c.name).join(' e ');
+        const totalPages = (sceneCount * 2) + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${sceneCount} cenas...`);
         const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, sceneCount);
-
-        console.log(`[AdminGenerator] Roteiro de história recebido:`, JSON.stringify(storyPages, null, 2));
 
         if (!storyPages || storyPages.length === 0) {
             throw new Error("A IA (GPT) não retornou nenhuma cena para a história.");
@@ -148,7 +145,7 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
         const backCoverPrompt = `Contracapa de livro de história com um ícone relacionado ao tema "${book.genre}".`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
-        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: bookVariation.pageCount, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
+        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
 
     async generateAndDownloadImage(prompt, elementId, type) {
