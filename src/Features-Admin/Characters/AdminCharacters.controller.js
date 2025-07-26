@@ -4,6 +4,17 @@ const ContentService = require('../../Features/Content/Content.service'); // Imp
 
 class AdminCharacterController {
     
+ // ✅ CORREÇÃO: Agora chama a função correta do AdminCharacterService.
+    async createOfficialCharacterWithIA(req, res, next) {
+        try {
+            if (!req.file) throw new Error("Nenhum arquivo de desenho foi enviado.");
+            const character = await AdminCharacterService.createCharacterWithIA(req.file);
+            res.status(202).json(character); // 202 Accepted, pois o processo é assíncrono
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // Usa o serviço do admin para listar apenas personagens oficiais
     async listOfficialCharacters(req, res, next) {
         try {
