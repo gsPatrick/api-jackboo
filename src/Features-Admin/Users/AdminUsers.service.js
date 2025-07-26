@@ -1,15 +1,16 @@
-// /workspace/src/Features-Admin/Users/AdminUsers.service.js
+// src/Features-Admin/Users/AdminUsers.service.js
+const { User } = require('../../models');
+const { Op } = require('sequelize');
 
-// ✅ CORREÇÃO: Importe o seu modelo do banco de dados aqui.
-// O caminho para o seu arquivo de modelo pode ser diferente. Ajuste conforme necessário.
-const AdminUsers = require('../models/AdminUsers.model'); 
+class AdminUsersService {
+    async listAllUsers() {
+        // Exclui o usuário do sistema da contagem/lista
+        const users = await User.findAll({
+            where: { isSystemUser: { [Op.ne]: true } },
+            order: [['createdAt', 'DESC']]
+        });
+        return { users };
+    }
+}
 
-const listUsers = async () => {
-    // Agora "AdminUsers" existe e pode ser usado.
-    const users = await AdminUsers.find({});
-    return users;
-};
-
-module.exports = {
-    listUsers,
-};
+module.exports = new AdminUsersService();
