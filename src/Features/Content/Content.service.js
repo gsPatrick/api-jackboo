@@ -1,6 +1,6 @@
 // src/Features/Content/Content.service.js
 
-const { Character, Book, BookVariation, BookContentPage, sequelize } = require('../../models');
+const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize } = require('../../models');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
@@ -20,32 +20,28 @@ class ContentService {
     
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
-    const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada... (seu prompt aqui)";
+    const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada, focando em formas, linhas e características principais. A descrição deve ser curta, direta e sem mencionar cores. Comece a descrição com 'um personagem de desenho animado'.";
 
     const character = await Character.create({ userId, name: "Analisando seu desenho...", originalDrawingUrl });
 
     try {
-      // Passo 1: Descobrir qual Element padrão usar
       const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
       const defaultElementId = generationSetting.defaultElementId;
       if (!defaultElementId) {
         throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
       }
 
-      // Passo 2: Buscar o Element completo no nosso banco para pegar seu prompt base
+      // ✅ AGORA ESTA LINHA FUNCIONA, POIS LeonardoElement FOI IMPORTADO.
       const defaultElement = await LeonardoElement.findByPk(defaultElementId);
       if (!defaultElement || !defaultElement.basePromptText) {
           throw new Error(`O Element padrão (ID: ${defaultElementId}) não foi encontrado ou não tem um prompt base definido.`);
       }
 
-      // Passo 3: Gerar a descrição a partir do desenho (como antes)
       const detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
       await character.update({ description: detailedDescription });
 
-      // Passo 4: Usar o prompt do Element e substituir o placeholder
       const finalPrompt = defaultElement.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
-      
-      const leonardoElementId = defaultElement.leonardoElementId; // ID que o Leonardo.ai entende
+      const leonardoElementId = defaultElement.leonardoElementId;
 
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
       const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, leonardoElementId);
@@ -74,6 +70,7 @@ class ContentService {
       throw error; 
     }
   }
+
 
   async findCharactersByUser(userId) {
     return Character.findAll({ where: { userId }, order: [['createdAt', 'DESC']] });
