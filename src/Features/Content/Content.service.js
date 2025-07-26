@@ -21,11 +21,16 @@ class ContentService {
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
 
+    // ✅ PROMPT DE DESCRIÇÃO AGORA ESTÁ FIXO E PREDEFINIDO AQUI.
+    const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada, focando em formas, linhas e características principais. A descrição deve ser curta, direta e sem mencionar cores. Comece a descrição com 'um personagem de desenho animado'.";
+
     const character = await Character.create({ userId, name: "Analisando seu desenho...", originalDrawingUrl });
 
     try {
-      // ✅ CORREÇÃO: Buscando os prompts pelos seus PROPÓSITOS definidos.
-      const descriptionPromptConfig = await promptService.getPrompt('USER_CHARACTER_DESCRIPTION');
+      // ❌ REMOVIDO: Não busca mais o template de descrição.
+      // const descriptionPromptConfig = await promptService.getPrompt('USER_CHARACTER_DESCRIPTION');
+      
+      // ✅ O sistema agora só precisa de UMA configuração: o template de DESENHO.
       const generationPromptConfig = await promptService.getPrompt('USER_CHARACTER_DRAWING');
       
       const elementId = generationPromptConfig.defaultElementId;
@@ -33,10 +38,10 @@ class ContentService {
         throw new Error('Administrador: O Elemento de estilo para geração de personagem não foi configurado no template "USER_CHARACTER_DRAWING".');
       }
 
-      const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
+      // ✅ USA O PROMPT FIXO.
+      const detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
       await character.update({ description: detailedDescription });
 
-      // Aqui, estamos usando o prompt base do template de GERAÇÃO.
       const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
       
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
@@ -106,7 +111,6 @@ class ContentService {
     const t = await sequelize.transaction();
     let book;
     try {
-      // ✅ CORREÇÃO: Buscando pelo propósito.
       const setting = await promptService.getPrompt('USER_COLORING_BOOK_GENERATION');
       const elementId = setting.defaultElementId;
       const coverElementId = setting.coverElementId;
@@ -166,7 +170,6 @@ class ContentService {
     const t = await sequelize.transaction();
     let book;
     try {
-      // ✅ CORREÇÃO: Buscando pelo propósito.
       const setting = await promptService.getPrompt('USER_STORY_BOOK_GENERATION');
       const elementId = setting.defaultElementId;
       const coverElementId = setting.coverElementId;

@@ -10,10 +10,9 @@ module.exports = (sequelize, DataTypes) => {
   }
 
   OpenAISetting.init({
-    // ✅ CORREÇÃO: 'type' foi substituído por 'purpose' com opções pré-definidas.
     purpose: {
+      // ✅ OPÇÃO REMOVIDA
       type: DataTypes.ENUM(
-        'USER_CHARACTER_DESCRIPTION',
         'USER_CHARACTER_DRAWING',
         'USER_COLORING_BOOK_GENERATION',
         'USER_STORY_BOOK_GENERATION'
