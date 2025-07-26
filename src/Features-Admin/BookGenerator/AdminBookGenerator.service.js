@@ -14,7 +14,7 @@ class AdminBookGeneratorService {
      * Orquestra a criação completa de um livro oficial.
      * Recebe os IDs dos Elements diretamente do controller.
      */
-    static async generateBookPreview(bookType, generationData) {
+    async generateBookPreview(bookType, generationData) {
         const t = await sequelize.transaction();
         let book;
         try {
@@ -86,7 +86,7 @@ class AdminBookGeneratorService {
     /**
      * Gera o conteúdo completo de um livro de colorir (capas e miolo).
      */
-    static async generateColoringBookContent(book, characters, elementId, coverElementId) {
+    async generateColoringBookContent(book, characters, elementId, coverElementId) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
         const innerPageCount = 10;
         const characterNames = characters.map(c => c.name).join(' e ');
@@ -115,7 +115,7 @@ class AdminBookGeneratorService {
     /**
      * Gera o conteúdo completo de um livro de história (capas, ilustrações e textos).
      */
-    static async generateStoryBookContent(book, characters, summary, elementId, coverElementId) {
+    async generateStoryBookContent(book, characters, summary, elementId, coverElementId) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
         const sceneCount = 10;
         const characterNames = characters.map(c => c.name).join(' e ');
@@ -144,7 +144,7 @@ class AdminBookGeneratorService {
     /**
      * Função auxiliar para gerar uma imagem no Leonardo, aguardar o resultado e salvar localmente.
      */
-    static async generateAndDownloadImage(prompt, elementId, type) {
+    async generateAndDownloadImage(prompt, elementId, type) {
         const MAX_RETRIES = 3;
         for (let i = 0; i < MAX_RETRIES; i++) {
             try {
@@ -177,7 +177,7 @@ class AdminBookGeneratorService {
     /**
      * Busca um livro pelo seu ID com todas as associações necessárias.
      */
-    static async findBookById(bookId) {
+    async findBookById(bookId) {
         const book = await Book.findByPk(bookId, {
             include: [
                 { model: Character, as: 'mainCharacter' },
@@ -194,4 +194,4 @@ class AdminBookGeneratorService {
     }
 }
 
-module.exports = new AdminBookGeneratorService;
+module.exports = new AdminBookGeneratorService();
