@@ -8,6 +8,11 @@ const { Op } = require('sequelize');
 const ADMIN_USER_ID = 1;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Definindo as contagens de página/cena de forma mais clara
+const COLORING_PAGE_COUNT = 10;
+const STORY_SCENE_COUNT = 10;
+
+
 class AdminBookGeneratorService {
 
     async generateBookPreview(bookType, generationData) {
@@ -27,8 +32,10 @@ class AdminBookGeneratorService {
             if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos.');
             
             const mainCharacter = characters[0];
-            const pageCountConfig = { story: 22, coloring: 12 };
             
+            // Calcula o total de páginas com base no tipo de livro
+            const totalPages = bookType === 'story' ? (STORY_SCENE_COUNT * 2) + 2 : COLORING_PAGE_COUNT + 2;
+
             book = await Book.create({
                 authorId: ADMIN_USER_ID,
                 mainCharacterId: mainCharacter.id,
@@ -47,14 +54,11 @@ class AdminBookGeneratorService {
                 format: 'digital_pdf',
                 price: 0.00,
                 coverUrl: '/placeholders/generating_cover.png',
-                pageCount: pageCountConfig[bookType],
+                pageCount: totalPages,
             }, { transaction: t });
             
             await t.commit();
 
-            // --- FLUXO ASSÍNCRONO CORRIGIDO E ROBUSTO ---
-            // A função auto-invocada garante que o processo de geração
-            // rode em segundo plano sem travar a resposta da API.
             (async () => {
                 try {
                     console.log(`[AdminGenerator] Iniciando geração em segundo plano para o livro ID ${book.id}...`);
@@ -64,20 +68,16 @@ class AdminBookGeneratorService {
                         await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId);
                     }
                     
-                    // ✅ CORREÇÃO: Esta linha só será executada após TODAS as etapas acima terminarem com sucesso.
                     await book.update({ status: 'privado' });
                     console.log(`[AdminGenerator] Livro ID ${book.id} ("${book.title}") gerado COM SUCESSO! Status atualizado para 'privado'.`);
 
                 } catch (error) {
-                    // ✅ CORREÇÃO: Se qualquer 'await' acima falhar, o erro será capturado aqui.
                     console.error(`[AdminGenerator] Erro fatal na geração assíncrona do livro ID ${book.id}:`, error.message);
                     await book.update({ status: 'falha_geracao' });
                 }
             })();
 
-            // ✅ CORREÇÃO: O 'return' fica aqui fora para que a resposta da API seja imediata.
             return book;
-            
         } catch (error) {
             await t.rollback();
             console.error("[AdminGenerator] Erro ao iniciar a criação do livro:", error);
@@ -87,17 +87,23 @@ class AdminBookGeneratorService {
 
     async generateColoringBookContent(book, characters, elementId, coverElementId) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        const innerPageCount = 10;
         const characterNames = characters.map(c => c.name).join(' e ');
+
+        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro de colorir...`);
+        const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, COLORING_PAGE_COUNT);
+
+        // ✅ LOG ADICIONADO: Veja o que a IA retornou
+        console.log(`[AdminGenerator] Roteiro de colorir recebido:`, JSON.stringify(pagePrompts, null, 2));
+
+        if (!pagePrompts || pagePrompts.length === 0) {
+            throw new Error("A IA (GPT) não retornou nenhum prompt para as páginas de colorir.");
+        }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
         const coverPrompt = `Capa de livro de colorir com o título "${book.title}", apresentando ${characterNames}. Arte de linha clara, fundo branco.`;
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
         await bookVariation.update({ coverUrl: localCoverUrl });
-
-        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro...`);
-        const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, innerPageCount);
         
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo...`);
         for (let i = 0; i < pagePrompts.length; i++) {
@@ -115,17 +121,23 @@ class AdminBookGeneratorService {
 
     async generateStoryBookContent(book, characters, summary, elementId, coverElementId) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        const sceneCount = 10;
         const characterNames = characters.map(c => c.name).join(' e ');
+
+        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro de história...`);
+        const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, STORY_SCENE_COUNT);
+
+        // ✅ LOG ADICIONADO: Veja o que a IA retornou
+        console.log(`[AdminGenerator] Roteiro de história recebido:`, JSON.stringify(storyPages, null, 2));
+
+        if (!storyPages || storyPages.length === 0) {
+            throw new Error("A IA (GPT) não retornou nenhuma cena para a história.");
+        }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
         const coverPrompt = `Capa de livro de história infantil, título "${book.title}", com ${characterNames}. Ilustração colorida.`;
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
         await bookVariation.update({ coverUrl: localCoverUrl });
-        
-        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro...`);
-        const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, sceneCount);
         
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${storyPages.length} cenas do miolo...`);
         let currentPageNumber = 2;

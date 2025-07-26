@@ -22,13 +22,15 @@ class AdminBooksService {
                 { 
                     model: BookVariation, 
                     as: 'variations',
-                    attributes: ['type', 'coverUrl']
+                    attributes: ['type', 'coverUrl'],
+                    // ✅ CORREÇÃO: Inclui as páginas para que o preview tenha dados.
+                    include: [{ model: BookContentPage, as: 'pages', attributes: ['id', 'status'] }]
                 }
             ],
             limit: parseInt(limit, 10),
             offset: (parseInt(page, 10) - 1) * parseInt(limit, 10),
             order: [['createdAt', 'DESC']],
-            distinct: true, // Necessário por causa do include com hasMany
+            distinct: true,
         });
 
         return { totalItems: count, books: rows, totalPages: Math.ceil(count / limit), currentPage: parseInt(page, 10) };
@@ -52,7 +54,6 @@ class AdminBooksService {
                 }
             ],
             order: [
-                // Ordena as páginas dentro de cada variação
                 [{ model: BookVariation, as: 'variations' }, { model: BookContentPage, as: 'pages' }, 'pageNumber', 'ASC']
             ]
         });
@@ -63,14 +64,10 @@ class AdminBooksService {
 
     /**
      * Deleta um livro oficial.
-     * O hook no model Book deve cuidar de deletar as páginas associadas.
      */
     async deleteOfficialBook(id) {
         const book = await Book.findOne({ where: { id, authorId: ADMIN_USER_ID } });
         if (!book) throw new Error('Livro oficial não encontrado.');
-        
-        // TODO: Adicionar lógica para deletar o PDF final se existir
-        // await deleteFile(book.finalPdfUrl);
         
         await book.destroy();
         return { message: 'Livro oficial deletado com sucesso.' };
@@ -85,7 +82,7 @@ class AdminBooksService {
                 {
                     model: BookVariation,
                     as: 'variations',
-                    limit: 1 // Apenas a primeira variação é necessária para a capa
+                    limit: 1 
                 },
                 {
                     model: Character,
@@ -97,30 +94,6 @@ class AdminBooksService {
         });
         return { books };
     }
-
-    /**
-     * Deleta um livro oficial e todas as suas associações.
-     */
-    async deleteOfficialBook(bookId) {
-        const book = await Book.findOne({
-            where: {
-                id: bookId,
-                authorId: ADMIN_USER_ID
-            }
-        });
-
-        if (!book) {
-            throw new Error("Livro oficial não encontrado.");
-        }
-
-        // Graças ao 'onDelete: CASCADE' nos modelos, ao deletar o livro,
-        // suas variações e páginas de conteúdo também serão removidas.
-        await book.destroy();
-
-        return { message: "Livro deletado com sucesso." };
-    }
-
-    
 }
 
 module.exports = new AdminBooksService();
