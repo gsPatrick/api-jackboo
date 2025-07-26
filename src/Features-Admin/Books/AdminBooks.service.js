@@ -94,6 +94,18 @@ class AdminBooksService {
         });
         return { books };
     }
+
+
+    async updateOfficialBookStatus(id, status) {
+    if (!['privado', 'publicado'].includes(status)) {
+        throw new Error('Status inválido. Use "privado" ou "publicado".');
+    }
+    const book = await this.findOfficialBookById(id);
+    book.status = status;
+    await book.save();
+    return book;
+}
+
 }
 
 module.exports = new AdminBooksService();

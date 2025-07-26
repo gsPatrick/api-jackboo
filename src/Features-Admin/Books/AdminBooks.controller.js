@@ -2,9 +2,10 @@
 const adminBooksService = require('./AdminBooks.service');
 
 class AdminBooksController {
-    async listOfficialBooks(req, res, next) {
+    // ... outros métodos ...
+    async listAllBooks(req, res, next) {
         try {
-            const result = await adminBooksService.listOfficialBooks(req.query);
+            const result = await adminBooksService.listAllBooks();
             res.status(200).json(result);
         } catch (error) {
             next(error);
@@ -20,38 +21,30 @@ class AdminBooksController {
             next(error);
         }
     }
-
-    async deleteOfficialBook(req, res, next) {
-        try {
-            const { id } = req.params;
-            await adminBooksService.deleteOfficialBook(id);
-            res.status(204).send();
-        } catch (error) {
-            next(error);
-        }
-    }
-
- async listAllBooks(req, res, next) {
-        try {
-            const result = await AdminBooksService.listAllBooks();
-            res.status(200).json(result);
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    async deleteOfficialBook(req, res, next) {
-        try {
-            const { id } = req.params;
-            const result = await AdminBooksService.deleteOfficialBook(id);
-            res.status(200).json(result);
-        } catch (error) {
-            next(error);
-        }
-    }
-
     
+    /**
+     * ✅ NOVO MÉTODO: Controla a atualização de status do livro.
+     */
+    async updateOfficialBookStatus(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { status } = req.body;
+            const updatedBook = await adminBooksService.updateOfficialBookStatus(id, status);
+            res.status(200).json(updatedBook);
+        } catch (error) {
+            next(error);
+        }
+    }
 
+    async deleteOfficialBook(req, res, next) {
+        try {
+            const { id } = req.params;
+            const result = await adminBooksService.deleteOfficialBook(id);
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new AdminBooksController();

@@ -7,23 +7,15 @@ const router = Router();
 router.use(isAuthenticated, isAdmin);
 
 // GET /api/admin/books -> Lista todos os livros oficiais
-router.get('/', controller.listOfficialBooks);
+router.get('/', controller.listAllBooks); // Usando a rota que lista todos os livros
 
-// GET /api/admin/books/:id -> Pega detalhes de um livro específico (útil para o preview e edição)
+// GET /api/admin/books/:id -> Pega detalhes de um livro específico
 router.get('/:id', controller.getOfficialBookById);
+
+// ✅ NOVA ROTA: Atualiza o status de um livro (privado/publicado)
+router.put('/:id/status', controller.updateOfficialBookStatus);
 
 // DELETE /api/admin/books/:id -> Deleta um livro oficial
 router.delete('/:id', controller.deleteOfficialBook);
-
-
-
-// GET /api/admin/books - Lista todos os livros do admin
-router.get('/', controller.listAllBooks);
-
-// DELETE /api/admin/books/:id - Deleta um livro específico
-router.delete('/:id', controller.deleteOfficialBook);
-
-router.get('/:id', controller.getOfficialBookById); // <-- NOVA ROTA
-
 
 module.exports = router;
