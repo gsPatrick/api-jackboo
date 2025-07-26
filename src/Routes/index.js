@@ -7,6 +7,7 @@ const popularityRoutes = require('../Features/Popularity/Popularity.routes');
 const championshipRoutes = require('../Features/Championship/Championship.routes');
 const subscriptionRoutes = require('../Features/Subscription/Subscription.routes');
 const addressRoutes = require('../Features/Address/Address.routes');
+const adminUserRoutes = require('../Features-Admin/Users/AdminUsers.routes'); // ✅ Adicionar esta linha
 
 // Admin routes
 const adminCharacterRoutes = require('../Features-Admin/Characters/AdminCharacters.routes');
@@ -51,5 +52,6 @@ router.use('/admin/assets', adminAssetRoutes);
 router.use('/admin/books', adminBookRoutes); // Diga ao Express para usar as rotas de livros
 router.use('/admin/leonardo', leonardoAdminRoutes);
 router.use('/admin/ai-helper', adminAIHelperRoutes);
+router.use('/admin/users', adminUserRoutes); // ✅ Adicionar esta linha
 
 module.exports = router;
