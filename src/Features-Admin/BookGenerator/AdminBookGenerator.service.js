@@ -64,18 +64,20 @@ class AdminBookGeneratorService {
                         await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId);
                     }
                     
-                    // Esta linha só será executada após TODAS as etapas acima terminarem com sucesso.
+                    // ✅ CORREÇÃO: Esta linha só será executada após TODAS as etapas acima terminarem com sucesso.
                     await book.update({ status: 'privado' });
                     console.log(`[AdminGenerator] Livro ID ${book.id} ("${book.title}") gerado COM SUCESSO! Status atualizado para 'privado'.`);
 
                 } catch (error) {
-                    // Se qualquer 'await' acima falhar, o erro será capturado aqui.
+                    // ✅ CORREÇÃO: Se qualquer 'await' acima falhar, o erro será capturado aqui.
                     console.error(`[AdminGenerator] Erro fatal na geração assíncrona do livro ID ${book.id}:`, error.message);
                     await book.update({ status: 'falha_geracao' });
                 }
             })();
 
+            // ✅ CORREÇÃO: O 'return' fica aqui fora para que a resposta da API seja imediata.
             return book;
+            
         } catch (error) {
             await t.rollback();
             console.error("[AdminGenerator] Erro ao iniciar a criação do livro:", error);
