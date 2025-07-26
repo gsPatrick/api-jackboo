@@ -1,5 +1,5 @@
 // src/Features-Admin/Characters/AdminCharacter.controller.js
-const AdminCharacterService = require('./AdminCharacter.service');
+const AdminCharacterService = require('./AdminCharacters.service');
 const ContentService = require('../../Features/Content/Content.service'); // Importa o serviço do usuário
 
 class AdminCharacterController {
