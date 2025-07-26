@@ -62,7 +62,6 @@ class LeonardoService {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração.");
     }
 
-    // ✅ PAYLOAD FINAL, IDÊNTICO AO DO SITE
     const generationPayload = {
       prompt: prompt,
       sd_version: "FLUX_DEV",
@@ -72,12 +71,10 @@ class LeonardoService {
       width: 1120,
       height: 1120,
       controlnets: [{ preprocessorId: 299, initImageType: "UPLOADED", initImageId: leonardoInitImageId, strengthType: "Mid" }],
-      contrast: 3.5,
-      ultra: false,
       styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
-      scheduler: "LEONARDO", 
+      scheduler: "LEONARDO",
       public: true,          
-      nsfw: true,            
+      nsfw: true,
     };
 
     try {
@@ -124,22 +121,18 @@ class LeonardoService {
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da página de colorir.");
     }
-
-    // ✅ PAYLOAD FINAL, SEM O PARÂMETRO CONFLITANTE `elements`
     const generationPayload = {
       prompt: finalPrompt,
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }], 
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }], // Peso ajustado para consistência
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ✅ PADRONIZADO
+      scheduler: "LEONARDO", // ✅ PADRONIZADO
       num_images: 1,
       width: 1024,
       height: 1024,
-      contrast: 2.5,
-      scheduler: "LEONARDO",
-      guidance_scale: 7,
       public: true,
       nsfw: true,
-      ultra: false,
     };
 
     try {
@@ -163,22 +156,18 @@ class LeonardoService {
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da ilustração.");
     }
-
-    // ✅ PAYLOAD FINAL, IDÊNTICO AO DO SITE
     const generationPayload = {
         prompt: finalPrompt,
         sd_version: "FLUX_DEV",
         modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
         userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
+        styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", // ✅ PADRONIZADO
+        scheduler: "LEONARDO", // ✅ PADRONIZADO
         num_images: 1,
         width: 1024,
         height: 1024,
-        contrast: 3.0,
-        scheduler: "LEONARDO",
-        guidance_scale: 7,
         public: true,
         nsfw: true,
-        ultra: false,
     };
 
     try {
