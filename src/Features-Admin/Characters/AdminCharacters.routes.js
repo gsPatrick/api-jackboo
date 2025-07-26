@@ -2,7 +2,7 @@
 const { Router } = require('express');
 const controller = require('./AdminCharacters.controller');
 const { isAuthenticated, isAdmin } = require('../../Features/Auth/Auth.middleware');
-// ✅ CORREÇÃO: Importando o 'uploadUserDrawing' para ser usado na rota de geração
+// ✅ CORREÇÃO: Garantindo que ambos os middlewares de upload estejam disponíveis.
 const { uploadAdminAsset, uploadUserDrawing } = require('../../Utils/multerConfig');
 
 const router = Router();
@@ -11,18 +11,18 @@ router.use(isAuthenticated, isAdmin);
 // GET /api/admin/characters - Lista os personagens do admin
 router.get('/', controller.listOfficialCharacters);
 
-// POST /api/admin/characters/upload - Cria um personagem por upload direto (mantém o upload do admin)
+// ✅ CORREÇÃO: Rota para upload direto, usando o middleware 'uploadAdminAsset'
+// e esperando o campo 'characterImage' do formulário.
 router.post(
     '/upload', 
     uploadAdminAsset.single('characterImage'), 
     controller.createOfficialCharacterByUpload
 );
 
-// ✅ CORREÇÃO: Usa o middleware 'uploadUserDrawing' para que o arquivo seja salvo
-// na mesma pasta que os desenhos dos usuários, pois o serviço reutilizado espera isso.
+// Rota para geração por IA, que usa um middleware diferente.
 router.post(
     '/generate', 
-    uploadUserDrawing.single('drawing'), // << MUDANÇA AQUI
+    uploadUserDrawing.single('drawing'), 
     controller.createOfficialCharacterWithIA
 );
 
