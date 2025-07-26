@@ -64,15 +64,15 @@ class LeonardoService {
 
     const generationPayload = {
       prompt: prompt,
-      // ✅ CORREÇÃO FINAL: Usamos o ID do seu Element como o modelId principal.
-      modelId: elementId,
-      // ❌ REMOVIDO: sd_version não é mais necessário.
-      // ❌ REMOVIDO: userElements não é mais necessário.
+      sd_version: "FLUX_DEV",
+      elements: [{ akUUID: String(elementId), weight: 1 }],
       num_images: 4,
       width: 1120,
       height: 1120,
       controlnets: [{ preprocessorId: 299, initImageType: "UPLOADED", initImageId: leonardoInitImageId, strengthType: "Mid" }],
-      scheduler: "LEONARDO"
+      scheduler: "LEONARDO",
+      public: true,
+      nsfw: true,
     };
 
     try {
@@ -103,7 +103,7 @@ class LeonardoService {
       if (generationData.status === 'COMPLETE') {
         const imageUrls = generationData.generated_images?.map(img => img.url) || [];
         if (imageUrls.length === 0) { throw new Error("Geração completa, mas a URL da imagem não foi encontrada."); }
-        return { isComplete: true, imageUrl: imageUrls[0] }; // Retorna a primeira imagem por padrão
+        return { isComplete: true, imageUrl: imageUrls[0] };
       }
       
       if (generationData.status === 'FAILED') { throw new Error("A geração da imagem no Leonardo falhou."); }
@@ -121,12 +121,13 @@ class LeonardoService {
     }
     const generationPayload = {
       prompt: finalPrompt,
-      // ✅ CORREÇÃO FINAL: Usamos o ID do seu Element como o modelId principal.
-      modelId: elementId,
-      // ✅ Para livros de colorir, podemos AINDA precisar do element base de "coloring page".
-      // Se isso falhar, o próximo passo é remover esta linha também.
-      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.75 }],
-      // ❌ REMOVIDO: sd_version e userElements.
+      sd_version: "FLUX_DEV", // ✅ MANTIDO: Especifica a versão do modelo base.
+      // ❌ REMOVIDO: modelId não deve ser usado com 'elements'.
+      // ✅ CORRETO: Combina o Element de colorir e o Element do personagem em um único array.
+      elements: [
+        { akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.75 }, // Element base para estilo de colorir
+        { akUUID: String(elementId), weight: 0.75 } // Element para o estilo do personagem
+      ],
       num_images: 1,
       width: 1024,
       height: 1024,
@@ -158,9 +159,10 @@ class LeonardoService {
     }
     const generationPayload = {
         prompt: finalPrompt,
-        // ✅ CORREÇÃO FINAL: Usamos o ID do seu Element como o modelId principal.
-        modelId: elementId,
-        // ❌ REMOVIDO: sd_version e userElements.
+        sd_version: "FLUX_DEV", // ✅ MANTIDO: Especifica a versão do modelo base.
+        // ❌ REMOVIDO: modelId não deve ser usado com 'elements'.
+        // ✅ CORRETO: Usa 'elements' com 'akUUID' para o seu modelo.
+        elements: [{ akUUID: String(elementId), weight: 0.85 }],
         num_images: 1,
         width: 1024,
         height: 1024,
