@@ -8,18 +8,14 @@ const { Op } = require('sequelize');
 const ADMIN_USER_ID = 1;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Definindo as contagens de página/cena de forma mais clara
-const COLORING_PAGE_COUNT = 10;
-const STORY_SCENE_COUNT = 10;
-
-
 class AdminBookGeneratorService {
 
     async generateBookPreview(bookType, generationData) {
         const t = await sequelize.transaction();
         let book;
         try {
-            const { characterIds, theme, summary, title, printFormatId, elementId, coverElementId } = generationData;
+            // ✅ CORREÇÃO: Recebendo `pageCount` do frontend
+            const { characterIds, theme, summary, title, printFormatId, elementId, coverElementId, pageCount } = generationData;
             
             if (!characterIds?.length || !theme || !title || !printFormatId || !elementId || !coverElementId) {
                 throw new Error("Dados insuficientes. Todos os campos, incluindo estilos de IA, são obrigatórios.");
@@ -27,14 +23,18 @@ class AdminBookGeneratorService {
             if (bookType === 'story' && !summary) {
                 throw new Error("O resumo da história é obrigatório.");
             }
+            // ✅ CORREÇÃO: Validação para o novo parâmetro
+            if (!pageCount || pageCount <= 0) {
+                throw new Error("A contagem de páginas para o miolo é inválida ou não foi fornecida.");
+            }
 
             const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds } } });
             if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos.');
             
             const mainCharacter = characters[0];
             
-            // Calcula o total de páginas com base no tipo de livro
-            const totalPages = bookType === 'story' ? (STORY_SCENE_COUNT * 2) + 2 : COLORING_PAGE_COUNT + 2;
+            // ✅ CORREÇÃO: Total de páginas é calculado com base no `pageCount` recebido
+            const totalPages = bookType === 'story' ? (pageCount * 2) + 2 : pageCount + 2;
 
             book = await Book.create({
                 authorId: ADMIN_USER_ID,
@@ -63,9 +63,11 @@ class AdminBookGeneratorService {
                 try {
                     console.log(`[AdminGenerator] Iniciando geração em segundo plano para o livro ID ${book.id}...`);
                     if (bookType === 'coloring') {
-                        await this.generateColoringBookContent(book, characters, elementId, coverElementId);
+                        // ✅ CORREÇÃO: Passando `pageCount` para a função de geração
+                        await this.generateColoringBookContent(book, characters, elementId, coverElementId, pageCount);
                     } else if (bookType === 'story') {
-                        await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId);
+                        // ✅ CORREÇÃO: Passando `pageCount` para a função de geração
+                        await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId, pageCount);
                     }
                     
                     await book.update({ status: 'privado' });
@@ -85,14 +87,14 @@ class AdminBookGeneratorService {
         }
     }
 
-    async generateColoringBookContent(book, characters, elementId, coverElementId) {
+    // ✅ CORREÇÃO: A função agora recebe `innerPageCount` como parâmetro
+    async generateColoringBookContent(book, characters, elementId, coverElementId, innerPageCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
         const characterNames = characters.map(c => c.name).join(' e ');
 
-        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro de colorir...`);
-        const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, COLORING_PAGE_COUNT);
+        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${innerPageCount} páginas de colorir...`);
+        const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, innerPageCount);
 
-        // ✅ LOG ADICIONADO: Veja o que a IA retornou
         console.log(`[AdminGenerator] Roteiro de colorir recebido:`, JSON.stringify(pagePrompts, null, 2));
 
         if (!pagePrompts || pagePrompts.length === 0) {
@@ -119,14 +121,14 @@ class AdminBookGeneratorService {
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: bookVariation.pageCount, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
 
-    async generateStoryBookContent(book, characters, summary, elementId, coverElementId) {
+    // ✅ CORREÇÃO: A função agora recebe `sceneCount` como parâmetro
+    async generateStoryBookContent(book, characters, summary, elementId, coverElementId, sceneCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
         const characterNames = characters.map(c => c.name).join(' e ');
 
-        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro de história...`);
-        const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, STORY_SCENE_COUNT);
+        console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${sceneCount} cenas...`);
+        const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, sceneCount);
 
-        // ✅ LOG ADICIONADO: Veja o que a IA retornou
         console.log(`[AdminGenerator] Roteiro de história recebido:`, JSON.stringify(storyPages, null, 2));
 
         if (!storyPages || storyPages.length === 0) {
