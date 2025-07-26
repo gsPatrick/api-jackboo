@@ -20,11 +20,32 @@ module.exports = (sequelize, DataTypes) => {
   }
 
   OpenAISetting.init({
-    type: { type: DataTypes.STRING, allowNull: false, unique: true },
-    name: { type: DataTypes.STRING, allowNull: false },
-    basePromptText: { type: DataTypes.TEXT, allowNull: false },
-    model: { type: DataTypes.STRING, defaultValue: 'gpt-4o' },
-    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      comment: 'Identificador único do template. Ex: USER_story_book_generation, INTERNAL_character_description'
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      comment: 'Nome amigável para exibição no painel de administração.'
+    },
+    basePromptText: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      comment: 'O texto principal do prompt a ser enviado para a IA.'
+    },
+    model: {
+      type: DataTypes.STRING,
+      defaultValue: 'gpt-4o',
+      comment: 'Modelo de IA a ser usado (ex: gpt-4o).'
+    },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+      comment: 'Controla se este template pode ser usado pelo sistema.'
+    },
     helperPromptId: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -32,13 +53,11 @@ module.exports = (sequelize, DataTypes) => {
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
     },
-    // ID do Element para o CONTEÚDO/MIOLO do livro
     defaultElementId: {
       type: DataTypes.STRING,
       allowNull: true,
-      comment: 'ID do Element (LoRA) principal, usado para o miolo do livro.'
+      comment: 'ID do Element (LoRA) principal, usado para o miolo do livro ou geração de personagem.'
     },
-    // NOVO CAMPO: ID do Element para a CAPA
     coverElementId: {
       type: DataTypes.STRING,
       allowNull: true,
