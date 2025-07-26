@@ -1,155 +1,159 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.service.js
-const { Book, BookVariation, BookContentPage, Character, sequelize, OpenAISetting } = require('../../models');
+const { Book, BookVariation, BookContentPage, Character, sequelize } = require('../../models');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
+const { Op } = require('sequelize');
 
 const ADMIN_USER_ID = 1;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class AdminBookGeneratorService {
 
+    /**
+     * Orquestra a criação completa de um livro oficial.
+     * Recebe os IDs dos Elements diretamente do controller.
+     */
     static async generateBookPreview(bookType, generationData) {
-        const { theme, title, characterId, printFormatId, pageCount, aiTemplateId } = generationData;
-
-        if (!bookType || !title || !characterId || !printFormatId || !pageCount || !theme || !aiTemplateId) {
-            throw new Error("Dados insuficientes fornecidos (incluindo Template de IA) para a geração do livro.");
-        }
-        
-        const character = await Character.findByPk(characterId);
-        if (!character) throw new Error("Personagem principal não encontrado.");
-
-        let book;
         const t = await sequelize.transaction();
+        let book;
         try {
+            // 1. Extrair e validar todos os dados da requisição
+            const { characterIds, theme, summary, title, printFormatId, elementId, coverElementId } = generationData;
+            
+            if (!characterIds || !characterIds.length || !theme || !title || !printFormatId || !elementId || !coverElementId) {
+                throw new Error("Dados insuficientes. Todos os campos, incluindo personagens, detalhes da história e estilos de IA, são obrigatórios.");
+            }
+            if (bookType === 'story' && !summary) {
+                throw new Error("O resumo da história é obrigatório para livros de história.");
+            }
+
+            // 2. Validar a existência dos personagens
+            const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds } } });
+            if (characters.length !== characterIds.length) {
+                throw new Error('Um ou mais personagens selecionados são inválidos.');
+            }
+            
+            const mainCharacter = characters[0];
+            const pageCountConfig = { story: 22, coloring: 12 }; // Total de páginas (capas + miolo)
+            
+            // 3. Criar os registros iniciais do livro e suas associações no banco de dados
             book = await Book.create({
                 authorId: ADMIN_USER_ID,
+                mainCharacterId: mainCharacter.id,
                 title,
-                mainCharacterId: characterId,
                 printFormatId,
                 status: 'gerando',
                 genre: theme,
-                storyPrompt: { theme, generationData } // Salva os dados da geração para referência
+                storyPrompt: { theme, summary }
             }, { transaction: t });
 
-            const dbBookType = bookType === 'coloring' ? 'colorir' : 'historia';
+            await book.setCharacters(characters, { transaction: t });
 
-            await BookVariation.create({
+            const bookVariation = await BookVariation.create({
                 bookId: book.id,
-                type: dbBookType,
+                type: bookType === 'coloring' ? 'colorir' : 'historia',
                 format: 'digital_pdf',
                 price: 0.00,
-                coverUrl: character.generatedCharacterUrl,
-                pageCount: parseInt(pageCount),
+                coverUrl: '/placeholders/generating_cover.png',
+                pageCount: pageCountConfig[bookType],
             }, { transaction: t });
-
+            
             await t.commit();
+
+            // 4. Iniciar o processo de geração de imagens e texto em segundo plano
+            (async () => {
+                if (bookType === 'coloring') {
+                    await this.generateColoringBookContent(book, characters, elementId, coverElementId);
+                } else if (bookType === 'story') {
+                    await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId);
+                }
+                await book.update({ status: 'privado' });
+                console.log(`[AdminGenerator] Livro ID ${book.id} ("${book.title}") gerado COM SUCESSO!`);
+            })().catch(async (error) => {
+                console.error(`[AdminGenerator] Erro fatal na geração assíncrona do livro ID ${book.id}:`, error.message);
+                await book.update({ status: 'falha_geracao' });
+            });
+
+            return book; // Retorna o registro do livro imediatamente
         } catch (error) {
             await t.rollback();
-            console.error("[AdminGenerator] Erro ao criar a estrutura do livro no DB:", error);
-            throw new Error("Falha ao criar os registros iniciais do livro.");
+            console.error("[AdminGenerator] Erro ao iniciar a criação do livro:", error.message);
+            throw error;
         }
-
-        (async () => {
-            try {
-                console.log(`[AdminGenerator] INICIANDO geração assíncrona para o Livro ID: ${book.id}`);
-                const fullBook = await this.findBookById(book.id); 
-
-                if (bookType === 'coloring') {
-                    await this.generateColoringBookContent(fullBook, aiTemplateId);
-                } else if (bookType === 'story') {
-                    throw new Error("A geração de livros de história ainda não foi implementada com a nova lógica.");
-                }
-
-                await book.update({ status: 'privado' });
-                console.log(`[AdminGenerator] Livro ID ${book.id} gerado COM SUCESSO!`);
-
-            } catch (error) {
-                console.error(`[AdminGenerator] Erro fatal durante a geração do livro ID ${book.id}:`, error.message);
-                await book.update({ status: 'falha_geracao' });
-            }
-        })(); // Self-invoking async function to not block the response
-
-        return book; // Retorna o livro imediatamente
     }
 
-    static async generateColoringBookContent(book, aiTemplateId) {
-        const bookVariation = book.variations[0];
-        const character = book.mainCharacter;
-        const pageCount = bookVariation.pageCount;
-        const theme = book.genre;
+    /**
+     * Gera o conteúdo completo de um livro de colorir (capas e miolo).
+     */
+    static async generateColoringBookContent(book, characters, elementId, coverElementId) {
+        const bookVariation = (await this.findBookById(book.id)).variations[0];
+        const innerPageCount = 10;
+        const characterNames = characters.map(c => c.name).join(' e ');
 
-        const mainTemplate = await OpenAISetting.findByPk(aiTemplateId, {
-            include: [{ model: OpenAISetting, as: 'helperPrompt' }]
-        });
+        // 1. Gerar Capa Frontal
+        const coverPrompt = `Capa de livro de colorir com o título "${book.title}", apresentando ${characterNames}. Arte de linha clara e convidativa, fundo branco, estilo de ilustração infantil.`;
+        const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
+        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
+        await bookVariation.update({ coverUrl: localCoverUrl });
 
-        if (!mainTemplate) {
-            throw new Error(`O template de IA com ID ${aiTemplateId} não foi encontrado.`);
+        // 2. Gerar roteiro e páginas do miolo
+        const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, innerPageCount);
+        for (let i = 0; i < pagePrompts.length; i++) {
+            const pageNumber = i + 2;
+            const finalPrompt = `página de livro de colorir, arte de linha, ${pagePrompts[i]}, linhas limpas, fundo branco`;
+            const localPageUrl = await this.generateAndDownloadImage(finalPrompt, elementId, 'coloring');
+            await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
         }
 
-        const characterImageUrl = `${process.env.APP_URL}${character.generatedCharacterUrl}`;
-        let characterDescription;
-
-        if (mainTemplate.helperPrompt) {
-            console.log(`[AdminGenerator] Usando IA Ajudante "${mainTemplate.helperPrompt.name}" para descrever o personagem.`);
-            characterDescription = await visionService.describeImage(characterImageUrl, mainTemplate.helperPrompt.basePromptText);
-        } else {
-            console.log(`[AdminGenerator] Usando descrição genérica pois não há IA Ajudante associada.`);
-            characterDescription = `A simple drawing of ${character.name}.`;
-        }
-        
-        const sanitizedDescription = visionService.sanitizeDescriptionForColoring(characterDescription);
-        
-        console.log(`[AdminGenerator] Usando template principal "${mainTemplate.name}" para gerar roteiro de ${pageCount} páginas...`);
-        const pagePrompts = await visionService.generateColoringBookStoryline(
-            character.name,
-            sanitizedDescription,
-            theme,
-            pageCount,
-            mainTemplate.basePromptText // O prompt principal do template selecionado dita como criar o roteiro
-        );
-
-        if (!pagePrompts || pagePrompts.length === 0) {
-            throw new Error('A IA não conseguiu gerar o roteiro das páginas.');
-        }
-        
-        const pageGenerationPromises = pagePrompts.map((promptDePagina, index) => {
-            const pageNumber = index + 1;
-            // O prompt final do Leonardo é construído manualmente aqui, mas poderia vir de outro template no futuro
-            const finalLeonardoPrompt = `line art, coloring book page for kids, ${sanitizedDescription}, ${promptDePagina}, clean lines, no shading, white background`;
-            return this.generateSingleColoringPage(bookVariation.id, pageNumber, promptDePagina, finalLeonardoPrompt);
-        });
-
-        await Promise.all(pageGenerationPromises);
-        console.log(`[AdminGenerator] Todas as ${pageCount} páginas do livro ${book.id} foram processadas.`);
+        // 3. Gerar Contracapa
+        const backCoverPrompt = `Contracapa de livro de colorir. Um design simples e limpo com um pequeno ícone ou padrão relacionado ao tema de "${book.genre}".`;
+        const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
+        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: bookVariation.pageCount, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
-    
-    static async generateSingleColoringPage(bookVariationId, pageNumber, originalPrompt, finalLeonardoPrompt) {
+
+    /**
+     * Gera o conteúdo completo de um livro de história (capas, ilustrações e textos).
+     */
+    static async generateStoryBookContent(book, characters, summary, elementId, coverElementId) {
+        const bookVariation = (await this.findBookById(book.id)).variations[0];
+        const sceneCount = 10;
+        const characterNames = characters.map(c => c.name).join(' e ');
+
+        // 1. Gerar Capa Frontal
+        const coverPrompt = `Capa de livro de história infantil com o título "${book.title}", apresentando os personagens: ${characterNames}. Ilustração rica e colorida, mostrando uma cena chave da aventura.`;
+        const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
+        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
+        await bookVariation.update({ coverUrl: localCoverUrl });
+        
+        // 2. Gerar roteiro e páginas do miolo
+        const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, sceneCount);
+        let currentPageNumber = 2;
+        for (const scene of storyPages) {
+            const illustrationUrl = await this.generateAndDownloadImage(scene.illustration_prompt, elementId, 'illustration');
+            await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'illustration', imageUrl: illustrationUrl, status: 'completed' });
+            await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'text', content: scene.page_text, status: 'completed' });
+        }
+
+        // 3. Gerar Contracapa
+        const backCoverPrompt = `Contracapa de livro de história. Um design elegante com um pequeno resumo da história ou uma imagem de um dos personagens (${characters[0].name}) acenando adeus.`;
+        const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
+        await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: bookVariation.pageCount, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
+    }
+
+    /**
+     * Função auxiliar para gerar uma imagem no Leonardo, aguardar o resultado e salvar localmente.
+     */
+    static async generateAndDownloadImage(prompt, elementId, type) {
         const MAX_RETRIES = 3;
-        const RETRY_DELAY = 5000;
-
-        console.log(`[AdminGenerator] Preparando para gerar a página ${pageNumber}: ${originalPrompt}`);
-        
-        let pageRecord = await BookContentPage.create({
-            bookVariationId,
-            pageNumber,
-            pageType: 'coloring_page',
-            illustrationPrompt: originalPrompt,
-            status: 'generating',
-        }).catch(err => {
-            console.error(`[AdminGenerator] Falha crítica ao criar o registro da página ${pageNumber}:`, err.message);
-            return null; 
-        });
-
-        if (!pageRecord) return;
-
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        for (let i = 0; i < MAX_RETRIES; i++) {
             try {
-                console.log(`[AdminGenerator] PÁGINA ${pageNumber}, TENTATIVA ${attempt}/${MAX_RETRIES}`);
+                const generationId = type === 'coloring'
+                    ? await leonardoService.startColoringPageGeneration(prompt, elementId)
+                    : await leonardoService.startStoryIllustrationGeneration(prompt, elementId);
 
-                const generationId = await leonardoService.startColoringPageGeneration(finalLeonardoPrompt);
                 let finalImageUrl = null;
-                const MAX_POLLS = 30;
+                const MAX_POLLS = 30; // ~2.5 minutos de espera
                 for (let poll = 0; poll < MAX_POLLS; poll++) {
                     await sleep(5000);
                     const result = await leonardoService.checkGenerationStatus(generationId);
@@ -158,28 +162,21 @@ class AdminBookGeneratorService {
                         break;
                     }
                 }
-
-                if (!finalImageUrl) throw new Error(`Timeout ao gerar a imagem da página ${pageNumber}.`);
-
-                const localPageUrl = await downloadAndSaveImage(finalImageUrl, 'book-pages');
-                await pageRecord.update({ imageUrl: localPageUrl, status: 'completed' });
-                console.log(`[AdminGenerator] Página ${pageNumber} concluída com sucesso.`);
-                return;
-
-            } catch (pageError) {
-                console.error(`[AdminGenerator] Erro na TENTATIVA ${attempt} de gerar a página ${pageNumber}:`, pageError.message);
-                if (attempt === MAX_RETRIES) {
-                    await pageRecord.update({
-                        status: 'failed',
-                        errorDetails: `Falhou após ${MAX_RETRIES} tentativas. Último erro: ${pageError.message}`,
-                    });
-                    throw pageError;
+                if (!finalImageUrl) {
+                    throw new Error('Timeout esperando a imagem do Leonardo.AI.');
                 }
-                await sleep(RETRY_DELAY);
+                
+                return await downloadAndSaveImage(finalImageUrl, 'book-pages');
+            } catch (error) {
+                console.error(`Tentativa ${i + 1} de gerar imagem falhou: ${error.message}`);
+                if (i === MAX_RETRIES - 1) throw error; // Lança o erro na última tentativa
             }
         }
     }
 
+    /**
+     * Busca um livro pelo seu ID com todas as associações necessárias.
+     */
     static async findBookById(bookId) {
         const book = await Book.findByPk(bookId, {
             include: [

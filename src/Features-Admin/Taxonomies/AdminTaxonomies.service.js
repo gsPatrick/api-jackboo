@@ -1,6 +1,6 @@
 // src/Features-Admin/Taxonomies/AdminTaxonomies.service.js
 
-const { Category, AgeRating, Book, OpenAISetting, PrintFormat } = require('../../models');
+const { Category, AgeRating, Book, PrintFormat } = require('../../models');
 const slugify = require('../../Utils/slugify');
 
 class AdminTaxonomiesService {
@@ -74,26 +74,12 @@ class AdminTaxonomiesService {
     return { message: 'Classificação etária deletada com sucesso.' };
   }
 
-  /**
-   * CORREÇÃO: Adicionamos 'name' à lista de atributos retornados.
-   * Agora o front-end terá o nome do template para exibir no dropdown.
-   */
-  async listAllAiSettings() {
-    return OpenAISetting.findAll({
-      where: { isActive: true },
-      // AQUI ESTÁ A CORREÇÃO:
-      attributes: ['id', 'type', 'name'], 
-      order: [['type', 'ASC']]
-    });
-  }
-
    // --- CRUD para PrintFormat ---
   async createPrintFormat(data) {
     return PrintFormat.create(data);
   }
 
   async listPrintFormats() {
-    // CORREÇÃO: a API deve retornar um array de objetos, não um objeto com uma chave
     const formats = await PrintFormat.findAll({ where: { isActive: true }, order: [['name', 'ASC']] });
     return formats;
   }
@@ -116,17 +102,6 @@ class AdminTaxonomiesService {
     await format.destroy();
     return { message: 'Formato de impressão deletado com sucesso.' };
   }
-
-  async listAllAiSettings() {
-    return OpenAISetting.findAll({
-      where: { isActive: true },
-      // AQUI ESTÁ A CORREÇÃO: Retornando todos os campos importantes
-      attributes: ['id', 'type', 'name', 'defaultElementId'], 
-      order: [['type', 'ASC']]
-    });
-  }
-
-
 }
 
 module.exports = new AdminTaxonomiesService();

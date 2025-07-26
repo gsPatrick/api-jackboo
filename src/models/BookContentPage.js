@@ -24,7 +24,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
     pageType: {
-      type: DataTypes.ENUM('text', 'illustration', 'coloring_page', 'cover'),
+      type: DataTypes.ENUM('text', 'illustration', 'coloring_page', 'cover_front', 'cover_back'),
       allowNull: false,
     },
     content: {
@@ -39,10 +39,9 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
-    // --- CORREÇÃO: Adicionando 'generating' ao ENUM ---
     status: {
       type: DataTypes.ENUM('generating', 'completed', 'failed'),
-      defaultValue: 'generating', // O padrão agora é 'generating'
+      defaultValue: 'generating',
       allowNull: false,
     },
     errorDetails: {

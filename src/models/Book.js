@@ -14,6 +14,14 @@ module.exports = (sequelize, DataTypes) => {
       this.belongsTo(models.Book, { foreignKey: 'seriesParentId', as: 'seriesParent' });
       this.hasMany(models.BookVariation, { foreignKey: 'bookId', as: 'variations' });
       this.hasMany(models.Like, { foreignKey: 'bookId', as: 'likes' });
+      
+      // NOVA ASSOCIAÇÃO "MUITOS PARA MUITOS"
+      this.belongsToMany(models.Character, {
+        through: models.BookCharacter,
+        foreignKey: 'bookId',
+        otherKey: 'characterId',
+        as: 'characters'
+      });
     }
   }
 

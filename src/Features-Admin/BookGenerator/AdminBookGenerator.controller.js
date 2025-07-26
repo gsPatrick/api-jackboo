@@ -2,22 +2,29 @@
 const AdminBookGeneratorService = require('./AdminBookGenerator.service');
 
 class AdminBookGeneratorController {
+    /**
+     * Recebe os dados de geração do livro do frontend do admin,
+     * incluindo os elementIds selecionados, e passa para o serviço iniciar o processo.
+     */
     async generatePreview(req, res, next) {
         try {
-            // bookType e os dados da geração vêm no corpo da requisição
+            // O corpo da requisição agora contém todos os dados necessários,
+            // incluindo os IDs dos Elements para miolo e capa, selecionados pelo admin.
             const { bookType, ...generationData } = req.body;
             
-            // Chama o serviço que agora orquestra todo o processo
             const book = await AdminBookGeneratorService.generateBookPreview(bookType, generationData);
             
-            // Retorna o livro criado para que o frontend possa usar o ID para redirecionar
+            // Retorna o registro inicial do livro. A geração das páginas ocorre em segundo plano.
             res.status(200).json(book);
         } catch (error) {
-            console.error("Erro no controller ao gerar preview do livro:", error);
-            next(error); // Passa o erro para o middleware de erro
+            console.error("Erro no AdminBookGeneratorController ao gerar preview:", error);
+            next(error); // Passa o erro para o middleware de tratamento de erros global.
         }
     }
 
+    /**
+     * Busca os detalhes completos de um livro, incluindo suas variações e páginas.
+     */
      async getBookById(req, res, next) {
         try {
             const { bookId } = req.params;
@@ -27,22 +34,6 @@ class AdminBookGeneratorController {
             next(error);
         }
     }
-
-    // A função de regenerar página precisa ser repensada, pois dependia da lógica antiga.
-    // Vamos desativá-la por enquanto.
-    /*
-    async regeneratePage(req, res, next) {
-        // ... Lógica futura para regerar uma página usando o novo sistema ...
-    }
-    */
-
-    // A função de finalizar o livro pode permanecer, mas precisa ser testada
-    // após a geração ser concluída com sucesso.
-    /*
-    async finalizeBook(req, res, next) {
-        // ...
-    }
-    */
 }
 
 module.exports = new AdminBookGeneratorController();

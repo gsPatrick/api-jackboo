@@ -5,7 +5,6 @@ class ContentController {
 
   async createCharacter(req, res, next) {
     try {
-      console.log("[Controller] Chegou em createCharacter.");
       if (!req.file) {
         throw new Error("O servidor não recebeu o arquivo. Verifique a configuração do middleware de upload.");
       }
@@ -27,11 +26,14 @@ class ContentController {
 
   async createColoringBook(req, res, next) {
     try {
-      const { characterId } = req.body;
-      if (!characterId) {
-        return res.status(400).json({ error: 'characterId é obrigatório.' });
+      const { characterIds, theme } = req.body;
+      if (!characterIds || !Array.isArray(characterIds) || characterIds.length === 0) {
+        return res.status(400).json({ error: 'O campo "characterIds" deve ser um array com pelo menos um ID.' });
       }
-      const result = await contentService.createColoringBook(req.user.id, { characterId });
+      if (!theme) {
+        return res.status(400).json({ error: 'O campo "theme" é obrigatório.' });
+      }
+      const result = await contentService.createColoringBook(req.user.id, { characterIds, theme });
       res.status(202).json(result); 
     } catch (error) {
       next(error);
@@ -40,15 +42,14 @@ class ContentController {
 
   async createStoryBook(req, res, next) {
     try {
-      // Extrai os novos campos do corpo da requisição
-      const { characterId, theme, summary } = req.body;
-
-      // Validação dos campos obrigatórios
-      if (!characterId || !theme || !summary) {
-        return res.status(400).json({ error: 'Os campos characterId, theme e summary são obrigatórios.' });
+      const { characterIds, theme, summary } = req.body;
+      if (!characterIds || !Array.isArray(characterIds) || characterIds.length === 0) {
+        return res.status(400).json({ error: 'O campo "characterIds" deve ser um array com pelo menos um ID.' });
       }
-
-      const result = await contentService.createStoryBook(req.user.id, { characterId, theme, summary });
+      if (!theme || !summary) {
+        return res.status(400).json({ error: 'Os campos "theme" e "summary" são obrigatórios.' });
+      }
+      const result = await contentService.createStoryBook(req.user.id, { characterIds, theme, summary });
       res.status(202).json(result);
     } catch (error) {
       next(error);

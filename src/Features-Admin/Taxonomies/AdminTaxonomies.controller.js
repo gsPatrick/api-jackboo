@@ -1,3 +1,4 @@
+// src/Features-Admin/Taxonomies/AdminTaxonomies.controller.js
 const taxonomyService = require('./AdminTaxonomies.service');
 
 class AdminTaxonomiesController {
@@ -74,16 +75,8 @@ class AdminTaxonomiesController {
       res.status(400).json({ message: error.message });
     }
   }
-  async listAllAiSettings(req, res) {
-    try {
-      const settings = await taxonomyService.listAllAiSettings();
-      res.status(200).json(settings);
-    } catch (error) {
-      res.status(500).json({ message: 'Erro ao listar configurações de IA.', error: error.message });
-    }
-  }
 
- // --- NOVO: Controllers para PrintFormat ---
+ // --- Controllers para PrintFormat ---
   async createPrintFormat(req, res) {
     try {
       const format = await taxonomyService.createPrintFormat(req.body);
@@ -119,7 +112,6 @@ class AdminTaxonomiesController {
       res.status(400).json({ message: error.message });
     }
   }
-
 }
 
 module.exports = new AdminTaxonomiesController();

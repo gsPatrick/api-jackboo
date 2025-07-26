@@ -63,47 +63,36 @@ class VisionService {
   }
 
   /**
-   * Gera o roteiro de um livro de colorir usando um template de prompt do sistema.
+   * REATORADO: Gera o roteiro de um livro de colorir. O prompt do sistema agora é interno.
+   * Não depende mais de um template do banco de dados.
    */
-  async generateColoringBookStoryline(characterName, characterDescription, theme, pageCount, systemPromptTemplate) {
-    if (!systemPromptTemplate) {
-        throw new Error('[VisionService] O template de prompt para gerar o roteiro do livro não foi fornecido.');
-    }
-
+ async generateColoringBookStoryline(characters, theme, pageCount) {
     try {
-      console.log(`[VisionService] Gerando roteiro NARRATIVO para livro de colorir. Personagem: ${characterName}, Tema: ${theme}, Páginas: ${pageCount}`);
+      const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
+      console.log(`[VisionService] Gerando roteiro de colorir. Personagens: ${characters.map(c=>c.name).join(', ')}, Tema: ${theme}`);
 
-      const systemPrompt = systemPromptTemplate
-        .replace(/{{PAGE_COUNT}}/g, pageCount)
-        .replace(/{{THEME}}/g, theme)
-        .replace(/{{CHARACTER_NAME}}/g, characterName)
-        .replace(/{{CHARACTER_DESCRIPTION}}/g, characterDescription);
+      const systemPrompt = `Você é um roteirista criativo para livros de colorir infantis.
+Regras:
+1.  **Personagens:** A história DEVE incluir os seguintes personagens:
+${characterDetails}
+2.  **Tema:** O tema da história é "${theme}".
+3.  **Cenas:** Crie exatamente ${pageCount} cenas.
+4.  **Formato de Saída:** Responda com um JSON contendo a chave "pages", que é um array de strings. Cada string é um prompt para uma página de colorir.
+5.  **Conteúdo:** Os prompts devem ser simples, visuais e descrever ações dos personagens. Pelo menos um dos personagens deve aparecer em cada cena.
+Exemplo: {"pages": ["${characters[0].name} e ${characters[1]?.name || 'um amigo'} brincando no parque.", ...]}`.trim();
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
-        messages: [{
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: `Create the complete visual story in ${pageCount} scenes for the theme "${theme}". Follow ALL directing rules.`
-          }
-        ],
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Crie a história em ${pageCount} cenas para o tema "${theme}".` }],
         max_tokens: 350 * pageCount,
       });
 
       const result = JSON.parse(response.choices[0].message.content);
-
-      if (!result.pages || !Array.isArray(result.pages) || result.pages.length === 0) {
-        throw new Error('A IA não retornou a lista de páginas no formato esperado.');
-      }
-
-      console.log("[VisionService] Roteiro do livro de colorir recebido com sucesso.");
-      const sanitizedPages = result.pages.map(prompt => this.sanitizePromptForSafety(prompt));
-      return sanitizedPages;
-
+      if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
+      
+      console.log("[VisionService] Roteiro do livro de colorir recebido.");
+      return result.pages.map(p => this.sanitizePromptForSafety(p));
     } catch (error) {
       console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
       throw new Error(`Falha na geração do roteiro: ${error.message}`);
@@ -113,11 +102,7 @@ class VisionService {
   /**
    * Gera um tema e título para um livro usando um template de prompt do sistema.
    */
-  async generateBookThemeAndTitle(characterDescription, systemPromptTemplate) {
-    if (!systemPromptTemplate) {
-        throw new Error('[VisionService] O template de prompt para gerar tema e título não foi fornecido.');
-    }
-
+  async generateBookThemeAndTitle(characterDescription) {
     try {
       console.log(`[VisionService] Gerando TEMA e TÍTULO aleatórios para o livro...`);
       
@@ -126,11 +111,11 @@ class VisionService {
         response_format: { type: "json_object" },
         messages: [{
             role: "system",
-            content: systemPromptTemplate
+            content: `Você é um autor de livros infantis. Sua tarefa é criar um tema e um título para um novo livro baseado na descrição de um personagem. A resposta deve ser um JSON com as chaves "theme" e "title". O tema deve ser uma frase curta (ex: "Aventura na Floresta Mágica") e o título deve ser cativante (ex: "Leo e o Segredo da Árvore Falante").`
           },
           {
             role: "user",
-            content: `Generate the theme and title for a character described as: "${characterDescription}"`
+            content: `Gere o tema e o título para um personagem descrito como: "${characterDescription}"`
           }
         ],
         max_tokens: 100,
@@ -147,31 +132,72 @@ class VisionService {
     } catch (error) {
       console.error('[VisionService] Erro ao gerar tema e título do livro:', error.message);
       return {
-        theme: 'A Fun Day of Adventures',
-        title: 'The Magical Adventure Book'
+        theme: 'Um Dia Divertido de Aventuras',
+        title: 'O Livro Mágico de Aventuras'
       };
     }
   }
 
   /**
-   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, agora recebendo o resumo do usuário.
-   * @param {string} summary - O resumo da história fornecido pelo usuário.
-   * @returns {Promise<Array<{page_text: string, illustration_prompt: string}>>} Um array de objetos de página.
+   * REATORADO: Gera o roteiro de um livro de HISTÓRIA ILUSTRADO. O prompt do sistema agora é interno.
+   * Não depende mais de um template do banco de dados.
    */
-  async generateStoryBookStoryline(characterName, characterDescription, theme, summary, sceneCount, systemPromptTemplate) {
-    if (!systemPromptTemplate) {
-        throw new Error('[VisionService] O template de prompt para gerar o roteiro do livro de história não foi fornecido.');
-    }
+    async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
+    try {
+      const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
+      console.log(`[VisionService] Gerando roteiro de história. Personagens: ${characters.map(c=>c.name).join(', ')}`);
 
+      const finalSystemPrompt = `Você é um autor de livros de história infantis.
+Regras:
+1.  **Personagens:** A história DEVE ser sobre estes personagens:
+${characterDetails}
+2.  **Tema e Resumo:** Siga o tema "${theme}" e o resumo do usuário: "${summary}".
+3.  **Estrutura:** Crie ${sceneCount} cenas.
+4.  **Formato de Saída:** Responda com um JSON contendo a chave "story_pages", um array de objetos.
+5.  **Objeto de Cena:** Cada objeto deve ter duas chaves: "page_text" (o texto da página) e "illustration_prompt" (o prompt para a imagem).
+Exemplo: {"story_pages": [{"page_text": "...", "illustration_prompt": "..."}, ...]}`.trim();
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: finalSystemPrompt }, { role: "user", content: `Gere a história em ${sceneCount} cenas.` }],
+        max_tokens: 400 * sceneCount,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      if (!result.story_pages || !Array.isArray(result.story_pages)) throw new Error('A IA não retornou "story_pages" como um array.');
+      
+      console.log("[VisionService] Roteiro do livro de história recebido.");
+      return result.story_pages.map(page => ({ ...page, illustration_prompt: this.sanitizePromptForSafety(page.illustration_prompt) }));
+    } catch (error) {
+      console.error(`[VisionService] Erro ao gerar o roteiro do livro de história: ${error.message}`);
+      throw new Error(`Falha na geração do roteiro da história: ${error.message}`);
+    }
+  }async generateStoryBookStoryline(characterName, characterDescription, theme, summary, sceneCount) {
     try {
       console.log(`[VisionService] Gerando roteiro de HISTÓRIA ILUSTRADA com base no resumo do usuário.`);
 
-      const finalSystemPrompt = systemPromptTemplate
-        .replace(/{{SCENE_COUNT}}/g, sceneCount)
-        .replace(/{{THEME}}/g, theme)
-        .replace(/{{CHARACTER_NAME}}/g, characterName)
-        .replace(/{{CHARACTER_DESCRIPTION}}/g, characterDescription)
-        .replace(/{{USER_SUMMARY}}/g, summary); // Injeta o resumo do usuário no template
+      const finalSystemPrompt = `Você é um autor e ilustrador de livros de história infantis. Sua tarefa é transformar um resumo fornecido pelo usuário em um roteiro detalhado, cena por cena.
+Regras Essenciais:
+1.  **Personagem Principal:** O protagonista é "${characterName}", descrito como: "${characterDescription}". Ele deve ser o foco da história.
+2.  **Tema e Resumo:** A história deve seguir o tema "${theme}" e se basear estritamente no seguinte resumo do usuário: "${summary}".
+3.  **Estrutura:** Desenvolva a história em exatamente ${sceneCount} cenas.
+4.  **Formato de Saída OBRIGATÓRIO:** Sua resposta deve ser um objeto JSON bem formado. Este objeto deve conter uma única chave "story_pages", cujo valor é um array de objetos.
+5.  **Objeto de Cena:** Cada objeto no array representa uma cena e deve ter DUAS chaves:
+    a. "page_text": Uma string contendo o texto narrativo para aquela página do livro (2-3 frases curtas e simples).
+    b. "illustration_prompt": Uma string contendo um prompt visual detalhado para a ilustração que acompanhará o texto. Descreva a cena, a ação do personagem e o ambiente.
+6.  **Exemplo de Saída:** 
+    {
+      "story_pages": [
+        {
+          "page_text": "Numa manhã ensolarada, ${characterName} decidiu que iria explorar a misteriosa Caverna Cintilante.",
+          "illustration_prompt": "Cena de dia, ${characterName} está na entrada de uma grande caverna, olhando para dentro com uma expressão curiosa e animada. A entrada da caverna tem cristais brilhantes."
+        },
+        { ... }
+      ]
+    }
+
+Agora, gere o roteiro completo para ${sceneCount} cenas, seguindo TODAS as regras.`.trim();
       
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
@@ -182,7 +208,7 @@ class VisionService {
           },
           {
             role: "user",
-            content: `Generate a story with ${sceneCount} scenes based on the provided summary and theme. For each scene, provide the text and a detailed visual prompt for an illustration.`
+            content: `Gere uma história com ${sceneCount} cenas baseada no resumo e tema fornecidos. Para cada cena, forneça o texto e um prompt visual detalhado para a ilustração.`
           }
         ],
         max_tokens: 400 * sceneCount,

@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
     type: { type: DataTypes.STRING, allowNull: false, unique: true },
     name: { type: DataTypes.STRING, allowNull: false },
     basePromptText: { type: DataTypes.TEXT, allowNull: false },
-    model: { type: DataTypes.STRING, defaultValue: 'gpt-4o' }, // Mudado para gpt-4o como padrão
+    model: { type: DataTypes.STRING, defaultValue: 'gpt-4o' },
     isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
     helperPromptId: {
       type: DataTypes.INTEGER,
@@ -32,11 +32,17 @@ module.exports = (sequelize, DataTypes) => {
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
     },
-    // NOVO CAMPO PARA ASSOCIAR O ELEMENT
+    // ID do Element para o CONTEÚDO/MIOLO do livro
     defaultElementId: {
-      type: DataTypes.STRING, // Armazena o leonardoElementId que é uma string
+      type: DataTypes.STRING,
       allowNull: true,
-      comment: 'ID do Element (LoRA) do Leonardo.AI associado a este template.'
+      comment: 'ID do Element (LoRA) principal, usado para o miolo do livro.'
+    },
+    // NOVO CAMPO: ID do Element para a CAPA
+    coverElementId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'ID do Element (LoRA) da capa, usado para a capa e contracapa.'
     }
   }, {
     sequelize,

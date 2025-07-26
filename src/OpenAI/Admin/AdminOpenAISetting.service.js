@@ -1,7 +1,6 @@
-// src/OpenAI/Admin/AdminOpenAISetting.service.js
+// src/Features-Admin/AdminOpenAISetting.service.js
 
 const { OpenAISetting, AdminAsset, sequelize } = require('../../models');
-const { Op } = require('sequelize');
 
 class AdminOpenAISettingService {
   async listSettings() {
@@ -29,8 +28,7 @@ class AdminOpenAISettingService {
   }
 
   /**
-   * MODIFICADO: Agora lida com todos os campos do formulário, incluindo o 'defaultElementId'.
-   * O parâmetro 'baseAssetIds' foi removido pois não estava sendo usado no front-end recente.
+   * MODIFICADO: Agora salva tanto o 'defaultElementId' (para o miolo) quanto o 'coverElementId' (para a capa).
    */
   async createOrUpdateSetting(type, data) {
     if (!data.name || !data.basePromptText) {
@@ -40,23 +38,21 @@ class AdminOpenAISettingService {
     let finalSetting;
 
     await sequelize.transaction(async (t) => {
-        // Converte strings vazias para null para as chaves estrangeiras e campos opcionais
-        if (data.helperPromptId === '') {
-            data.helperPromptId = null;
-        }
-        if (data.defaultElementId === '') {
-            data.defaultElementId = null;
-        }
+        // Converte strings vazias para null para campos opcionais
+        if (data.helperPromptId === '') data.helperPromptId = null;
+        if (data.defaultElementId === '') data.defaultElementId = null;
+        if (data.coverElementId === '') data.coverElementId = null; // Trata o novo campo
 
         // Dados que serão usados para criar ou atualizar o registro
         const settingData = {
             name: data.name,
             basePromptText: data.basePromptText,
             helperPromptId: data.helperPromptId,
-            defaultElementId: data.defaultElementId, // Novo campo
+            defaultElementId: data.defaultElementId,
+            coverElementId: data.coverElementId, // Adiciona o novo campo
             model: data.model,
             isActive: data.isActive,
-            type: type // Garante que o tipo seja sempre o da URL
+            type: type
         };
 
         const [setting, created] = await OpenAISetting.findOrCreate({
@@ -66,14 +62,11 @@ class AdminOpenAISettingService {
         });
 
         if (!created) {
-            // Se não foi criado, atualiza com os novos dados
-            // Remove 'type' dos dados de atualização para evitar erros
             const updateData = { ...settingData };
             delete updateData.type;
             await setting.update(updateData, { transaction: t });
         }
 
-        // Recarrega a instância com as associações para retornar ao front-end
         finalSetting = await OpenAISetting.findByPk(setting.id, {
             include: [
                 { model: AdminAsset, as: 'baseAssets' },

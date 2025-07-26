@@ -8,6 +8,14 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       this.belongsTo(models.User, { foreignKey: 'userId', as: 'creator' });
       this.hasMany(models.Book, { foreignKey: 'mainCharacterId', as: 'booksAsMainCharacter' });
+
+      // NOVA ASSOCIAÇÃO "MUITOS PARA MUITOS"
+      this.belongsToMany(models.Book, {
+        through: models.BookCharacter,
+        foreignKey: 'characterId',
+        otherKey: 'bookId',
+        as: 'books'
+      });
     }
 
     static addHooks() {
@@ -49,9 +57,8 @@ module.exports = (sequelize, DataTypes) => {
     sequelize,
     modelName: 'Character',
     tableName: 'characters',
-    underscored: true, // Adiciona underscored para garantir que createdAt vire created_at
-    // A linha "timestamps: false," foi REMOVIDA.
-    // Agora o Sequelize vai gerenciar createdAt e updatedAt.
+    underscored: true,
+    timestamps: true,
   });
 
   return Character;
