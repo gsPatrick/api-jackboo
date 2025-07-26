@@ -114,7 +114,7 @@ class LeonardoAdminService {
   // (Mudança nesta seção)
   // ======================================================
 
-async listAllElements() {
+  async listAllElements() {
     try {
       const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
       const leonardoElements = response.data?.user_loras || [];
@@ -125,21 +125,38 @@ async listAllElements() {
         if (sourceLeonardoDatasetId) {
             localDataset = await LeonardoDataset.findOne({ where: { leonardoDatasetId: sourceLeonardoDatasetId } });
         }
-        // ✅ CORREÇÃO: A atualização (upsert) agora preserva o basePromptText se ele já existir.
-        const [localElement] = await LeonardoElement.findOrCreate({ where: { leonardoElementId: String(element.id) } });
-        await localElement.update({
+
+        // Tenta encontrar o elemento no nosso banco
+        let localElement = await LeonardoElement.findOne({ where: { leonardoElementId: String(element.id) } });
+
+        if (localElement) {
+          // Se encontrou, atualiza os dados que podem mudar (nome, status, etc)
+          await localElement.update({
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
             status: element.status,
             sourceDatasetId: localDataset ? localDataset.id : null,
-        });
+          });
+        } else {
+          // Se não encontrou, cria um novo, garantindo que o 'name' seja fornecido
+          await LeonardoElement.create({
+            leonardoElementId: String(element.id),
+            name: element.name || 'Elemento Sem Nome',
+            description: element.description,
+            status: element.status,
+            sourceDatasetId: localDataset ? localDataset.id : null,
+            basePromptText: '{{DESCRIPTION}}' // Um prompt padrão para novos elements
+          });
+        }
       }
+
+      // Após a sincronização, busca todos os elementos do nosso banco para retornar
       return LeonardoElement.findAll({
         include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
         order: [['createdAt', 'DESC']],
       });
     } catch (error) {
-      console.error('Erro ao listar elements:', error.response ? error.response.data : error.message);
+      console.error('Erro ao listar elements:', error.message);
       throw new Error('Falha ao buscar a lista de Elements no Leonardo.AI.');
     }
   }
