@@ -62,17 +62,22 @@ class LeonardoService {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração.");
     }
 
+    // ✅ PAYLOAD FINAL, IDÊNTICO AO DO SITE
     const generationPayload = {
       prompt: prompt,
       sd_version: "FLUX_DEV",
-      elements: [{ akUUID: String(elementId), weight: 1 }],
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }], 
       num_images: 4,
       width: 1120,
       height: 1120,
       controlnets: [{ preprocessorId: 299, initImageType: "UPLOADED", initImageId: leonardoInitImageId, strengthType: "Mid" }],
-      scheduler: "LEONARDO",
-      public: true,
-      nsfw: true,
+      contrast: 3.5,
+      ultra: false,
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46", 
+      scheduler: "LEONARDO", 
+      public: true,          
+      nsfw: true,            
     };
 
     try {
@@ -101,9 +106,9 @@ class LeonardoService {
       console.log(`[LeonardoService] Polling... Status da geração ${generationId}: ${generationData.status}`);
 
       if (generationData.status === 'COMPLETE') {
-        const imageUrls = generationData.generated_images?.map(img => img.url) || [];
-        if (imageUrls.length === 0) { throw new Error("Geração completa, mas a URL da imagem não foi encontrada."); }
-        return { isComplete: true, imageUrl: imageUrls[0] };
+        const imageUrl = generationData.generated_images?.[0]?.url;
+        if (!imageUrl) { throw new Error("Geração completa, mas a URL da imagem não foi encontrada."); }
+        return { isComplete: true, imageUrl: imageUrl };
       }
       
       if (generationData.status === 'FAILED') { throw new Error("A geração da imagem no Leonardo falhou."); }
@@ -119,21 +124,22 @@ class LeonardoService {
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da página de colorir.");
     }
+
+    // ✅ PAYLOAD FINAL, SEM O PARÂMETRO CONFLITANTE `elements`
     const generationPayload = {
       prompt: finalPrompt,
-      sd_version: "FLUX_DEV", // ✅ MANTIDO: Especifica a versão do modelo base.
-      // ❌ REMOVIDO: modelId não deve ser usado com 'elements'.
-      // ✅ CORRETO: Combina o Element de colorir e o Element do personagem em um único array.
-      elements: [
-        { akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.75 }, // Element base para estilo de colorir
-        { akUUID: String(elementId), weight: 0.75 } // Element para o estilo do personagem
-      ],
+      sd_version: "FLUX_DEV",
+      modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }], 
       num_images: 1,
       width: 1024,
       height: 1024,
+      contrast: 2.5,
+      scheduler: "LEONARDO",
       guidance_scale: 7,
       public: true,
       nsfw: true,
+      ultra: false,
     };
 
     try {
@@ -157,18 +163,22 @@ class LeonardoService {
     if (!elementId) {
         throw new Error("Um Element (modelo de estilo) deve ser fornecido para a geração da ilustração.");
     }
+
+    // ✅ PAYLOAD FINAL, IDÊNTICO AO DO SITE
     const generationPayload = {
         prompt: finalPrompt,
-        sd_version: "FLUX_DEV", // ✅ MANTIDO: Especifica a versão do modelo base.
-        // ❌ REMOVIDO: modelId não deve ser usado com 'elements'.
-        // ✅ CORRETO: Usa 'elements' com 'akUUID' para o seu modelo.
-        elements: [{ akUUID: String(elementId), weight: 0.85 }],
+        sd_version: "FLUX_DEV",
+        modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
+        userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
         num_images: 1,
         width: 1024,
         height: 1024,
+        contrast: 3.0,
+        scheduler: "LEONARDO",
         guidance_scale: 7,
         public: true,
         nsfw: true,
+        ultra: false,
     };
 
     try {
