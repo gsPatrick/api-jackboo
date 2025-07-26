@@ -122,27 +122,22 @@ async listAllElements() {
       for (const element of leonardoElements) {
         const sourceLeonardoDatasetId = element.datasetId;
         let localDataset = null;
-
         if (sourceLeonardoDatasetId) {
             localDataset = await LeonardoDataset.findOne({ where: { leonardoDatasetId: sourceLeonardoDatasetId } });
         }
-
-        await LeonardoElement.upsert({
-            leonardoElementId: String(element.id),
+        // ✅ CORREÇÃO: A atualização (upsert) agora preserva o basePromptText se ele já existir.
+        const [localElement] = await LeonardoElement.findOrCreate({ where: { leonardoElementId: String(element.id) } });
+        await localElement.update({
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
             status: element.status,
             sourceDatasetId: localDataset ? localDataset.id : null,
-            // CORREÇÃO AQUI: Mapeando 'focus' da API para 'lora_focus' no nosso DB
-            lora_focus: element.focus || 'Style', 
         });
       }
-
       return LeonardoElement.findAll({
         include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
         order: [['createdAt', 'DESC']],
       });
-      
     } catch (error) {
       console.error('Erro ao listar elements:', error.response ? error.response.data : error.message);
       throw new Error('Falha ao buscar a lista de Elements no Leonardo.AI.');
@@ -150,43 +145,59 @@ async listAllElements() {
   }
 
   async trainNewElement(trainingData) {
-    const { name, localDatasetId, lora_focus, description, instance_prompt } = trainingData;
+    const { name, localDatasetId, description, instance_prompt, basePromptText } = trainingData; // ✅ Recebe o novo campo
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
-      throw new Error('Dataset de origem não encontrado em nossa base de dados.');
+      throw new Error('Dataset de origem não encontrado.');
     }
     const payload = {
-      name,
-      description: description || "",
-      datasetId: localDataset.leonardoDatasetId,
-      lora_focus,
-      sd_version: 'FLUX_DEV',
-      instance_prompt: lora_focus === 'Character' ? instance_prompt : null,
-      num_train_epochs: 135,
-      learning_rate: 0.0005,
-      train_text_encoder: true,
-      resolution: 1024,
+      name, description: description || "", datasetId: localDataset.leonardoDatasetId,
+      lora_focus: 'Character', sd_version: 'FLUX_DEV', instance_prompt: instance_prompt,
     };
     try {
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
       const elementId = response.data?.sdTrainingJob?.id;
-      if (!elementId) {
-        throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
-      }
+      if (!elementId) throw new Error('A API não retornou um ID de elemento válido.');
+      
+      // ✅ CORREÇÃO: Salva o novo campo no banco de dados.
       const newElement = await LeonardoElement.create({
-        leonardoElementId: String(elementId),
-        name: name,
-        description: description,
-        status: 'PENDING',
-        sourceDatasetId: localDataset.id,
-        lora_focus: lora_focus
+        leonardoElementId: String(elementId), name, description,
+        status: 'PENDING', sourceDatasetId: localDataset.id, basePromptText: basePromptText
       });
       return newElement;
     } catch (error) {
       console.error('Erro ao iniciar treinamento de elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao iniciar o treinamento do elemento no Leonardo.AI.');
+      throw new Error('Falha ao iniciar o treinamento do elemento.');
     }
   }
+
+  async trainNewElement(trainingData) {
+    const { name, localDatasetId, description, instance_prompt, basePromptText } = trainingData; // ✅ Recebe o novo campo
+    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
+    if (!localDataset) {
+      throw new Error('Dataset de origem não encontrado.');
+    }
+    const payload = {
+      name, description: description || "", datasetId: localDataset.leonardoDatasetId,
+      lora_focus: 'Character', sd_version: 'FLUX_DEV', instance_prompt: instance_prompt,
+    };
+    try {
+      const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
+      const elementId = response.data?.sdTrainingJob?.id;
+      if (!elementId) throw new Error('A API não retornou um ID de elemento válido.');
+      
+      // ✅ CORREÇÃO: Salva o novo campo no banco de dados.
+      const newElement = await LeonardoElement.create({
+        leonardoElementId: String(elementId), name, description,
+        status: 'PENDING', sourceDatasetId: localDataset.id, basePromptText: basePromptText
+      });
+      return newElement;
+    } catch (error) {
+      console.error('Erro ao iniciar treinamento de elemento:', error.response ? error.response.data : error.message);
+      throw new Error('Falha ao iniciar o treinamento do elemento.');
+    }
+  }
+
   
   async getElementDetails(localElementId) {
     const localElement = await LeonardoElement.findByPk(localElementId);
@@ -215,6 +226,17 @@ async listAllElements() {
       console.error('Erro ao deletar elemento:', error.response ? error.response.data : error.message);
       throw new Error('Falha ao deletar o elemento.');
     }
+  }
+
+  async updateElement(localElementId, updateData) {
+    const element = await LeonardoElement.findByPk(localElementId);
+    if (!element) {
+        throw new Error('Elemento não encontrado na base de dados local.');
+    }
+    // Permite atualizar apenas os campos que queremos (nome, descrição, prompt)
+    const { name, description, basePromptText } = updateData;
+    await element.update({ name, description, basePromptText });
+    return element;
   }
 }
 

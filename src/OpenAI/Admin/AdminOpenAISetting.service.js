@@ -1,92 +1,62 @@
 // src/Features-Admin/AdminOpenAISetting.service.js
 
-const { OpenAISetting, AdminAsset, sequelize } = require('../../models');
+const { OpenAISetting, sequelize } = require('../../models'); // Removido AdminAsset
 
 class AdminOpenAISettingService {
   async listSettings() {
+    // ✅ CORREÇÃO: Removido o 'include' para 'AdminAsset' que estava quebrando a query.
     return OpenAISetting.findAll({
-        order: [['type', 'ASC']],
-        include: [
-            { model: AdminAsset, as: 'baseAssets' },
-            { model: OpenAISetting, as: 'helperPrompt', attributes: ['id', 'type', 'name'] }
-        ]
+        order: [['purpose', 'ASC']],
     });
   }
 
-  async findSettingByType(type) {
+  async findSettingByPurpose(purpose) {
     const setting = await OpenAISetting.findOne({
-        where: { type },
-        include: [
-            { model: AdminAsset, as: 'baseAssets' },
-            { model: OpenAISetting, as: 'helperPrompt', attributes: ['id', 'type', 'name'] }
-        ] 
+        where: { purpose },
     });
     if (!setting) {
-      throw new Error(`Configuração OpenAI para o tipo "${type}" não encontrada.`);
+      throw new Error(`Configuração OpenAI para o propósito "${purpose}" não encontrada.`);
     }
     return setting;
   }
 
-  /**
-   * MODIFICADO: Agora salva tanto o 'defaultElementId' (para o miolo) quanto o 'coverElementId' (para a capa).
-   */
-  async createOrUpdateSetting(type, data) {
-    if (!data.name || !data.basePromptText) {
-      throw new Error('Campos obrigatórios (name, basePromptText) não foram fornecidos.');
+  async createOrUpdateSetting(purpose, data) {
+    if (!data.basePromptText && !data.defaultElementId) {
+      throw new Error('Pelo menos um prompt ou um Element padrão deve ser fornecido.');
     }
     
     let finalSetting;
 
     await sequelize.transaction(async (t) => {
-        // Converte strings vazias para null para campos opcionais
-        if (data.helperPromptId === '') data.helperPromptId = null;
-        if (data.defaultElementId === '') data.defaultElementId = null;
-        if (data.coverElementId === '') data.coverElementId = null; // Trata o novo campo
-
-        // Dados que serão usados para criar ou atualizar o registro
         const settingData = {
-            name: data.name,
+            purpose: purpose,
             basePromptText: data.basePromptText,
-            helperPromptId: data.helperPromptId,
-            defaultElementId: data.defaultElementId,
-            coverElementId: data.coverElementId, // Adiciona o novo campo
-            model: data.model,
+            defaultElementId: data.defaultElementId || null,
+            coverElementId: data.coverElementId || null,
             isActive: data.isActive,
-            type: type
         };
 
         const [setting, created] = await OpenAISetting.findOrCreate({
-            where: { type },
+            where: { purpose },
             defaults: settingData,
             transaction: t,
         });
 
         if (!created) {
             const updateData = { ...settingData };
-            delete updateData.type;
+            delete updateData.purpose;
             await setting.update(updateData, { transaction: t });
         }
-
-        finalSetting = await OpenAISetting.findByPk(setting.id, {
-            include: [
-                { model: AdminAsset, as: 'baseAssets' },
-                { model: OpenAISetting, as: 'helperPrompt', attributes: ['id', 'type', 'name'] }
-            ],
-            transaction: t,
-        });
-
-        if (!finalSetting) {
-            throw new Error('Erro interno: Configuração não encontrada após criação/atualização.');
-        }
+        finalSetting = setting;
     });
 
     return finalSetting;
   }
 
-  async deleteSetting(type) {
-    const setting = await OpenAISetting.findOne({ where: { type } });
+  async deleteSetting(purpose) {
+    const setting = await OpenAISetting.findOne({ where: { purpose } });
     if (!setting) {
-      throw new Error(`Configuração OpenAI para o tipo "${type}" não encontrada.`);
+      throw new Error(`Configuração OpenAI para o propósito "${purpose}" não encontrada.`);
     }
     await setting.destroy();
     return { message: 'Configuração deletada com sucesso.' };

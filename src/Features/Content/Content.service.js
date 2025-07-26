@@ -15,37 +15,40 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class ContentService {
 
-  async createCharacter(userId, file) {
+ async createCharacter(userId, file) {
     if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
-
-    // ✅ PROMPT DE DESCRIÇÃO AGORA ESTÁ FIXO E PREDEFINIDO AQUI.
-    const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada, focando em formas, linhas e características principais. A descrição deve ser curta, direta e sem mencionar cores. Comece a descrição com 'um personagem de desenho animado'.";
+    const DEFAULT_DESCRIPTION_PROMPT = "Descreva esta imagem de um desenho de forma objetiva e detalhada... (seu prompt aqui)";
 
     const character = await Character.create({ userId, name: "Analisando seu desenho...", originalDrawingUrl });
 
     try {
-      // ❌ REMOVIDO: Não busca mais o template de descrição.
-      // const descriptionPromptConfig = await promptService.getPrompt('USER_CHARACTER_DESCRIPTION');
-      
-      // ✅ O sistema agora só precisa de UMA configuração: o template de DESENHO.
-      const generationPromptConfig = await promptService.getPrompt('USER_CHARACTER_DRAWING');
-      
-      const elementId = generationPromptConfig.defaultElementId;
-      if (!elementId) {
-        throw new Error('Administrador: O Elemento de estilo para geração de personagem não foi configurado no template "USER_CHARACTER_DRAWING".');
+      // Passo 1: Descobrir qual Element padrão usar
+      const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
+      const defaultElementId = generationSetting.defaultElementId;
+      if (!defaultElementId) {
+        throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
       }
 
-      // ✅ USA O PROMPT FIXO.
+      // Passo 2: Buscar o Element completo no nosso banco para pegar seu prompt base
+      const defaultElement = await LeonardoElement.findByPk(defaultElementId);
+      if (!defaultElement || !defaultElement.basePromptText) {
+          throw new Error(`O Element padrão (ID: ${defaultElementId}) não foi encontrado ou não tem um prompt base definido.`);
+      }
+
+      // Passo 3: Gerar a descrição a partir do desenho (como antes)
       const detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
       await character.update({ description: detailedDescription });
 
-      const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
+      // Passo 4: Usar o prompt do Element e substituir o placeholder
+      const finalPrompt = defaultElement.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
       
+      const leonardoElementId = defaultElement.leonardoElementId; // ID que o Leonardo.ai entende
+
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
-      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, elementId);
+      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, leonardoElementId);
       await character.update({ generationJobId: generationId, name: "Gerando sua arte..." });
 
       let finalImageUrl = null;

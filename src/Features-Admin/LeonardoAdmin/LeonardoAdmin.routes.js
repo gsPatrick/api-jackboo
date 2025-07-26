@@ -43,4 +43,7 @@ router.get('/elements/:id', controller.getElementDetails);
 // Deleta um Element
 router.delete('/elements/:id', controller.deleteElement);
 
+router.put('/elements/:id', controller.updateElement);
+
+
 module.exports = router;

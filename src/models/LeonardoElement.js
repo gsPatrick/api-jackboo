@@ -23,6 +23,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    // ✅ CAMPO ADICIONADO: Para armazenar o prompt base associado a este Element.
+    basePromptText: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: 'Prompt base para geração de imagens usando este Element.'
+    },
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -33,8 +39,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     sourceDatasetId: {
       type: DataTypes.INTEGER,
-      // --- CORREÇÃO AQUI ---
-      allowNull: true, // Permitir que seja nulo
+      allowNull: true,
       field: 'source_dataset_id',
       references: {
         model: 'leonardo_datasets',
