@@ -24,25 +24,25 @@ class ContentService {
     const character = await Character.create({ userId, name: "Analisando seu desenho...", originalDrawingUrl });
 
     try {
-      // 1. Buscar as configurações definidas pelo admin
-      const descriptionPromptConfig = await promptService.getPrompt('USER_character_description');
-      const generationPromptConfig = await promptService.getPrompt('USER_character_drawing');
-      const elementId = generationPromptConfig.defaultElementId; // Pega o Element de estilo do personagem
+      // ✅ CORREÇÃO: Buscando os prompts pelos seus PROPÓSITOS definidos.
+      const descriptionPromptConfig = await promptService.getPrompt('USER_CHARACTER_DESCRIPTION');
+      const generationPromptConfig = await promptService.getPrompt('USER_CHARACTER_DRAWING');
+      
+      const elementId = generationPromptConfig.defaultElementId;
       if (!elementId) {
-        throw new Error('Administrador: O Elemento de estilo para geração de personagem não foi configurado no template "USER_character_drawing".');
+        throw new Error('Administrador: O Elemento de estilo para geração de personagem não foi configurado no template "USER_CHARACTER_DRAWING".');
       }
 
-      // 2. Descrever a imagem
       const detailedDescription = await visionService.describeImage(publicImageUrl, descriptionPromptConfig.basePromptText);
       await character.update({ description: detailedDescription });
 
-      // 3. Preparar e gerar
+      // Aqui, estamos usando o prompt base do template de GERAÇÃO.
       const finalPrompt = generationPromptConfig.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
+      
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
-      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, elementId); // Passa o elementId
+      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, elementId);
       await character.update({ generationJobId: generationId, name: "Gerando sua arte..." });
 
-      // 4. Aguardar resultado (Polling)
       let finalImageUrl = null;
       const MAX_POLLS = 30;
       for (let i = 0; i < MAX_POLLS; i++) {
@@ -55,7 +55,6 @@ class ContentService {
       }
       if (!finalImageUrl) throw new Error("A geração da imagem demorou muito para responder.");
 
-      // 5. Salvar e finalizar
       const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl);
       await character.update({ generatedCharacterUrl: localGeneratedUrl, name: 'Novo Personagem' });
       
@@ -63,7 +62,7 @@ class ContentService {
 
     } catch (error) {
       console.error(`[ContentService] Erro fatal na criação do personagem ID ${character.id}:`, error.message);
-      await character.destroy(); // Deleta o personagem se a geração falhar
+      await character.destroy();
       throw error; 
     }
   }
@@ -107,15 +106,14 @@ class ContentService {
     const t = await sequelize.transaction();
     let book;
     try {
-      // 1. Buscar o template de configuração do admin
-      const setting = await promptService.getPrompt('USER_coloring_book_generation');
+      // ✅ CORREÇÃO: Buscando pelo propósito.
+      const setting = await promptService.getPrompt('USER_COLORING_BOOK_GENERATION');
       const elementId = setting.defaultElementId;
       const coverElementId = setting.coverElementId;
       if (!elementId || !coverElementId) {
         throw new Error('Administrador: Os Elementos de estilo para miolo e capa do livro de colorir não foram configurados.');
       }
 
-      // 2. Validar e buscar personagens
       const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds }, userId } });
       if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos ou não pertencem ao usuário.');
       
@@ -125,22 +123,18 @@ class ContentService {
       const totalPages = innerPageCount + 2;
       const title = `As Aventuras de ${characterNames} para Colorir`;
 
-      // 3. Criar registros no banco de dados
       book = await Book.create({ authorId: userId, mainCharacterId: mainCharacter.id, title, status: 'gerando', genre: theme }, { transaction: t });
       await book.setCharacters(characters, { transaction: t });
       const bookVariation = await BookVariation.create({ bookId: book.id, type: 'colorir', format: 'digital_pdf', price: 0.00, coverUrl: '/placeholders/generating_cover.png', pageCount: totalPages }, { transaction: t });
       await t.commit();
 
-      // 4. Iniciar geração assíncrona
       (async () => {
         try {
-          // A. Gerar Capa Frontal
           const coverPrompt = `Capa de livro de colorir com o título "${title}", apresentando ${characterNames}. Arte de linha clara, fundo branco.`;
           const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
           await bookVariation.update({ coverUrl: localCoverUrl });
 
-          // B. Gerar Roteiro e Miolo
           const pagePrompts = await visionService.generateColoringBookStoryline(characters, theme, innerPageCount);
           for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 2;
@@ -149,7 +143,6 @@ class ContentService {
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
           }
 
-          // C. Gerar Contracapa
           const backCoverPrompt = `Contracapa de livro de colorir. Design simples com um pequeno ícone relacionado ao tema "${theme}".`;
           const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
@@ -173,15 +166,14 @@ class ContentService {
     const t = await sequelize.transaction();
     let book;
     try {
-      // 1. Buscar o template de configuração do admin
-      const setting = await promptService.getPrompt('USER_story_book_generation');
+      // ✅ CORREÇÃO: Buscando pelo propósito.
+      const setting = await promptService.getPrompt('USER_STORY_BOOK_GENERATION');
       const elementId = setting.defaultElementId;
       const coverElementId = setting.coverElementId;
       if (!elementId || !coverElementId) {
         throw new Error('Administrador: Os Elementos de estilo para miolo e capa do livro de história não foram configurados.');
       }
       
-      // 2. Validar e buscar personagens
       const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds }, userId } });
       if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos.');
       
@@ -190,22 +182,18 @@ class ContentService {
       const sceneCount = 10;
       const totalPages = (sceneCount * 2) + 2;
 
-      // 3. Criar registros no banco
       book = await Book.create({ authorId: userId, mainCharacterId: mainCharacter.id, title: theme, status: 'gerando', genre: theme, storyPrompt: { theme, summary } }, { transaction: t });
       await book.setCharacters(characters, { transaction: t });
       const bookVariation = await BookVariation.create({ bookId: book.id, type: 'historia', format: 'digital_pdf', price: 0.00, coverUrl: '/placeholders/generating_cover.png', pageCount: totalPages }, { transaction: t });
       await t.commit();
       
-      // 4. Iniciar geração assíncrona
       (async () => {
         try {
-          // A. Gerar Capa Frontal
           const coverPrompt = `Capa de livro de história infantil, título "${theme}", apresentando ${characterNames}. Ilustração rica e colorida.`;
           const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
           await bookVariation.update({ coverUrl: localCoverUrl });
 
-          // B. Gerar Roteiro e Miolo
           const storyPages = await visionService.generateStoryBookStoryline(characters, theme, summary, sceneCount);
           let currentPageNumber = 2;
           for (const scene of storyPages) {
@@ -215,7 +203,6 @@ class ContentService {
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'text', content: scene.page_text, status: 'completed' });
           }
 
-          // C. Gerar Contracapa
           const backCoverPrompt = `Contracapa de livro de história. Design elegante com uma imagem de ${mainCharacter.name} acenando adeus.`;
           const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });

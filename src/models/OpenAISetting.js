@@ -1,67 +1,46 @@
 // src/models/OpenAISetting.js
 'use strict';
-const { Model } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class OpenAISetting extends Model {
     static associate(models) {
-      this.belongsToMany(models.AdminAsset, {
-        through: 'OpenAISettingAsset',
-        foreignKey: 'openAISettingId',
-        otherKey: 'adminAssetId',
-        as: 'baseAssets'
-      });
-      this.belongsTo(models.OpenAISetting, {
-        foreignKey: 'helperPromptId',
-        as: 'helperPrompt',
-        allowNull: true
-      });
+      // Associações podem ser mantidas se necessárias no futuro
     }
   }
 
   OpenAISetting.init({
-    type: {
-      type: DataTypes.STRING,
+    // ✅ CORREÇÃO: 'type' foi substituído por 'purpose' com opções pré-definidas.
+    purpose: {
+      type: DataTypes.ENUM(
+        'USER_CHARACTER_DESCRIPTION',
+        'USER_CHARACTER_DRAWING',
+        'USER_COLORING_BOOK_GENERATION',
+        'USER_STORY_BOOK_GENERATION'
+      ),
       allowNull: false,
       unique: true,
-      comment: 'Identificador único do template. Ex: USER_story_book_generation, INTERNAL_character_description'
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      comment: 'Nome amigável para exibição no painel de administração.'
+      comment: 'Identificador único do propósito do template.'
     },
     basePromptText: {
       type: DataTypes.TEXT,
       allowNull: false,
       comment: 'O texto principal do prompt a ser enviado para a IA.'
     },
-    model: {
+    defaultElementId: {
       type: DataTypes.STRING,
-      defaultValue: 'gpt-4o',
-      comment: 'Modelo de IA a ser usado (ex: gpt-4o).'
+      allowNull: true,
+      comment: 'ID do Element (LoRA) principal, usado para o miolo ou geração.'
+    },
+    coverElementId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'ID do Element (LoRA) da capa, usado para capa e contracapa.'
     },
     isActive: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
       comment: 'Controla se este template pode ser usado pelo sistema.'
-    },
-    helperPromptId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: { model: 'openai_settings', key: 'id' },
-      onUpdate: 'CASCADE',
-      onDelete: 'SET NULL'
-    },
-    defaultElementId: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'ID do Element (LoRA) principal, usado para o miolo do livro ou geração de personagem.'
-    },
-    coverElementId: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'ID do Element (LoRA) da capa, usado para a capa e contracapa.'
     }
   }, {
     sequelize,
