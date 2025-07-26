@@ -2,6 +2,7 @@
 const { Book, BookVariation, BookContentPage, Character } = require('../../models');
 const { Op } = require('sequelize');
 
+
 const ADMIN_USER_ID = 1; // ID do usuário "Sistema/JackBoo"
 
 class AdminBooksService {

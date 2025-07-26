@@ -2,6 +2,11 @@
 const { Character } = require('../../models');
 const contentService = require('../../Features/Content/Content.service');
 
+// ✅ NOVO: Importando os módulos 'fs' (File System) e 'path' do Node.js para mover o arquivo.
+const fs = require('fs/promises');
+const path = require('path');
+
+
 const ADMIN_USER_ID = 1;
 
 class AdminCharacterService {
@@ -19,14 +24,38 @@ class AdminCharacterService {
             throw new Error("Imagem, nome e descrição são obrigatórios para o upload direto.");
         }
         
-        const imageUrl = `/uploads/admin-assets/${file.filename}`;
+        // --- ✅ LÓGICA DE MOVIMENTAÇÃO DE ARQUIVO ADICIONADA ---
 
+        // 1. Define o diretório de destino final para as imagens geradas.
+        const targetDir = path.join(process.cwd(), 'uploads', 'ai-generated');
+
+        // 2. Define o caminho completo do novo local do arquivo.
+        const newPath = path.join(targetDir, file.filename);
+
+        // 3. Define a URL que será acessível pela web e salva no banco de dados.
+        const finalImageUrl = `/uploads/ai-generated/${file.filename}`;
+
+        try {
+            // Garante que o diretório de destino exista, criando-o se necessário.
+            await fs.mkdir(targetDir, { recursive: true });
+            // Move o arquivo da sua localização original (em admin-assets) para o novo local.
+            await fs.rename(file.path, newPath);
+        } catch (error) {
+            console.error("Erro ao mover o arquivo de personagem de upload direto:", error);
+            throw new Error("Falha ao processar o arquivo de imagem no servidor.");
+        }
+        
+        // --- FIM DA LÓGICA DE MOVIMENTAÇÃO ---
+
+
+        // ✅ ALTERADO: Usa a nova URL final para salvar no banco de dados.
         return Character.create({
             userId: ADMIN_USER_ID,
             name: data.name,
             description: data.description,
-            originalDrawingUrl: imageUrl,
-            generatedCharacterUrl: imageUrl, // Para upload direto, a original e a gerada são a mesma.
+            // O "desenho original" e a "imagem gerada" são a mesma para upload direto.
+            originalDrawingUrl: finalImageUrl, 
+            generatedCharacterUrl: finalImageUrl,
         });
     }
 
