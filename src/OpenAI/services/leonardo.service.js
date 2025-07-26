@@ -72,7 +72,8 @@ class LeonardoService {
     const generationPayload = {
       prompt: prompt,
       sd_version: "FLUX_DEV", 
-      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 1 }],
+      // ✅ CORREÇÃO: Renomeado de 'userElements' para 'elements' e ajustada a sintaxe interna.
+      elements: [{ akUUID: String(elementId), weight: 1 }],
       num_images: 4,
       width: 1120,
       height: 1120,
@@ -141,8 +142,12 @@ class LeonardoService {
       prompt: finalPrompt,
       sd_version: "FLUX_DEV",
       modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-      elements: [{ akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 }],
-      userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.80 }],
+      // ✅ CORREÇÃO: Renomeado de 'userElements' para 'elements' e ajustada a sintaxe interna.
+      // O 'elements' existente (para o estilo de colorir) e o novo (para o estilo do personagem) foram combinados.
+      elements: [
+        { akUUID: "93cec898-0fb0-4fb0-9f18-8b8423560a1d", weight: 0.10 },
+        { akUUID: String(elementId), weight: 0.80 }
+      ],
       num_images: 1,
       width: 1024,
       height: 1024,
@@ -183,7 +188,8 @@ class LeonardoService {
         prompt: finalPrompt,
         sd_version: "FLUX_DEV",
         modelId: "b2614463-296c-462a-9586-aafdb8f00e36",
-        userElements: [{ userLoraId: parseInt(elementId, 10), weight: 0.85 }],
+        // ✅ CORREÇÃO: Renomeado de 'userElements' para 'elements' e ajustada a sintaxe interna.
+        elements: [{ akUUID: String(elementId), weight: 0.85 }],
         num_images: 1,
         width: 1024,
         height: 1024,
