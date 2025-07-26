@@ -16,6 +16,9 @@ class AdminBookGeneratorService {
         try {
             const { characterIds, theme, summary, title, printFormatId, elementId, coverElementId, pageCount } = generationData;
             
+            // ✅ LOG ADICIONADO PARA DEBUG: Verifique se o tipo de livro correto está chegando.
+            console.log(`[AdminGenerator] Recebido pedido para gerar livro do tipo: "${bookType}"`);
+
             if (!characterIds?.length || !theme || !title || !printFormatId || !elementId || !coverElementId) {
                 throw new Error("Dados insuficientes. Todos os campos, incluindo estilos de IA, são obrigatórios.");
             }
@@ -30,8 +33,7 @@ class AdminBookGeneratorService {
             if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos.');
             
             const mainCharacter = characters[0];
-            
-            const totalPages = bookType === 'story' ? (pageCount * 2) + 2 : pageCount + 2;
+            const totalPages = bookType === 'historia' ? (pageCount * 2) + 2 : pageCount + 2;
 
             book = await Book.create({
                 authorId: ADMIN_USER_ID,
@@ -47,7 +49,8 @@ class AdminBookGeneratorService {
 
             await BookVariation.create({
                 bookId: book.id,
-                type: bookType === 'coloring' ? 'colorir' : 'historia',
+                // ✅ CORREÇÃO CRÍTICA: A lógica ternária foi corrigida para salvar o tipo certo.
+                type: bookType === 'colorir' ? 'colorir' : 'historia',
                 format: 'digital_pdf',
                 price: 0.00,
                 coverUrl: '/placeholders/generating_cover.png',
@@ -59,9 +62,9 @@ class AdminBookGeneratorService {
             (async () => {
                 try {
                     console.log(`[AdminGenerator] Iniciando geração em segundo plano para o livro ID ${book.id}...`);
-                    if (bookType === 'coloring') {
+                    if (bookType === 'colorir') {
                         await this.generateColoringBookContent(book, characters, elementId, coverElementId, pageCount);
-                    } else if (bookType === 'story') {
+                    } else if (bookType === 'historia') {
                         await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId, pageCount);
                     }
                     
@@ -120,8 +123,6 @@ class AdminBookGeneratorService {
         const characterNames = characters.map(c => c.name).join(' e ');
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${sceneCount} cenas...`);
-        
-        // ✅ CORREÇÃO: Garantindo que a chamada corresponda à função corrigida no `openai.service.js`
         const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, sceneCount);
 
         console.log(`[AdminGenerator] Roteiro de história recebido:`, JSON.stringify(storyPages, null, 2));
