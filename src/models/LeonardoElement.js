@@ -33,6 +33,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+       basePrompt: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: 'Prompt de base para o Leonardo.AI. Usará {{GPT_OUTPUT}} como placeholder.'
+    },
     status: {
         type: DataTypes.STRING,
         defaultValue: 'PENDING',

@@ -215,29 +215,51 @@ class LeonardoAdminService {
   }
 
   async trainNewElement(trainingData) {
-    const { name, localDatasetId, description, instance_prompt, basePromptText } = trainingData; // ✅ Recebe o novo campo
+    const { name, localDatasetId, description, instance_prompt, basePrompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
-      throw new Error('Dataset de origem não encontrado.');
+      throw new Error('Dataset de origem não encontrado em nossa base de dados.');
     }
+
     const payload = {
-      name, description: description || "", datasetId: localDataset.leonardoDatasetId,
-      lora_focus: 'Character', sd_version: 'FLUX_DEV', instance_prompt: instance_prompt,
+      name,
+      description: description || "",
+      datasetId: localDataset.leonardoDatasetId,
+      instance_prompt: instance_prompt || null,
+      lora_focus: 'Style',
+      sd_version: 'FLUX_DEV',
+      resolution: 1024,
+      num_train_epochs: 135,
+      learning_rate: 0.0005,
+      train_text_encoder: true,
     };
+
     try {
+      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento...');
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
+
       const elementId = response.data?.sdTrainingJob?.id;
-      if (!elementId) throw new Error('A API não retornou um ID de elemento válido.');
-      
-      // ✅ CORREÇÃO: Salva o novo campo no banco de dados.
+      if (!elementId) {
+        throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
+      }
+
       const newElement = await LeonardoElement.create({
-        leonardoElementId: String(elementId), name, description,
-        status: 'PENDING', sourceDatasetId: localDataset.id, basePromptText: basePromptText
+        leonardoElementId: String(elementId),
+        name: name,
+        description: description,
+        status: 'PENDING',
+        sourceDatasetId: localDataset.id,
+        lora_focus: 'Style',
+        basePrompt: basePrompt,
       });
+
       return newElement;
+
     } catch (error) {
-      console.error('Erro ao iniciar treinamento de elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao iniciar o treinamento do elemento.');
+      const apiError = error.response ? error.response.data : error.message;
+      console.error('Erro ao iniciar treinamento de elemento:', apiError);
+      const errorMessage = apiError.error || JSON.stringify(apiError);
+      throw new Error(`Falha ao iniciar o treinamento do elemento: ${errorMessage}`);
     }
   }
 
