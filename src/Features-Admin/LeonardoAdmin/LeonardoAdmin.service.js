@@ -214,40 +214,62 @@ class LeonardoAdminService {
     }
   }
 
-async trainElement(req, res, next) {
-        try {
-            // Validação básica dos dados recebidos do front-end
-            const { name, localDatasetId } = req.body;
-            if (!name || !localDatasetId) {
-                return res.status(400).json({ message: 'Campos obrigatórios (name, localDatasetId) não fornecidos.'});
-            }
-            // Apenas passa o corpo da requisição para o serviço
-            const newElement = await leonardoAdminService.trainNewElement(req.body);
-            res.status(202).json(newElement); // 202 Accepted, pois o processo foi iniciado
-        } catch (error) {
-            next(error);
-        }
+ async trainNewElement(trainingData) {
+    const { name, localDatasetId, description, basePrompt } = trainingData;
+
+    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
+    if (!localDataset) {
+      throw new Error('Dataset de origem não encontrado em nossa base de dados.');
     }
 
-    async getElementDetails(req, res, next) {
-        try {
-            const { id } = req.params;
-            const details = await leonardoAdminService.getElementDetails(id);
-            res.status(200).json(details);
-        } catch (error) {
-            next(error);
-        }
-    }
+    const payload = {
+      name,
+      description: description || "",
+      datasetId: localDataset.leonardoDatasetId,
+      lora_focus: 'Style',
+      sd_version: 'FLUX_DEV',
+      resolution: 1024,
+      instance_prompt: name.replace(/\s+/g, ''),
+      num_train_epochs: 135,
+      // ====================================================================
+      // A CORREÇÃO ESTÁ AQUI
+      // Ajustado o learning_rate para um valor válido para o modelo FLUX_DEV.
+      // O valor anterior era 0.0005.
+      // ====================================================================
+      learning_rate: 0.00001,
+      train_text_encoder: true,
+    };
 
-    async deleteElement(req, res, next) {
-        try {
-            const { id } = req.params;
-            const result = await leonardoAdminService.deleteElement(id);
-            res.status(200).json(result);
-        } catch (error) {
-            next(error);
-        }
+    try {
+      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento...');
+      const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
+
+      const elementId = response.data?.sdTrainingJob?.id;
+      if (!elementId) {
+        throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
+      }
+
+      const finalBasePrompt = basePrompt ? `${basePrompt}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
+
+      const newElement = await LeonardoElement.create({
+        leonardoElementId: String(elementId),
+        name: name,
+        description: description,
+        status: 'PENDING',
+        sourceDatasetId: localDataset.id,
+        lora_focus: 'Style',
+        basePrompt: finalBasePrompt,
+      });
+
+      return newElement;
+
+    } catch (error) {
+      const apiError = error.response ? error.response.data : error.message;
+      console.error('Erro ao iniciar treinamento de elemento:', apiError);
+      const errorMessage = apiError.error || JSON.stringify(apiError);
+      throw new Error(`Falha ao iniciar o treinamento do elemento: ${errorMessage}`);
     }
+  }
 
   
   async getElementDetails(localElementId) {
@@ -294,6 +316,7 @@ async trainElement(req, res, next) {
     await element.update({ name, description, basePrompt: finalBasePrompt });
     return element;
   }
+
 
 }
 
