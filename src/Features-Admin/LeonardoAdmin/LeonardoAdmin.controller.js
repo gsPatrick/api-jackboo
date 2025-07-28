@@ -103,7 +103,8 @@ class LeonardoAdminController {
     }
 
       // ✅ NOVO MÉTODO ADICIONADO
-    async updateElement(req, res, next) {
+    
+  async updateElement(req, res, next) {
         try {
             const { id } = req.params;
             const updatedElement = await leonardoAdminService.updateElement(id, req.body);
