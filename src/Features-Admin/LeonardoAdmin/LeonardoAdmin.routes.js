@@ -35,7 +35,7 @@ router.delete('/datasets/:id', controller.deleteDataset);
 router.get('/elements', controller.listElements);
 
 // Inicia o treinamento de um novo Element
-router.post('/elements/train', controller.trainNewElement);
+router.post('/elements/train', controller.trainElement);
 
 // Busca detalhes de um Element (para verificar status do treinamento)
 router.get('/elements/:id', controller.getElementDetails);
