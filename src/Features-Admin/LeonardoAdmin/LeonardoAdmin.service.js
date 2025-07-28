@@ -214,7 +214,7 @@ class LeonardoAdminService {
     }
   }
 
-  async trainNewElement(trainingData) {
+ async trainNewElement(trainingData) {
     const { name, localDatasetId, description, basePrompt } = trainingData;
 
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
@@ -246,14 +246,23 @@ class LeonardoAdminService {
       num_train_epochs: 60,
       learning_rate: 0.00001,
       train_text_encoder: true,
-      // A linha 'strength: "MEDIUM"' foi removida daqui
     };
 
     try {
       console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento...');
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
 
-      const elementId = response.data?.sdTrainingJob?.id;
+      // ====================================================================
+      // A CORREÇÃO ESTÁ AQUI
+      // 1. Adicionamos um log para ver a resposta completa da API.
+      // 2. Tornamos a busca pelo ID mais flexível.
+      // ====================================================================
+      
+      console.log('[LeonardoAdmin] Resposta COMPLETA da API do Leonardo:', JSON.stringify(response.data, null, 2));
+
+      // Tenta encontrar o ID no caminho antigo (`sdTrainingJob.id`) e em um novo caminho provável (`trainingJob.id` ou `element.id`)
+      const elementId = response.data?.sdTrainingJob?.id || response.data?.trainingJob?.id || response.data?.element?.id || null;
+
       if (!elementId) {
         throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
       }
@@ -274,9 +283,9 @@ class LeonardoAdminService {
 
     } catch (error) {
       const apiError = error.response ? error.response.data : error.message;
-      console.error('Erro ao iniciar treinamento de elemento:', apiError);
-      const errorMessage = apiError.error || JSON.stringify(apiError);
-      throw new Error(`Falha ao iniciar o treinamento do elemento: ${errorMessage}`);
+      // Registra o erro original para depuração, mas lança a mensagem de erro que já temos
+      console.error('Erro detalhado ao iniciar treinamento de elemento:', apiError);
+      throw new Error(`Falha ao iniciar o treinamento do elemento: ${error.message}`);
     }
   }
 
