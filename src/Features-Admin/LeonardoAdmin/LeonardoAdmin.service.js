@@ -222,22 +222,36 @@ class LeonardoAdminService {
       throw new Error('Dataset de origem não encontrado em nossa base de dados.');
     }
 
+    // Validação do número de imagens no dataset (requer busca de detalhes)
+    try {
+        const datasetDetails = await this.getDatasetDetails(localDatasetId);
+        const imageCount = datasetDetails?.dataset_images?.length || 0;
+        if (imageCount < 5) {
+            throw new Error(`O dataset "${localDataset.name}" tem apenas ${imageCount} imagem(ns). São necessárias no mínimo 5 para o treinamento.`);
+        }
+        if (imageCount > 50) {
+            throw new Error(`O dataset "${localDataset.name}" tem ${imageCount} imagens. O máximo permitido é 50 para o treinamento.`);
+        }
+    } catch (error) {
+        // Propaga o erro se a validação falhar
+        throw new Error(`Falha ao validar dataset: ${error.message}`);
+    }
+
+
     const payload = {
       name,
       description: description || "",
       datasetId: localDataset.leonardoDatasetId,
+      instance_prompt: name.replace(/\s+/g, ''), // Usa o nome como um prompt de instância simples
+      
+      // --- Parâmetros Técnicos Corrigidos ---
       lora_focus: 'Style',
       sd_version: 'FLUX_DEV',
       resolution: 1024,
-      instance_prompt: name.replace(/\s+/g, ''),
-      num_train_epochs: 135,
-      // ====================================================================
-      // A CORREÇÃO ESTÁ AQUI
-      // Ajustado o learning_rate para um valor válido para o modelo FLUX_DEV.
-      // O valor anterior era 0.0005.
-      // ====================================================================
-      learning_rate: 0.00001,
+      num_train_epochs: 60,       // CORRIGIDO: Valor ajustado para 60 (dentro do limite 30-120)
+      learning_rate: 0.00001,     // CORRIGIDO: Valor já ajustado
       train_text_encoder: true,
+      strength: "MEDIUM"          // ADICIONADO: Parâmetro presente na requisição de sucesso
     };
 
     try {
