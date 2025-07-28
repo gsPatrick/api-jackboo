@@ -293,14 +293,20 @@ class LeonardoAdminService {
     }
   }
 
-  async updateElement(localElementId, updateData) {
+ async updateElement(localElementId, updateData) {
     const element = await LeonardoElement.findByPk(localElementId);
     if (!element) {
         throw new Error('Elemento não encontrado na base de dados local.');
     }
-    // Permite atualizar apenas os campos que queremos (nome, descrição, prompt)
-    const { name, description, basePromptText } = updateData;
-    await element.update({ name, description, basePromptText });
+    const { name, description, basePrompt } = updateData;
+    
+    // Garante que a placeholder exista
+    let finalBasePrompt = basePrompt || '';
+    if (!finalBasePrompt.includes('{{GPT_OUTPUT}}')) {
+        finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*{{GPT_OUTPUT}}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
+    }
+
+    await element.update({ name, description, basePrompt: finalBasePrompt });
     return element;
   }
 }
