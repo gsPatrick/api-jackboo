@@ -162,29 +162,55 @@ class LeonardoAdminService {
   }
 
   async trainNewElement(trainingData) {
-    const { name, localDatasetId, description, instance_prompt, basePromptText } = trainingData; // ✅ Recebe o novo campo
+    const { name, localDatasetId, description, instance_prompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
-      throw new Error('Dataset de origem não encontrado.');
+      throw new Error('Dataset de origem não encontrado em nossa base de dados.');
     }
+
     const payload = {
-      name, description: description || "", datasetId: localDataset.leonardoDatasetId,
-      lora_focus: 'Character', sd_version: 'FLUX_DEV', instance_prompt: instance_prompt,
-    };
-    try {
-      const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
-      const elementId = response.data?.sdTrainingJob?.id;
-      if (!elementId) throw new Error('A API não retornou um ID de elemento válido.');
+      name,
+      description: description || "",
+      datasetId: localDataset.leonardoDatasetId,
+      instance_prompt: instance_prompt || null, // Permanece opcional
       
-      // ✅ CORREÇÃO: Salva o novo campo no banco de dados.
+      // --- Valores Fixos para Simplificação e Correção do Bug ---
+      lora_focus: 'Style',      // Sempre será 'Style'
+      sd_version: 'FLUX_DEV',   // Sempre usará o modelo FLUX
+      resolution: 1024,         // Adicionado para corrigir o erro "resolution is required"
+
+      // --- Outros parâmetros técnicos que podem ser fixados ---
+      num_train_epochs: 135,
+      learning_rate: 0.0005,
+      train_text_encoder: true,
+    };
+
+    try {
+      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento com payload fixo...');
+      const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
+
+      const elementId = response.data?.sdTrainingJob?.id;
+      if (!elementId) {
+        throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
+      }
+
       const newElement = await LeonardoElement.create({
-        leonardoElementId: String(elementId), name, description,
-        status: 'PENDING', sourceDatasetId: localDataset.id, basePromptText: basePromptText
+        leonardoElementId: String(elementId),
+        name: name,
+        description: description,
+        status: 'PENDING',
+        sourceDatasetId: localDataset.id,
+        lora_focus: 'Style', // Salva o foco fixo no DB
       });
+
       return newElement;
+
     } catch (error) {
-      console.error('Erro ao iniciar treinamento de elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao iniciar o treinamento do elemento.');
+      const apiError = error.response ? error.response.data : error.message;
+      console.error('Erro ao iniciar treinamento de elemento:', apiError);
+      // Extrai a mensagem de erro da API do Leonardo, se disponível
+      const errorMessage = apiError.error || JSON.stringify(apiError);
+      throw new Error(`Falha ao iniciar o treinamento do elemento: ${errorMessage}`);
     }
   }
 
