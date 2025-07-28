@@ -214,8 +214,10 @@ class LeonardoAdminService {
     }
   }
 
-  async trainNewElement(trainingData) {
-    const { name, localDatasetId, description, instance_prompt, basePrompt } = trainingData;
+async trainNewElement(trainingData) {
+    const { name, localDatasetId, description, basePrompt } = trainingData;
+
+    // CORREÇÃO: Usa o localDatasetId para buscar o dataset
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
       throw new Error('Dataset de origem não encontrado em nossa base de dados.');
@@ -224,11 +226,11 @@ class LeonardoAdminService {
     const payload = {
       name,
       description: description || "",
-      datasetId: localDataset.leonardoDatasetId,
-      instance_prompt: instance_prompt || null,
+      datasetId: localDataset.leonardoDatasetId, // Usa o ID do Leonardo a partir do objeto encontrado
       lora_focus: 'Style',
       sd_version: 'FLUX_DEV',
       resolution: 1024,
+      instance_prompt: name.replace(/\s+/g, ''),
       num_train_epochs: 135,
       learning_rate: 0.0005,
       train_text_encoder: true,
@@ -243,6 +245,8 @@ class LeonardoAdminService {
         throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
       }
 
+      const finalBasePrompt = basePrompt ? `${basePrompt}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
+
       const newElement = await LeonardoElement.create({
         leonardoElementId: String(elementId),
         name: name,
@@ -250,7 +254,7 @@ class LeonardoAdminService {
         status: 'PENDING',
         sourceDatasetId: localDataset.id,
         lora_focus: 'Style',
-        basePrompt: basePrompt,
+        basePrompt: finalBasePrompt,
       });
 
       return newElement;
@@ -293,14 +297,13 @@ class LeonardoAdminService {
     }
   }
 
- async updateElement(localElementId, updateData) {
+   async updateElement(localElementId, updateData) {
     const element = await LeonardoElement.findByPk(localElementId);
     if (!element) {
         throw new Error('Elemento não encontrado na base de dados local.');
     }
     const { name, description, basePrompt } = updateData;
     
-    // Garante que a placeholder exista
     let finalBasePrompt = basePrompt || '';
     if (!finalBasePrompt.includes('{{GPT_OUTPUT}}')) {
         finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*{{GPT_OUTPUT}}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
@@ -309,6 +312,7 @@ class LeonardoAdminService {
     await element.update({ name, description, basePrompt: finalBasePrompt });
     return element;
   }
+
 }
 
 module.exports = new LeonardoAdminService();
