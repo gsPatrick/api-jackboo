@@ -51,6 +51,7 @@ module.exports = (sequelize, DataTypes) => {
     avatarUrl: {
       type: DataTypes.STRING,
       allowNull: true,
+      defaultValue: '/images/default-avatar.png', // Definir um valor padrão aqui
     },
     role: {
       type: DataTypes.ENUM('user', 'subscriber', 'admin'),
@@ -73,8 +74,17 @@ module.exports = (sequelize, DataTypes) => {
     },
     phone: {
         type: DataTypes.STRING,
+        allowNull: true, // Permitir nulo para campos não obrigatórios no cadastro inicial
+    },
+    slug: { // NOVO CAMPO: SLUG
+      type: DataTypes.STRING,
       allowNull: false,
-    }
+      unique: true,
+    },
+    bio: { // NOVO CAMPO: BIO
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   }, {
     sequelize,
     modelName: 'User',

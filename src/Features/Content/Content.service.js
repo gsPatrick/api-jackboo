@@ -1,17 +1,18 @@
 // src/Features/Content/Content.service.js
 
-const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize } = require('../../models');
+const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize, User } = require('../../models'); // Importar User
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
 const promptService = require('../../OpenAI/services/prompt.service');
+const popularityService = require('../Popularity/Popularity.service'); // NOVO: Importar PopularityService
 const { Op } = require('sequelize');
 
 if (!process.env.APP_URL) {
   throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
 }
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve => setTimeout(resolve => setTimeout(resolve, ms), ms), ms));
 
 class ContentService {
 
@@ -47,13 +48,11 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
 
       let detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
 
-      // ✅ CORREÇÃO: Lógica de resiliência. Se a IA recusar, usa uma descrição padrão.
       const refusalKeywords = ["desculpe", "não posso", "i'm sorry", "i cannot", "i can't"];
       const isRefusal = refusalKeywords.some(keyword => detailedDescription.toLowerCase().includes(keyword));
 
       if (isRefusal) {
         console.warn(`[ContentService] AVISO: A IA de visão se recusou a descrever a imagem para o personagem ${character.id}. Usando descrição padrão.`);
-        // Esta descrição padrão é genérica o suficiente para sempre funcionar.
         detailedDescription = "um personagem de desenho animado, uma figura amigável com olhos grandes e um sorriso";
       }
       
@@ -101,10 +100,44 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
   }
   
   async findBooksByUser(userId) {
-    return Book.findAll({ 
+    const books = await Book.findAll({ 
       where: { authorId: userId }, 
-      include: [{ model: Character, as: 'mainCharacter' }, { model: BookVariation, as: 'variations' }],
+      include: [
+        { model: Character, as: 'mainCharacter', attributes: ['id', 'name', 'generatedCharacterUrl'] }, 
+        { 
+          model: BookVariation, 
+          as: 'variations',
+          attributes: ['id', 'type', 'format', 'price', 'coverUrl', 'pageCount'], // Incluir coverUrl
+          limit: 1, // Pega apenas uma variação (a mais barata ou a principal)
+          order: [['price', 'ASC']] // Exemplo: ordernar por preço para pegar a mais barata
+        }
+      ],
       order: [['createdAt', 'DESC']] 
+    });
+
+    // Para cada livro, buscar contagem de likes e se o usuário logado curtiu
+    const bookIds = books.map(book => book.id);
+    const likesCounts = await popularityService.getCountsForMultipleEntities('Book', bookIds);
+    let userLikedStatus = {};
+    if (userId) { // Se userId for fornecido (usuário logado)
+      const likes = await sequelize.models.Like.findAll({
+        where: { userId, likableType: 'Book', likableId: { [Op.in]: bookIds } },
+        attributes: ['likableId']
+      });
+      userLikedStatus = likes.reduce((acc, like) => {
+        acc[like.likableId] = true;
+        return acc;
+      }, {});
+    }
+
+    return books.map(book => {
+      const bookJson = book.toJSON();
+      return {
+        ...bookJson,
+        totalLikes: likesCounts[book.id] || 0,
+        userLiked: userLikedStatus[book.id] || false,
+        coverUrl: bookJson.variations?.[0]?.coverUrl // Adiciona coverUrl ao nível raiz para facilitar
+      };
     });
   }
 

@@ -1,38 +1,20 @@
 // src/Features/Auth/Auth.services.js
 
-// --- A CORREÇÃO PRINCIPAL ESTÁ AQUI ---
-// Em vez de importar cada modelo separadamente...
-// const User = require('../../models/User');
-// const Setting = require('../../models/Setting');
-
-// ...importamos o objeto 'db' do index.js dos modelos, que contém todos eles.
 const { User, Setting } = require('../../models/index');
-// O caminho relativo a partir de 'src/Features/Auth/' para 'src/models/' é '../../models'.
-// --- FIM DA CORREÇÃO ---
-
 const { hashPassword, comparePassword } = require('../../Utils/password');
 const { generateToken } = require('../../Utils/jwt');
+const { generateSlug } = require('../../Utils/slugGenerator'); // NOVO: Importar gerador de slug
 
 class AuthService {
-  // O restante do seu código permanece exatamente o mesmo.
-
   async registerUser(userData, role = 'user') {
     console.log('[AuthService] Iniciando registro de usuário:', JSON.stringify(userData, null, 2));
     
-    // Seu modelo User.js não tinha o campo 'phone'. Se você adicionou, está correto.
-    // Se não, remova-o daqui para evitar erros de "coluna desconhecida".
     const { fullName, nickname, email, password, birthDate, phone } = userData; 
 
     try {
       console.log(`[AuthService] Verificando usuário existente com email: ${email}`);
-      console.log(`[AuthService] Chamando User.findOne com where:`, { email });
-      
-      // AGORA ESTA LINHA FUNCIONA!
-      // A variável 'User' importada já está "viva" e conectada ao banco.
       const existingUser = await User.findOne({ where: { email } });
       
-      console.log(`[AuthService] Resultado de User.findOne para email ${email}:`, existingUser);
-
       if (existingUser) {
         console.warn(`[AuthService] Email ${email} já em uso.`);
         throw new Error('Este e-mail já está em uso.');
@@ -49,6 +31,9 @@ class AuthService {
       const passwordHash = await hashPassword(password);
       console.log('[AuthService] Senha hasheada com sucesso.');
 
+      // NOVO: Gerar slug a partir do nickname
+      const slug = await generateSlug(nickname);
+
       console.log(`[AuthService] Criando usuário no banco...`);
       const user = await User.create({
         fullName,
@@ -58,7 +43,9 @@ class AuthService {
         birthDate,
         phone, 
         role,
-        accountStatus: 'active', // Vamos definir como 'active' direto no registro
+        accountStatus: 'active',
+        slug, // Adicionar o slug
+        avatarUrl: '/images/default-avatar.png', // Definir um avatar padrão
       });
 
       console.log(`[AuthService] Usuário criado com sucesso no banco, ID: ${user.id}`);
@@ -69,7 +56,6 @@ class AuthService {
       return userJson;
     } catch (error) {
       console.error('[AuthService] Erro durante o registro do usuário:', error);
-      // O seu log de erro personalizado aqui é ótimo.
       if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
           console.error('Detalhes do erro Sequelize:', error.errors);
       }
@@ -102,25 +88,46 @@ class AuthService {
     return { user: userJson, token };
   }
 
-  // --- Funções CRUD para Admin ---
-  async findAllUsers() {
-    return User.findAll({ attributes: { exclude: ['passwordHash'] } });
-  }
-
+  // --- Funções CRUD para Admin e Usuário (próprio perfil) ---
+  // A função findUserById agora será usada tanto por admin (para ver qualquer um)
+  // quanto pelo usuário logado (para ver a si mesmo).
   async findUserById(id) {
-    const user = await User.findByPk(id, { attributes: { exclude: ['passwordHash'] } });
+    // Incluir 'slug', 'avatarUrl', 'bio', 'phone' na busca
+    const user = await User.findByPk(id, { 
+      attributes: { exclude: ['passwordHash'] } 
+    });
     if (!user) throw new Error('Usuário não encontrado.');
     return user;
   }
 
+  // Função para atualizar usuário, agora também capaz de atualizar campos como 'nickname', 'fullName', 'email', 'phone', 'avatarUrl', 'bio'
   async updateUser(id, updateData) {
     const user = await this.findUserById(id);
+
+    // Impedir alteração de role por esta rota
+    if (updateData.role && user.role !== updateData.role) {
+      delete updateData.role; // Não permite mudar o role
+      console.warn(`[AuthService] Tentativa de alterar role do usuário ${id} ignorada.`);
+    }
+
+    // Impedir alteração de senha por esta rota (seria uma rota separada ou admin)
     if (updateData.password || updateData.passwordHash) {
         delete updateData.password;
         delete updateData.passwordHash;
+        console.warn(`[AuthService] Tentativa de alterar senha do usuário ${id} ignorada.`);
     }
+
+    // Se o nickname for atualizado, recalcular o slug
+    if (updateData.nickname && updateData.nickname !== user.nickname) {
+        updateData.slug = await generateSlug(updateData.nickname);
+    }
+    
     await user.update(updateData);
     return user;
+  }
+
+  async findAllUsers() {
+    return User.findAll({ attributes: { exclude: ['passwordHash'] } });
   }
 
   async deleteUser(id) {

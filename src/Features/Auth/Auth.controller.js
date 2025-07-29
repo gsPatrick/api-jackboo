@@ -29,6 +29,28 @@ class AuthController {
       res.status(401).json({ message: error.message });
     }
   }
+  
+  // --- NOVO: Controller para o próprio perfil do usuário logado ---
+  async getMe(req, res) {
+    try {
+      // req.user.id é populado pelo middleware isAuthenticated
+      const userProfile = await authService.findUserById(req.user.id);
+      res.status(200).json(userProfile);
+    } catch (error) {
+      res.status(404).json({ message: error.message });
+    }
+  }
+
+  // --- NOVO: Controller para atualizar o próprio perfil do usuário logado ---
+  async updateMyProfile(req, res) {
+    try {
+      // req.user.id é populado pelo middleware isAuthenticated
+      const updatedUser = await authService.updateUser(req.user.id, req.body);
+      res.status(200).json(updatedUser);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  }
 
   // --- Controllers CRUD para Admin ---
   async getAllUsers(req, res) {

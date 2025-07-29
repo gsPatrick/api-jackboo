@@ -8,9 +8,16 @@ const router = Router();
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 
+// --- Rota para o próprio perfil do usuário logado ---
+// GET /api/auth/profile
+router.get('/profile', isAuthenticated, authController.getMe);
+// PUT /api/auth/profile (Para atualizar o próprio perfil)
+router.put('/profile', isAuthenticated, authController.updateMyProfile);
+
+
 // --- Rota para criar Admin (protegida) ---
 // Apenas um admin logado pode criar outro admin
-router.post('/register-admin', authController.registerAdmin);
+router.post('/register-admin', isAuthenticated, isAdmin, authController.registerAdmin);
 
 
 // --- Rotas de Gerenciamento de Usuários (CRUD para Admin) ---
@@ -25,7 +32,7 @@ adminUserRoutes.delete('/:id', authController.deleteUser);
 // Usa o sub-roteador com o prefixo /users
 router.use('/users', adminUserRoutes);
 
-// --- NOVO: Rotas de Gerenciamento de Configurações (Admin) ---
+// --- Rotas de Gerenciamento de Configurações (Admin) ---
 const adminSettingsRoutes = Router();
 adminSettingsRoutes.use(isAuthenticated, isAdmin);
 
