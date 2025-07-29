@@ -12,8 +12,7 @@ if (!process.env.APP_URL) {
   throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
 }
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve => setTimeout(resolve => setTimeout(resolve, ms), ms), ms));
-
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 class ContentService {
 
  async createCharacter(userId, file, name = null) {
