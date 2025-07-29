@@ -114,7 +114,7 @@ class LeonardoAdminService {
   // (Mudança nesta seção)
   // ======================================================
 
-  async listAllElements() {
+ async listAllElements() {
     try {
       const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
       const leonardoElements = response.data?.user_loras || [];
@@ -126,11 +126,9 @@ class LeonardoAdminService {
             localDataset = await LeonardoDataset.findOne({ where: { leonardoDatasetId: sourceLeonardoDatasetId } });
         }
 
-        // Tenta encontrar o elemento no nosso banco
         let localElement = await LeonardoElement.findOne({ where: { leonardoElementId: String(element.id) } });
 
         if (localElement) {
-          // Se encontrou, atualiza os dados que podem mudar (nome, status, etc)
           await localElement.update({
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
@@ -138,19 +136,17 @@ class LeonardoAdminService {
             sourceDatasetId: localDataset ? localDataset.id : null,
           });
         } else {
-          // Se não encontrou, cria um novo, garantindo que o 'name' seja fornecido
           await LeonardoElement.create({
             leonardoElementId: String(element.id),
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
             status: element.status,
             sourceDatasetId: localDataset ? localDataset.id : null,
-            basePromptText: '{{DESCRIPTION}}' // Um prompt padrão para novos elements
+            basePrompt: '{{GPT_OUTPUT}}' // Um prompt padrão para novos elements
           });
         }
       }
 
-      // Após a sincronização, busca todos os elementos do nosso banco para retornar
       return LeonardoElement.findAll({
         include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }],
         order: [['createdAt', 'DESC']],
@@ -214,96 +210,19 @@ class LeonardoAdminService {
     }
   }
 
- async trainNewElement(trainingData) {
-    const { name, localDatasetId, description, basePrompt } = trainingData;
 
-    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
-    if (!localDataset) {
-      throw new Error('Dataset de origem não encontrado em nossa base de dados.');
-    }
-
-    try {
-        const datasetDetails = await this.getDatasetDetails(localDatasetId);
-        const imageCount = datasetDetails?.dataset_images?.length || 0;
-        if (imageCount < 5) {
-            throw new Error(`O dataset "${localDataset.name}" tem apenas ${imageCount} imagem(ns). Mínimo de 5.`);
-        }
-        if (imageCount > 50) {
-            throw new Error(`O dataset "${localDataset.name}" tem ${imageCount} imagens. Máximo de 50.`);
-        }
-    } catch (error) {
-        throw new Error(`Falha ao validar dataset: ${error.message}`);
-    }
-
-    const payload = {
-      name,
-      description: description || "",
-      datasetId: localDataset.leonardoDatasetId,
-      instance_prompt: name.replace(/\s+/g, ''),
-      lora_focus: 'Style',
-      sd_version: 'FLUX_DEV',
-      resolution: 1024,
-      num_train_epochs: 60,
-      learning_rate: 0.00001,
-      train_text_encoder: true,
-    };
-
-    try {
-      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento...');
-      const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
-
-      // ====================================================================
-      // A CORREÇÃO ESTÁ AQUI
-      // 1. Adicionamos um log para ver a resposta completa da API.
-      // 2. Tornamos a busca pelo ID mais flexível.
-      // ====================================================================
-      
-      console.log('[LeonardoAdmin] Resposta COMPLETA da API do Leonardo:', JSON.stringify(response.data, null, 2));
-
-      // Tenta encontrar o ID no caminho antigo (`sdTrainingJob.id`) e em um novo caminho provável (`trainingJob.id` ou `element.id`)
-      const elementId = response.data?.sdTrainingJob?.id || response.data?.trainingJob?.id || response.data?.element?.id || null;
-
-      if (!elementId) {
-        throw new Error('A API do Leonardo não retornou um ID de elemento válido para o job de treinamento.');
-      }
-
-      const finalBasePrompt = basePrompt ? `${basePrompt}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
-
-      const newElement = await LeonardoElement.create({
-        leonardoElementId: String(elementId),
-        name: name,
-        description: description,
-        status: 'PENDING',
-        sourceDatasetId: localDataset.id,
-        lora_focus: 'Style',
-        basePrompt: finalBasePrompt,
-      });
-
-      return newElement;
-
-    } catch (error) {
-      const apiError = error.response ? error.response.data : error.message;
-      // Registra o erro original para depuração, mas lança a mensagem de erro que já temos
-      console.error('Erro detalhado ao iniciar treinamento de elemento:', apiError);
-      throw new Error(`Falha ao iniciar o treinamento do elemento: ${error.message}`);
-    }
-  }
 
   
-  async getElementDetails(localElementId) {
-    const localElement = await LeonardoElement.findByPk(localElementId);
+async getElementDetails(localElementId) {
+    const localElement = await LeonardoElement.findByPk(localElementId, {
+      include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }] // Incluir nome do dataset
+    });
     if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
-    try {
-      const response = await axios.get(`${this.apiUrl}/elements/${localElement.leonardoElementId}`, { headers: this.headers });
-      const details = response.data?.elements_by_pk;
-      if (details && details.status !== localElement.status) {
-        await localElement.update({ status: details.status });
-      }
-      return details;
-    } catch (error) {
-      console.error('Erro ao buscar detalhes do elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao buscar detalhes do elemento no Leonardo.AI.');
-    }
+    // A chamada à API externa aqui seria para pegar o status mais recente do treinamento.
+    // Se você quiser todos os detalhes do Leonardo, você precisaria fazer a chamada.
+    // Por enquanto, vamos retornar o que já temos no DB local para detalhes,
+    // e o `listAllElements` já atualiza o status.
+    return localElement; // Retornando o elemento local diretamente
   }
 
   async deleteElement(localElementId) {
@@ -318,20 +237,36 @@ class LeonardoAdminService {
       throw new Error('Falha ao deletar o elemento.');
     }
   }
+  async deleteElement(localElementId) {
+    const localElement = await LeonardoElement.findByPk(localElementId);
+    if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
+    try {
+      await axios.delete(`${this.apiUrl}/elements/${localElement.leonardoElementId}`, { headers: this.headers });
+      await localElement.destroy();
+      return { message: 'Elemento deletado com sucesso em ambos os sistemas.' };
+    } catch (error) {
+      console.error('Erro ao deletar elemento:', error.response ? error.response.data : error.message);
+      throw new Error('Falha ao deletar o elemento.');
+    }
+  }
+
+ 
 
    async updateElement(localElementId, updateData) {
     const element = await LeonardoElement.findByPk(localElementId);
     if (!element) {
         throw new Error('Elemento não encontrado na base de dados local.');
     }
-    const { name, description, basePrompt } = updateData;
+    // Permitir atualização SOMENTE do basePrompt
+    const { basePrompt } = updateData;
     
     let finalBasePrompt = basePrompt || '';
+    // Garante que {{GPT_OUTPUT}} esteja sempre presente e no final, se o prompt não estiver vazio
     if (!finalBasePrompt.includes('{{GPT_OUTPUT}}')) {
-        finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*{{GPT_OUTPUT}}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
+        finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*\{\{GPT_OUTPUT\}\}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
     }
 
-    await element.update({ name, description, basePrompt: finalBasePrompt });
+    await element.update({ basePrompt: finalBasePrompt });
     return element;
   }
 

@@ -39,7 +39,7 @@ class LeonardoAdminController {
     
     async uploadImage(req, res, next) {
         try {
-            const { id } = req.params; // ID do nosso dataset local
+            const { id } = req.params;
             if (!req.file) {
                 return res.status(400).json({ message: 'Nenhum arquivo de imagem foi enviado.' });
             }
@@ -71,14 +71,12 @@ class LeonardoAdminController {
     
    async trainElement(req, res, next) {
         try {
-            // Validação básica dos dados recebidos do front-end
             const { name, localDatasetId } = req.body;
             if (!name || !localDatasetId) {
                 return res.status(400).json({ message: 'Campos obrigatórios (name, localDatasetId) não fornecidos.'});
             }
-            // Apenas passa o corpo da requisição para o serviço
             const newElement = await leonardoAdminService.trainNewElement(req.body);
-            res.status(202).json(newElement); // 202 Accepted, pois o processo foi iniciado
+            res.status(202).json(newElement);
         } catch (error) {
             next(error);
         }
@@ -105,12 +103,13 @@ class LeonardoAdminController {
         }
     }
 
-      // ✅ NOVO MÉTODO ADICIONADO
-    
-  async updateElement(req, res, next) {
+    // Método para permitir a edição de prompt base (e nome/descrição, se quiser)
+    async updateElement(req, res, next) {
         try {
             const { id } = req.params;
-            const updatedElement = await leonardoAdminService.updateElement(id, req.body);
+            // Pegar apenas o basePrompt do corpo da requisição
+            const { basePrompt } = req.body; 
+            const updatedElement = await leonardoAdminService.updateElement(id, { basePrompt });
             res.status(200).json(updatedElement);
         } catch (error) {
             next(error);
