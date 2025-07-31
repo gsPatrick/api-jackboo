@@ -3,7 +3,7 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const { LeonardoDataset, LeonardoElement } = require('../../models');
+const { LeonardoDataset, LeonardoElement, DatasetImage } = require('../../models'); // Adicionado DatasetImage
 
 class LeonardoAdminService {
   /**
@@ -82,6 +82,13 @@ class LeonardoAdminService {
       const s3UploadUrl = uploadDetails.url;
       const s3UploadFields = JSON.parse(uploadDetails.fields);
       const leonardoImageId = uploadDetails.id;
+
+      // Salva no banco de dados local ANTES de fazer o upload para o S3
+      await DatasetImage.create({
+          leonardoImageId: leonardoImageId,
+          datasetId: localDataset.id
+      });
+
       const formData = new FormData();
       for (const key in s3UploadFields) {
         formData.append(key, s3UploadFields[key]);
@@ -100,13 +107,40 @@ class LeonardoAdminService {
     if (!localDataset) throw new Error('Dataset não encontrado na base de dados local.');
     try {
       await axios.delete(`${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}`, { headers: this.headers });
-      await localDataset.destroy();
+      await localDataset.destroy(); // Isso vai deletar em cascata as DatasetImage associadas
       return { message: 'Dataset deletado com sucesso em ambos os sistemas.' };
     } catch (error) {
         console.error('Erro ao deletar dataset:', error.response ? error.response.data : error.message);
         throw new Error('Falha ao deletar o dataset.');
     }
   }
+
+  // --- NOVA FUNÇÃO PARA DELETAR IMAGEM ---
+  async deleteImageFromDataset(localDatasetId, leonardoImageId) {
+    const localDataset = await LeonardoDataset.findByPk(localDatasetId);
+    if (!localDataset) {
+        throw new Error('Dataset não encontrado na base de dados local.');
+    }
+    
+    try {
+        // Deleta na API do Leonardo
+        await axios.delete(`${this.apiUrl}/datasets/${localDataset.leonardoDatasetId}/upload/${leonardoImageId}`, { headers: this.headers });
+
+        // Deleta no banco de dados local
+        const imageRecord = await DatasetImage.findOne({ where: { leonardoImageId: leonardoImageId, datasetId: localDataset.id } });
+        if (imageRecord) {
+            await imageRecord.destroy();
+        }
+
+        return { message: 'Imagem deletada com sucesso.' };
+    } catch (error) {
+        const apiError = error.response ? error.response.data : error.message;
+        console.error(`Erro ao deletar imagem ${leonardoImageId} do dataset ${localDataset.leonardoDatasetId}:`, apiError);
+        throw new Error(`Falha ao deletar a imagem: ${apiError.error || JSON.stringify(apiError)}`);
+    }
+  }
+  // --- FIM DA NOVA FUNÇÃO ---
+
 
   // ======================================================
   // MÉTODOS PARA GERENCIAMENTO DE ELEMENTS (LoRAs)
