@@ -31,7 +31,6 @@ class LeonardoAdminService {
 
   // ======================================================
   // MÉTODOS PARA GERENCIAMENTO DE DATASETS
-  // (Nenhuma mudança nesta seção)
   // ======================================================
 
   async listDatasets() {
@@ -111,7 +110,6 @@ class LeonardoAdminService {
 
   // ======================================================
   // MÉTODOS PARA GERENCIAMENTO DE ELEMENTS (LoRAs)
-  // (Mudança nesta seção)
   // ======================================================
 
  async listAllElements() {
@@ -129,12 +127,17 @@ class LeonardoAdminService {
         let localElement = await LeonardoElement.findOne({ where: { leonardoElementId: String(element.id) } });
 
         if (localElement) {
-          await localElement.update({
+          const updateData = {
             name: element.name || 'Elemento Sem Nome',
             description: element.description,
             status: element.status,
-            sourceDatasetId: localDataset ? localDataset.id : null,
-          });
+          };
+
+          if (localDataset) {
+            updateData.sourceDatasetId = localDataset.id;
+          }
+
+          await localElement.update(updateData);
         } else {
           await LeonardoElement.create({
             leonardoElementId: String(element.id),
@@ -142,7 +145,7 @@ class LeonardoAdminService {
             description: element.description,
             status: element.status,
             sourceDatasetId: localDataset ? localDataset.id : null,
-            basePrompt: '{{GPT_OUTPUT}}' // Um prompt padrão para novos elements
+            basePrompt: '{{GPT_OUTPUT}}'
           });
         }
       }
@@ -158,7 +161,7 @@ class LeonardoAdminService {
   }
 
   async trainNewElement(trainingData) {
-    const { name, localDatasetId, description, instance_prompt } = trainingData;
+    const { name, localDatasetId, description, instance_prompt, basePrompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
       throw new Error('Dataset de origem não encontrado em nossa base de dados.');
@@ -168,21 +171,19 @@ class LeonardoAdminService {
       name,
       description: description || "",
       datasetId: localDataset.leonardoDatasetId,
-      instance_prompt: instance_prompt || null, // Permanece opcional
+      instance_prompt: instance_prompt || null,
       
-      // --- Valores Fixos para Simplificação e Correção do Bug ---
-      lora_focus: 'Style',      // Sempre será 'Style'
-      sd_version: 'FLUX_DEV',   // Sempre usará o modelo FLUX
-      resolution: 1024,         // Adicionado para corrigir o erro "resolution is required"
+      lora_focus: 'Style',
+      sd_version: 'FLUX_DEV',
+      resolution: 1024,
 
-      // --- Outros parâmetros técnicos que podem ser fixados ---
       num_train_epochs: 135,
       learning_rate: 0.0005,
       train_text_encoder: true,
     };
 
     try {
-      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento com payload fixo...');
+      console.log('[LeonardoAdmin] Enviando requisição para treinar novo elemento...');
       const response = await axios.post(`${this.apiUrl}/elements`, payload, { headers: this.headers });
 
       const elementId = response.data?.sdTrainingJob?.id;
@@ -196,7 +197,7 @@ class LeonardoAdminService {
         description: description,
         status: 'PENDING',
         sourceDatasetId: localDataset.id,
-        lora_focus: 'Style', // Salva o foco fixo no DB
+        basePrompt: basePrompt ? `${basePrompt}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}',
       });
 
       return newElement;
@@ -204,25 +205,17 @@ class LeonardoAdminService {
     } catch (error) {
       const apiError = error.response ? error.response.data : error.message;
       console.error('Erro ao iniciar treinamento de elemento:', apiError);
-      // Extrai a mensagem de erro da API do Leonardo, se disponível
       const errorMessage = apiError.error || JSON.stringify(apiError);
       throw new Error(`Falha ao iniciar o treinamento do elemento: ${errorMessage}`);
     }
   }
 
-
-
-  
-async getElementDetails(localElementId) {
+  async getElementDetails(localElementId) {
     const localElement = await LeonardoElement.findByPk(localElementId, {
-      include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }] // Incluir nome do dataset
+      include: [{ model: LeonardoDataset, as: 'sourceDataset', attributes: ['name'] }]
     });
     if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
-    // A chamada à API externa aqui seria para pegar o status mais recente do treinamento.
-    // Se você quiser todos os detalhes do Leonardo, você precisaria fazer a chamada.
-    // Por enquanto, vamos retornar o que já temos no DB local para detalhes,
-    // e o `listAllElements` já atualiza o status.
-    return localElement; // Retornando o elemento local diretamente
+    return localElement;
   }
 
   async deleteElement(localElementId) {
@@ -237,31 +230,15 @@ async getElementDetails(localElementId) {
       throw new Error('Falha ao deletar o elemento.');
     }
   }
-  async deleteElement(localElementId) {
-    const localElement = await LeonardoElement.findByPk(localElementId);
-    if (!localElement) throw new Error('Elemento não encontrado na base de dados local.');
-    try {
-      await axios.delete(`${this.apiUrl}/elements/${localElement.leonardoElementId}`, { headers: this.headers });
-      await localElement.destroy();
-      return { message: 'Elemento deletado com sucesso em ambos os sistemas.' };
-    } catch (error) {
-      console.error('Erro ao deletar elemento:', error.response ? error.response.data : error.message);
-      throw new Error('Falha ao deletar o elemento.');
-    }
-  }
-
- 
 
    async updateElement(localElementId, updateData) {
     const element = await LeonardoElement.findByPk(localElementId);
     if (!element) {
         throw new Error('Elemento não encontrado na base de dados local.');
     }
-    // Permitir atualização SOMENTE do basePrompt
     const { basePrompt } = updateData;
     
     let finalBasePrompt = basePrompt || '';
-    // Garante que {{GPT_OUTPUT}} esteja sempre presente e no final, se o prompt não estiver vazio
     if (!finalBasePrompt.includes('{{GPT_OUTPUT}}')) {
         finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*\{\{GPT_OUTPUT\}\}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
     }
@@ -269,8 +246,6 @@ async getElementDetails(localElementId) {
     await element.update({ basePrompt: finalBasePrompt });
     return element;
   }
-
-
 }
 
 module.exports = new LeonardoAdminService();
