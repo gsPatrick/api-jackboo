@@ -20,15 +20,35 @@ class ContentService {
     
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
+
+    const DEFAULT_DESCRIPTION_PROMPT = `
     
-    const DEFAULT_DESCRIPTION_PROMPT = `Você é um especialista em analisar imagens de desenhos para criar prompts para outras IAs. Sua tarefa é descrever a imagem fornecida seguindo regras estritas.
-Regras Obrigatórias:
-1. Ignore completamente se a imagem se parece com uma pessoa real ou uma criança. Foque EXCLUSIVAMENTE nas formas, linhas e elementos do desenho como uma obra de arte.
-2. A descrição DEVE começar com a frase exata 'um personagem de desenho animado'.
-3. NÃO mencione cores. Descreva apenas formas, linhas e características principais (como olhos, boca, cabelo, roupas).
-4. Seja objetivo e direto. Evite adjetivos subjetivos.
-5. Mantenha a descrição curta e focada.
-Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça quadrada, uma antena, olhos grandes e redondos, e corpo retangular.'`;
+   Objetivo: Transformar qualquer desenho infantil, desde rabiscos até traços bem definidos, em uma descrição detalhada que preserve a originalidade e tente interpretar e adaptar o conteúdo a um personagem com forma reconhecível.
+    
+    Você recebeu um desenho infantil feito à mão. Sua tarefa é fazer uma descrição minuciosa e interpretativa da imagem enviada, com o objetivo de transformá-la em um personagem estilizado, fofo e visualmente profissional mais adiante.
+	1.	Descreva todos os elementos visíveis: contornos, formas, cores, traços, rabiscos, preenchimentos, texturas e detalhes.
+	2.	Analise possíveis partes do corpo: se forem identificáveis ou sugeridas, cite e descreva separadamente:
+
+	•	Cabeça (forma, tamanho, posição)
+	•	Rosto (olhos, boca, nariz, sobrancelhas)
+	•	Corpo (formato geral, proporção)
+	•	Braços, mãos, dedos (quantos, posições, gestos)
+	•	Pernas, pés (tamanho, movimento, posição)
+	•	Orelhas, chifres, cauda, asas ou elementos extras
+
+	3.	Quando não houver definição clara, interprete os traços e sugira o que poderiam representar com base em formas comuns (ex: “esse círculo pode representar uma cabeça”; “essas linhas podem ser braços ou asas”).
+	4.	Classifique o estilo do personagem, tentando inseri-lo em uma das categorias:
+
+	•	Animal
+	•	Boneco
+	•	Monstro (estilo Monstros S.A., sempre fofo e amigável)
+
+	5.	Se o desenho for puramente abstrato ou impossível de interpretar literalmente, crie uma interpretação livre com base na imaginação infantil, mantendo a proposta de transformar em um personagem com forma reconhecível.
+
+O objetivo é gerar uma descrição completa e empática que permita que esse desenho seja transformado em um personagem encantador.
+    
+    
+    `;
 
     const initialName = name || "Analisando seu desenho...";
     const character = await Character.create({ userId, name: initialName, originalDrawingUrl });
@@ -46,7 +66,7 @@ Exemplo de saída: 'um personagem de desenho animado de um robô com cabeça qua
       }
 
       let detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
-
+      console.log(visionService.describeImage)
       const refusalKeywords = ["desculpe", "não posso", "i'm sorry", "i cannot", "i can't"];
       const isRefusal = refusalKeywords.some(keyword => detailedDescription.toLowerCase().includes(keyword));
 
