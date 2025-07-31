@@ -60,6 +60,18 @@ class LeonardoAdminController {
         }
     }
 
+    // --- NOVO MÉTODO PARA DELETAR IMAGEM ---
+    async deleteDatasetImage(req, res, next) {
+        try {
+            const { datasetId, imageId } = req.params;
+            const result = await leonardoAdminService.deleteImageFromDataset(datasetId, imageId);
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+    // --- FIM DO NOVO MÉTODO ---
+
     async listElements(req, res, next) {
         try {
             const elements = await leonardoAdminService.listAllElements();
@@ -103,11 +115,9 @@ class LeonardoAdminController {
         }
     }
 
-    // Método para permitir a edição de prompt base (e nome/descrição, se quiser)
     async updateElement(req, res, next) {
         try {
             const { id } = req.params;
-            // Pegar apenas o basePrompt do corpo da requisição
             const { basePrompt } = req.body; 
             const updatedElement = await leonardoAdminService.updateElement(id, { basePrompt });
             res.status(200).json(updatedElement);
