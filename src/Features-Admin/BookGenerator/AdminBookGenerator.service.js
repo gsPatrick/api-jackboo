@@ -14,7 +14,6 @@ class AdminBookGeneratorService {
         const t = await sequelize.transaction();
         let book;
         try {
-            // ✅ Agora os ElementIDs vêm diretamente do formulário e são usados sem intermediários.
             const { characterIds, theme, summary, title, printFormatId, elementId, coverElementId, pageCount } = generationData;
             
             console.log(`[AdminGenerator] Recebido pedido para gerar livro. Miolo Element ID: ${elementId}, Capa Element ID: ${coverElementId}`);
@@ -33,7 +32,7 @@ class AdminBookGeneratorService {
             if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos.');
             
             const mainCharacter = characters[0];
-            const totalPages = bookType === 'historia' ? (pageCount * 2) + 2 : pageCount + 2;
+            const totalPages = bookType === 'colorir' ? (pageCount * 2) + 2 : pageCount + 2;
 
             book = await Book.create({
                 authorId: ADMIN_USER_ID,
@@ -86,7 +85,7 @@ class AdminBookGeneratorService {
 
     async generateColoringBookContent(book, characters, elementId, coverElementId, innerPageCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        const characterNames = characters.map(c => c.name).join(' e ');
+        // const characterNames = characters.map(c => c.name).join(' e '); // Não usado no prompt atual
         const totalPages = innerPageCount + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${innerPageCount} páginas de colorir...`);
@@ -97,15 +96,10 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
-        const coverPrompt = `A colorful, 2D digital illustration for the cover of a children's book featuring Jackboo, an anthropomorphic character with a large head, round face, expressive eyes, and white fur. Jackboo is standing in a vibrant scene that reflects a theme to be defined separately (e.g., construction site, zoo, space, school, beach, etc.). The background must clearly depict the chosen theme with playful, imaginative, and immersive elements.
+        
+        // Prompt da capa simplificado para evitar limite de caracteres
+        const coverPrompt = `A vibrant 2D children's book cover illustration. Theme: ${book.genre || 'adventure'}. Featuring characters: ${characters.map(c => c.name).join(' and ')}. Style: clean line art, simple shapes, white background, joyful and friendly. Title: "${book.title}".`;
 
-Jackboo should be the only character present on the cover, unless a second character (created by the user) is provided — in that case, place both characters with similar proportions and in harmony within the scene. Both characters should appear happy and engaging, interacting naturally with the environment.
-
-The illustration must resemble a professionally illustrated children’s book cover, with soft lighting and a slightly satin finish — the texture should evoke the look of high-quality printed children's books. The style must be vivid, warm, and joyful, with painterly details and rich colors.
-
-The title "Jackboo" must appear at the top center of the image, in colorful, rounded letters that are playful and friendly. The size of the title should be approximately **one-third** the vertical height of the entire image — large enough to be eye-catching, but not overpowering the visual scene.
-
-The overall composition should feel balanced and fun, with Jackboo clearly in the foreground and the theme-based elements integrated into the environment behind him. The final image should simulate a complete, fully designed book cover ready for printing.`;
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
         await bookVariation.update({ coverUrl: localCoverUrl });
@@ -113,24 +107,22 @@ The overall composition should feel balanced and fun, with Jackboo clearly in th
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo...`);
         for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 2;
+            // Prompt mais direto para as páginas de colorir
             const finalPrompt = `coloring book page, clean line art, simple shapes, white background, ${pagePrompts[i]}`;
             const localPageUrl = await this.generateAndDownloadImage(finalPrompt, elementId, 'coloring');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        const backCoverPrompt = `✅ Diretrizes da CONTRACAPA:
-	•	A contracapa não deve conter personagens.
-	•	Deve trazer uma nova cena, também relacionada ao mesmo tema da capa, mas diferente da cena da frente (ex: se a capa mostra o Jackboo na praia, a contracapa pode mostrar o mar, a areia com brinquedos, etc.).
-	•	O estilo visual deve ser exatamente o mesmo da capa: 2D vetorial, suave e limpo, com acabamento fosco-acetinado.
-	•	Incluir apenas o nome “Jackboo” bem pequeno no canto inferior direito da contracapa, sem nenhum outro texto ou enfeite.".`;
+        // Prompt da contracapa também simplificado
+        const backCoverPrompt = `Children's book back cover for "${book.title}". Simple illustration related to the theme "${book.genre || 'adventure'}", featuring characters ${characters.map(c => c.name).join(' and ')}. Clean style. Small "Jackboo" logo in the corner.`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
 
     async generateStoryBookContent(book, characters, summary, elementId, coverElementId, sceneCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        const characterNames = characters.map(c => c.name).join(' e ');
+        // const characterNames = characters.map(c => c.name).join(' e '); // Não usado no prompt atual
         const totalPages = (sceneCount * 2) + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${sceneCount} cenas...`);
@@ -141,7 +133,8 @@ The overall composition should feel balanced and fun, with Jackboo clearly in th
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
-        const coverPrompt = `Capa de livro de história infantil, título "${book.title}", com ${characterNames}. Ilustração colorida.`;
+        // Prompt da capa simplificado para livros de história
+        const coverPrompt = `A vibrant 2D children's book cover illustration for "${book.title}". Theme: ${book.genre || 'adventure'}. Featuring characters: ${characters.map(c => c.name).join(' and ')}. Style: colorful, painterly, joyful.`;
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
         await bookVariation.update({ coverUrl: localCoverUrl });
@@ -149,22 +142,26 @@ The overall composition should feel balanced and fun, with Jackboo clearly in th
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${storyPages.length} cenas do miolo...`);
         let currentPageNumber = 2;
         for (const scene of storyPages) {
-            const illustrationUrl = await this.generateAndDownloadImage(scene.illustration_prompt, elementId, 'illustration');
+            // Prompt de ilustração simplificado, focando nos elementos essenciais
+            const finalIllustrationPrompt = `Children's story illustration: ${scene.illustration_prompt}`;
+            const illustrationUrl = await this.generateAndDownloadImage(finalIllustrationPrompt, elementId, 'illustration');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'illustration', imageUrl: illustrationUrl, status: 'completed' });
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'text', content: scene.page_text, status: 'completed' });
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        const backCoverPrompt = `✅ Diretrizes da CONTRACAPA:
-	•	A contracapa não deve conter personagens.
-	•	Deve trazer uma nova cena, também relacionada ao mesmo tema da capa, mas diferente da cena da frente (ex: se a capa mostra o Jackboo na praia, a contracapa pode mostrar o mar, a areia com brinquedos, etc.).
-	•	O estilo visual deve ser exatamente o mesmo da capa: 2D vetorial, suave e limpo, com acabamento fosco-acetinado.
-	•	Incluir apenas o nome “Jackboo” bem pequeno no canto inferior direito da contracapa, sem nenhum outro texto ou enfeite.".`;
+        // Prompt da contracapa simplificado
+        const backCoverPrompt = `Children's book back cover for "${book.title}". Simple illustration related to the theme "${book.genre || 'adventure'}". Clean style. Small "Jackboo" logo in the corner.`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
 
     async generateAndDownloadImage(prompt, elementId, type) {
+        // Validação básica do elementId antes de prosseguir
+        if (!elementId) {
+            throw new Error(`O Element ID para a geração do tipo '${type}' não foi fornecido.`);
+        }
+
         console.log(`[LeonardoService] Solicitando imagem do tipo '${type}' com element '${elementId}'...`);
         const MAX_RETRIES = 3;
         for (let i = 0; i < MAX_RETRIES; i++) {
