@@ -119,7 +119,11 @@ The overall composition should feel balanced and fun, with Jackboo clearly in th
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        const backCoverPrompt = `Contracapa de livro de colorir com um ícone sobre "${book.genre}".`;
+        const backCoverPrompt = `✅ Diretrizes da CONTRACAPA:
+	•	A contracapa não deve conter personagens.
+	•	Deve trazer uma nova cena, também relacionada ao mesmo tema da capa, mas diferente da cena da frente (ex: se a capa mostra o Jackboo na praia, a contracapa pode mostrar o mar, a areia com brinquedos, etc.).
+	•	O estilo visual deve ser exatamente o mesmo da capa: 2D vetorial, suave e limpo, com acabamento fosco-acetinado.
+	•	Incluir apenas o nome “Jackboo” bem pequeno no canto inferior direito da contracapa, sem nenhum outro texto ou enfeite.".`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
@@ -151,7 +155,11 @@ The overall composition should feel balanced and fun, with Jackboo clearly in th
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        const backCoverPrompt = `Contracapa de livro de história com um ícone relacionado ao tema "${book.genre}".`;
+        const backCoverPrompt = `✅ Diretrizes da CONTRACAPA:
+	•	A contracapa não deve conter personagens.
+	•	Deve trazer uma nova cena, também relacionada ao mesmo tema da capa, mas diferente da cena da frente (ex: se a capa mostra o Jackboo na praia, a contracapa pode mostrar o mar, a areia com brinquedos, etc.).
+	•	O estilo visual deve ser exatamente o mesmo da capa: 2D vetorial, suave e limpo, com acabamento fosco-acetinado.
+	•	Incluir apenas o nome “Jackboo” bem pequeno no canto inferior direito da contracapa, sem nenhum outro texto ou enfeite.".`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
