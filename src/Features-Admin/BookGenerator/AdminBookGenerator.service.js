@@ -97,7 +97,15 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
-        const coverPrompt = `Capa de livro de colorir com o título "${book.title}", apresentando ${characterNames}. Arte de linha clara, fundo branco.`;
+        const coverPrompt = `A colorful, 2D digital illustration for the cover of a children's book featuring Jackboo, an anthropomorphic character with a large head, round face, expressive eyes, and white fur. Jackboo is standing in a vibrant scene that reflects a theme to be defined separately (e.g., construction site, zoo, space, school, beach, etc.). The background must clearly depict the chosen theme with playful, imaginative, and immersive elements.
+
+Jackboo should be the only character present on the cover, unless a second character (created by the user) is provided — in that case, place both characters with similar proportions and in harmony within the scene. Both characters should appear happy and engaging, interacting naturally with the environment.
+
+The illustration must resemble a professionally illustrated children’s book cover, with soft lighting and a slightly satin finish — the texture should evoke the look of high-quality printed children's books. The style must be vivid, warm, and joyful, with painterly details and rich colors.
+
+The title "Jackboo" must appear at the top center of the image, in colorful, rounded letters that are playful and friendly. The size of the title should be approximately **one-third** the vertical height of the entire image — large enough to be eye-catching, but not overpowering the visual scene.
+
+The overall composition should feel balanced and fun, with Jackboo clearly in the foreground and the theme-based elements integrated into the environment behind him. The final image should simulate a complete, fully designed book cover ready for printing.`;
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
         await bookVariation.update({ coverUrl: localCoverUrl });

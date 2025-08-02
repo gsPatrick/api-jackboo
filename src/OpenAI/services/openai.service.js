@@ -66,38 +66,68 @@ class VisionService {
    * REATORADO: Gera o roteiro de um livro de colorir. O prompt do sistema agora é interno.
    * Não depende mais de um template do banco de dados.
    */
- async generateColoringBookStoryline(characters, theme, pageCount) {
-    try {
-      const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
-      console.log(`[VisionService] Gerando roteiro de colorir. Personagens: ${characters.map(c=>c.name).join(', ')}, Tema: ${theme}`);
+async generateColoringBookStoryline(characters, theme, pageCount) {
+  try {
+    const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
+    console.log(`[VisionService] Gerando roteiro de colorir. Personagens: ${characters.map(c => c.name).join(', ')}, Tema: ${theme}`);
 
-      const systemPrompt = `Você é um roteirista criativo para livros de colorir infantis.
-Regras:
-1.  **Personagens:** A história DEVE incluir os seguintes personagens:
+    const systemPrompt = `Você é um roteirista e ilustrador de livros de colorir infantis da coleção Jackboo.
+
+🖍️ Estilo artístico obrigatório:
+- A imagem deve ser totalmente em preto e branco, sem nenhum tipo de cor, sombra ou efeito de profundidade 3D.
+- Os traços devem simular desenhos feitos à mão com leve imperfeição intencional — as linhas não podem ser geométricas, vetoriais ou retas demais. Elas devem ter um leve aspecto trêmulo, orgânico e artesanal, como se tivessem sido desenhadas com caneta ou lápis por um ilustrador infantil experiente.
+- A espessura das linhas deve ser média e constante (sem detalhes finos), lembrando o uso de um marcador de cerca de 3px.
+- Os contornos devem ser bem definidos, porém suaves, com curvas naturais e proporções amigáveis para crianças.
+- O estilo visual deve transmitir doçura, calma e originalidade, se diferenciando dos livros de colorir comuns.
+
+🧸 Personagens da Turma do Jackboo:
 ${characterDetails}
-2.  **Tema:** O tema da história é "${theme}".
-3.  **Cenas:** Crie exatamente ${pageCount} cenas.
-4.  **Formato de Saída:** Responda com um JSON contendo a chave "pages", que é um array de strings. Cada string é um prompt para uma página de colorir.
-5.  **Conteúdo:** Os prompts devem ser simples, visuais e descrever ações dos personagens. Pelo menos um dos personagens deve aparecer em cada cena.
-Exemplo: {"pages": ["${characters[0].name} e ${characters[1]?.name || 'um amigo'} brincando no parque.", ...]}`.trim();
-      
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Crie a história em ${pageCount} cenas para o tema "${theme}".` }],
-        max_tokens: 350 * pageCount,
-      });
+- Cada cena deve conter no máximo 2 ou 3 personagens.
 
-      const result = JSON.parse(response.choices[0].message.content);
-      if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
-      
-      console.log("[VisionService] Roteiro do livro de colorir recebido.");
-      return result.pages.map(p => this.sanitizePromptForSafety(p));
-    } catch (error) {
-      console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
-      throw new Error(`Falha na geração do roteiro: ${error.message}`);
-    }
+📏 Postura e comportamento dos personagens:
+- Os personagens nunca devem olhar diretamente para o leitor. Eles devem estar de perfil, de costas ou com o olhar voltado para o ambiente e os objetos da cena.
+- Eles devem interagir ativamente com o cenário — exemplo: preparando comida, lavando, organizando, plantando, lendo, desenhando etc.
+- As proporções corporais devem sempre estar coerentes com o ambiente (altura de mesas, distância de objetos, tamanho das mãos etc.).
+
+🌳 Ambientes:
+- O ambiente deve ser o protagonista visual da cena, com vários elementos grandes e pequenos para colorir: objetos, utensílios, natureza, móveis, alimentos, decorações, quadros, almofadas, livros, copos, janelas, chão, teto, paredes etc.
+- O fundo nunca pode estar vazio. Deve conter detalhes como céu com nuvens, árvores, cortinas, plantas ou móveis, dependendo do cenário.
+- A composição deve ter profundidade visual simples, com primeiro e segundo plano preenchidos, sempre mantendo o estilo infantil.
+
+🎯 Objetivo:
+Criar cenas de um livro de colorir com aparência encantadora e artesanal, onde o foco principal é o ambiente, e os personagens da Turma do Jackboo participam de forma contextualizada. O traço deve parecer feito à mão, com imperfeição leve e charme autoral.
+
+📚 Formato de Saída:
+Responda com um JSON contendo a chave "pages", com exatamente ${pageCount} descrições visuais simples e diretas. Exemplo:
+
+{
+  "pages": [
+    "Jackboo e Daisy preparando limonada em uma mesa de varanda com jarra, copos, frutas e toalha decorada.",
+    "Bella e Oliver lavando roupas em uma lavanderia com cestos, baldes, sabão, varal e plantas na janela."
+  ]
+}
+`.trim();
+
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Crie a história em ${pageCount} cenas para o tema "${theme}".` }
+      ],
+      max_tokens: 350 * pageCount,
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
+    
+    console.log("[VisionService] Roteiro do livro de colorir recebido.");
+    return result.pages.map(p => this.sanitizePromptForSafety(p));
+  } catch (error) {
+    console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
+    throw new Error(`Falha na geração do roteiro: ${error.message}`);
   }
+}
 
   /**
    * Gera um tema e título para um livro usando um template de prompt do sistema.
