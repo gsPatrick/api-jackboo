@@ -266,19 +266,23 @@ class LeonardoAdminService {
     }
   }
 
-   async updateElement(localElementId, updateData) {
+ // ✅ CORREÇÃO AQUI: Garante que o basePromptText seja salvo como fornecido
+  async updateElement(localElementId, updateData) {
     const element = await LeonardoElement.findByPk(localElementId);
     if (!element) {
         throw new Error('Elemento não encontrado na base de dados local.');
     }
-    const { basePrompt } = updateData;
     
-    let finalBasePrompt = basePrompt || '';
-    if (!finalBasePrompt.includes('{{GPT_OUTPUT}}')) {
-        finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*\{\{GPT_OUTPUT\}\}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
-    }
-
-    await element.update({ basePrompt: finalBasePrompt });
+    // As propriedades name, description, basePromptText já vêm no updateData.
+    // Não precisamos de lógica complexa para adicionar {{GPT_OUTPUT}} aqui,
+    // pois o frontend já lida com isso na exibição e o serviço de geração
+    // (ContentService/AdminBookGeneratorService) é que fará a substituição.
+    // Basta salvar o valor exato que veio do frontend.
+    await element.update({ 
+        name: updateData.name,
+        description: updateData.description,
+        basePromptText: updateData.basePromptText // Salva o valor exato
+    });
     return element;
   }
 }
