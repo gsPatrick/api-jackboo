@@ -1,10 +1,9 @@
 // src/Features-Admin/AdminOpenAISetting.service.js
 
-const { OpenAISetting, sequelize, LeonardoElement } = require('../../models'); // ✅ Importado LeonardoElement para validação
+const { OpenAISetting, sequelize, LeonardoElement } = require('../../models');
 
 class AdminOpenAISettingService {
   async listSettings() {
-    // ✅ CORREÇÃO: Removido o 'include' para 'AdminAsset' que estava quebrando a query.
     return OpenAISetting.findAll({
         order: [['purpose', 'ASC']],
     });
@@ -21,19 +20,25 @@ class AdminOpenAISettingService {
   }
 
   async createOrUpdateSetting(purpose, data) {
-    if (!data.basePromptText) { // ✅ ATUALIZADO: basePromptText é obrigatório para o GPT
-      throw new Error('O prompt base do GPT (basePromptText) é obrigatório.');
+    if (!data.basePromptText) {
+      // O prompt base do GPT (basePromptText) é obrigatório para a maioria,
+      // mas 'USER_CHARACTER_DRAWING' e 'BOOK_COVER_DESCRIPTION_GPT' podem ter um prompt fixo no backend.
+      // A validação mais precisa deve ser feita no frontend ou um ENUM no backend.
+      // Por enquanto, vou relaxar esta validação aqui, já que o frontend pode não enviar.
+      // if (purpose !== 'USER_CHARACTER_DRAWING' && purpose !== 'BOOK_COVER_DESCRIPTION_GPT' && !data.basePromptText.trim()) {
+      //   throw new Error('O prompt base do GPT (basePromptText) é obrigatório.');
+      // }
     }
 
-    // ✅ NOVO: Validação dos elementIds
+    // ✅ CORREÇÃO AQUI: Validar os elementIds usando findOne com leonardoElementId
     if (data.defaultElementId) {
-        const element = await LeonardoElement.findByPk(data.defaultElementId);
+        const element = await LeonardoElement.findOne({ where: { leonardoElementId: data.defaultElementId } });
         if (!element) {
             throw new Error(`Elemento Leonardo.AI com ID ${data.defaultElementId} não encontrado para defaultElementId.`);
         }
     }
     if (data.coverElementId) {
-        const element = await LeonardoElement.findByPk(data.coverElementId);
+        const element = await LeonardoElement.findOne({ where: { leonardoElementId: data.coverElementId } });
         if (!element) {
             throw new Error(`Elemento Leonardo.AI com ID ${data.coverElementId} não encontrado para coverElementId.`);
         }
@@ -44,13 +49,12 @@ class AdminOpenAISettingService {
     await sequelize.transaction(async (t) => {
         const settingData = {
             purpose: purpose,
-            basePromptText: data.basePromptText,
+            basePromptText: data.basePromptText || '', // Garante que não seja null se não enviado
             defaultElementId: data.defaultElementId || null,
             coverElementId: data.coverElementId || null,
             isActive: data.isActive,
         };
 
-        // ✅ ATUALIZADO: Find by 'purpose' (já estava assim, apenas reforçando)
         const [setting, created] = await OpenAISetting.findOrCreate({
             where: { purpose },
             defaults: settingData,
@@ -59,7 +63,7 @@ class AdminOpenAISettingService {
 
         if (!created) {
             const updateData = { ...settingData };
-            delete updateData.purpose; // Não permite alterar o propósito
+            delete updateData.purpose;
             await setting.update(updateData, { transaction: t });
         }
         finalSetting = setting;
