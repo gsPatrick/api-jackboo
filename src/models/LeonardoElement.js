@@ -23,21 +23,22 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    // ✅ CAMPO ADICIONADO: Para armazenar o prompt base associado a este Element.
+    // ✅ ATUALIZADO: Renomeado para basePromptText para consistência
     basePromptText: {
         type: DataTypes.TEXT,
         allowNull: true,
-        comment: 'Prompt base para geração de imagens usando este Element.'
+        comment: 'Prompt base para geração de imagens usando este Element. Usará {{GPT_OUTPUT}} como placeholder para o texto gerado pelo GPT.'
     },
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
-       basePrompt: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        comment: 'Prompt de base para o Leonardo.AI. Usará {{GPT_OUTPUT}} como placeholder.'
-    },
+    // ✅ REMOVIDO: Campo duplicado ou que não será mais usado diretamente
+    // basePrompt: {
+    //     type: DataTypes.TEXT,
+    //     allowNull: true,
+    //     comment: 'Prompt de base para o Leonardo.AI. Usará {{GPT_OUTPUT}} como placeholder.'
+    // },
     status: {
         type: DataTypes.STRING,
         defaultValue: 'PENDING',

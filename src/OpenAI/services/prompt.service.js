@@ -6,14 +6,14 @@ class PromptService {
   /**
    * Busca uma configuração de IA ativa pelo seu propósito.
    * Lança um erro claro se a configuração não for encontrada.
-   * @param {string} purpose - O propósito exato da configuração (ex: 'USER_CHARACTER_DESCRIPTION').
+   * @param {string} purpose - O propósito exato da configuração (ex: 'USER_CHARACTER_DRAWING', 'BOOK_COVER_DESCRIPTION_GPT').
    * @returns {Promise<OpenAISetting>} O objeto de configuração do Sequelize.
    */
   async getPrompt(purpose) {
-    // ✅ CORREÇÃO: Busca por 'purpose' em vez de 'type'.
+    // ✅ CORREÇÃO: Busca por 'purpose' em vez de 'type'. (Já estava correto, apenas reforçando)
     const setting = await OpenAISetting.findOne({
       where: {
-        purpose,
+        purpose, // Usa 'purpose' agora
         isActive: true,
       },
     });

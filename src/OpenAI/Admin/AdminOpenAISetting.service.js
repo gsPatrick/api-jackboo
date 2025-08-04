@@ -1,6 +1,6 @@
 // src/Features-Admin/AdminOpenAISetting.service.js
 
-const { OpenAISetting, sequelize } = require('../../models'); // Removido AdminAsset
+const { OpenAISetting, sequelize, LeonardoElement } = require('../../models'); // ✅ Importado LeonardoElement para validação
 
 class AdminOpenAISettingService {
   async listSettings() {
@@ -21,8 +21,22 @@ class AdminOpenAISettingService {
   }
 
   async createOrUpdateSetting(purpose, data) {
-    if (!data.basePromptText && !data.defaultElementId) {
-      throw new Error('Pelo menos um prompt ou um Element padrão deve ser fornecido.');
+    if (!data.basePromptText) { // ✅ ATUALIZADO: basePromptText é obrigatório para o GPT
+      throw new Error('O prompt base do GPT (basePromptText) é obrigatório.');
+    }
+
+    // ✅ NOVO: Validação dos elementIds
+    if (data.defaultElementId) {
+        const element = await LeonardoElement.findByPk(data.defaultElementId);
+        if (!element) {
+            throw new Error(`Elemento Leonardo.AI com ID ${data.defaultElementId} não encontrado para defaultElementId.`);
+        }
+    }
+    if (data.coverElementId) {
+        const element = await LeonardoElement.findByPk(data.coverElementId);
+        if (!element) {
+            throw new Error(`Elemento Leonardo.AI com ID ${data.coverElementId} não encontrado para coverElementId.`);
+        }
     }
     
     let finalSetting;
@@ -36,6 +50,7 @@ class AdminOpenAISettingService {
             isActive: data.isActive,
         };
 
+        // ✅ ATUALIZADO: Find by 'purpose' (já estava assim, apenas reforçando)
         const [setting, created] = await OpenAISetting.findOrCreate({
             where: { purpose },
             defaults: settingData,
@@ -44,7 +59,7 @@ class AdminOpenAISettingService {
 
         if (!created) {
             const updateData = { ...settingData };
-            delete updateData.purpose;
+            delete updateData.purpose; // Não permite alterar o propósito
             await setting.update(updateData, { transaction: t });
         }
         finalSetting = setting;

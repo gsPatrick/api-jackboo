@@ -1,11 +1,11 @@
 // src/Features/Content/Content.service.js
 
-const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize, User } = require('../../models'); // Importar User
+const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize, User } = require('../../models'); // Importar User e LeonardoElement
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
 const promptService = require('../../OpenAI/services/prompt.service');
-const popularityService = require('../Popularity/Popularity.service'); // NOVO: Importar PopularityService
+const popularityService = require('../Popularity/Popularity.service');
 const { Op } = require('sequelize');
 
 if (!process.env.APP_URL) {
@@ -15,58 +15,73 @@ if (!process.env.APP_URL) {
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 class ContentService {
 
- async createCharacter(userId, file, name = null) {
+  /**
+   * Cria um novo personagem, gerando sua imagem via IA.
+   * Pode receber prompts e Elementos pré-carregados (para uso admin) ou buscá-los.
+   * @param {number} userId - ID do usuário criador.
+   * @param {object} file - Objeto de arquivo do Multer (desenho original).
+   * @param {string} [name=null] - Nome do personagem.
+   * @param {string} [gptSystemPromptOverride=null] - Prompt do sistema GPT a ser usado (se pre-carregado).
+   * @param {string} [leonardoElementIdOverride=null] - ID do LeonardoElement a ser usado (se pre-carregado).
+   * @param {string} [leonardoBasePromptTextOverride=null] - Prompt base do LeonardoElement a ser usado (se pre-carregado).
+   */
+  async createCharacter(
+    userId,
+    file,
+    name = null,
+    gptSystemPromptOverride = null,
+    leonardoElementIdOverride = null,
+    leonardoBasePromptTextOverride = null
+  ) {
     if (!file) throw new Error('A imagem do desenho é obrigatória.');
     
     const originalDrawingUrl = `/uploads/user-drawings/${file.filename}`;
     const publicImageUrl = `${process.env.APP_URL}${originalDrawingUrl}`;
 
-    const DEFAULT_DESCRIPTION_PROMPT = `
-    
-   Objetivo: Transformar qualquer desenho infantil, desde rabiscos até traços bem definidos, em uma descrição detalhada que preserve a originalidade e tente interpretar e adaptar o conteúdo a um personagem com forma reconhecível.
-    
-    Você recebeu um desenho infantil feito à mão. Sua tarefa é fazer uma descrição minuciosa e interpretativa da imagem enviada, com o objetivo de transformá-la em um personagem estilizado, fofo e visualmente profissional mais adiante.
-	1.	Descreva todos os elementos visíveis: contornos, formas, cores, traços, rabiscos, preenchimentos, texturas e detalhes.
-	2.	Analise possíveis partes do corpo: se forem identificáveis ou sugeridas, cite e descreva separadamente:
-
-	•	Cabeça (forma, tamanho, posição)
-	•	Rosto (olhos, boca, nariz, sobrancelhas)
-	•	Corpo (formato geral, proporção)
-	•	Braços, mãos, dedos (quantos, posições, gestos)
-	•	Pernas, pés (tamanho, movimento, posição)
-	•	Orelhas, chifres, cauda, asas ou elementos extras
-
-	3.	Quando não houver definição clara, interprete os traços e sugira o que poderiam representar com base em formas comuns (ex: “esse círculo pode representar uma cabeça”; “essas linhas podem ser braços ou asas”).
-	4.	Classifique o estilo do personagem, tentando inseri-lo em uma das categorias:
-
-	•	Animal
-	•	Boneco
-	•	Monstro (estilo Monstros S.A., sempre fofo e amigável)
-
-	5.	Se o desenho for puramente abstrato ou impossível de interpretar literalmente, crie uma interpretação livre com base na imaginação infantil, mantendo a proposta de transformar em um personagem com forma reconhecível.
-
-O objetivo é gerar uma descrição completa e empática que permita que esse desenho seja transformado em um personagem encantador.
-    
-    
-    `;
-
     const initialName = name || "Analisando seu desenho...";
     const character = await Character.create({ userId, name: initialName, originalDrawingUrl });
 
     try {
-      const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
-      const defaultElementId = generationSetting.defaultElementId;
-      if (!defaultElementId) {
-        throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
+      let actualGptSystemPrompt;
+      let actualLeonardoElementId;
+      let actualLeonardoBasePromptText;
+
+      // 1. Determina o Prompt do Sistema GPT para descrição da imagem
+      if (gptSystemPromptOverride) {
+        actualGptSystemPrompt = gptSystemPromptOverride;
+      } else {
+        const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
+        actualGptSystemPrompt = generationSetting.basePromptText;
+        // Se não foi sobreposto, pegamos o ID do elemento da mesma configuração
+        // para garantir que a combinação de prompt GPT e Element Leonardo seja consistente.
+        actualLeonardoElementId = generationSetting.defaultElementId; 
       }
 
-      const defaultElement = await LeonardoElement.findByPk(defaultElementId);
-      if (!defaultElement || !defaultElement.basePromptText) {
-          throw new Error(`O Element padrão (ID: ${defaultElementId}) não foi encontrado ou não tem um prompt base definido.`);
+      // 2. Determina os detalhes do LeonardoElement (ID e prompt base)
+      if (leonardoElementIdOverride && leonardoBasePromptTextOverride) {
+        actualLeonardoElementId = leonardoElementIdOverride;
+        actualLeonardoBasePromptText = leonardoBasePromptTextOverride;
+      } else {
+        // Se o ID do elemento ainda não foi definido pela 'generationSetting' acima, busca novamente.
+        if (!actualLeonardoElementId) { 
+            const generationSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
+            actualLeonardoElementId = generationSetting.defaultElementId;
+        }
+
+        if (!actualLeonardoElementId) {
+            throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
+        }
+        const defaultElement = await LeonardoElement.findByPk(actualLeonardoElementId);
+        if (!defaultElement || !defaultElement.basePromptText) {
+            throw new Error(`O Element padrão (ID: ${actualLeonardoElementId}) não foi encontrado ou não tem um prompt base definido.`);
+        }
+        actualLeonardoBasePromptText = defaultElement.basePromptText;
       }
 
-      let detailedDescription = await visionService.describeImage(publicImageUrl, DEFAULT_DESCRIPTION_PROMPT);
-      console.log(visionService.describeImage)
+      // Agora usamos os valores 'actual' para as chamadas de IA
+      let detailedDescription = await visionService.describeImage(publicImageUrl, actualGptSystemPrompt);
+      console.log(`[ContentService] Descrição detalhada da imagem: ${detailedDescription}`);
+
       const refusalKeywords = ["desculpe", "não posso", "i'm sorry", "i cannot", "i can't"];
       const isRefusal = refusalKeywords.some(keyword => detailedDescription.toLowerCase().includes(keyword));
 
@@ -77,15 +92,16 @@ O objetivo é gerar uma descrição completa e empática que permita que esse de
       
       await character.update({ description: detailedDescription });
 
-      const finalPrompt = defaultElement.basePromptText.replace('{{DESCRIPTION}}', detailedDescription);
-      const leonardoElementId = defaultElement.leonardoElementId;
-
+      // Constrói o prompt final para o Leonardo usando o prompt base do Element
+      const finalPrompt = actualLeonardoBasePromptText.replace('{{GPT_OUTPUT}}', detailedDescription);
+      
       if (!name) {
         await character.update({ name: "Gerando sua arte..." });
       }
 
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
-      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, leonardoElementId);
+      // Passa o ID do Elemento Leonardo correto
+      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, actualLeonardoElementId);
       await character.update({ generationJobId: generationId });
 
       let finalImageUrl = null;
@@ -126,19 +142,18 @@ O objetivo é gerar uma descrição completa e empática que permita que esse de
         { 
           model: BookVariation, 
           as: 'variations',
-          attributes: ['id', 'type', 'format', 'price', 'coverUrl', 'pageCount'], // Incluir coverUrl
-          limit: 1, // Pega apenas uma variação (a mais barata ou a principal)
-          order: [['price', 'ASC']] // Exemplo: ordernar por preço para pegar a mais barata
+          attributes: ['id', 'type', 'format', 'price', 'coverUrl', 'pageCount'],
+          limit: 1,
+          order: [['price', 'ASC']]
         }
       ],
       order: [['createdAt', 'DESC']] 
     });
 
-    // Para cada livro, buscar contagem de likes e se o usuário logado curtiu
     const bookIds = books.map(book => book.id);
     const likesCounts = await popularityService.getCountsForMultipleEntities('Book', bookIds);
     let userLikedStatus = {};
-    if (userId) { // Se userId for fornecido (usuário logado)
+    if (userId) {
       const likes = await sequelize.models.Like.findAll({
         where: { userId, likableType: 'Book', likableId: { [Op.in]: bookIds } },
         attributes: ['likableId']
@@ -155,43 +170,63 @@ O objetivo é gerar uma descrição completa e empática que permita que esse de
         ...bookJson,
         totalLikes: likesCounts[book.id] || 0,
         userLiked: userLikedStatus[book.id] || false,
-        coverUrl: bookJson.variations?.[0]?.coverUrl // Adiciona coverUrl ao nível raiz para facilitar
+        coverUrl: bookJson.variations?.[0]?.coverUrl
       };
     });
   }
 
   async generateAndDownloadImage(prompt, elementId, generationType = 'illustration') {
-    let generationId;
-    if (generationType === 'coloring') {
-      generationId = await leonardoService.startColoringPageGeneration(prompt, elementId);
-    } else {
-      generationId = await leonardoService.startStoryIllustrationGeneration(prompt, elementId);
-    }
-    
-    let finalImageUrl = null;
-    const MAX_POLLS = 30;
-    for (let poll = 0; poll < MAX_POLLS; poll++) {
-        await sleep(5000);
-        const result = await leonardoService.checkGenerationStatus(generationId);
-        if (result.isComplete) {
-            finalImageUrl = result.imageUrl;
-            break;
-        }
+    if (!elementId) {
+      throw new Error(`O Element ID para a geração do tipo '${generationType}' não foi fornecido.`);
     }
 
-    if (!finalImageUrl) throw new Error(`A geração da imagem (${generationType}) demorou muito para responder.`);
-    return await downloadAndSaveImage(finalImageUrl, 'book-pages');
+    console.log(`[LeonardoService] Solicitando imagem do tipo '${generationType}' com element '${elementId}'...`);
+    const MAX_RETRIES = 3;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            const generationId = generationType === 'coloring'
+                ? await leonardoService.startColoringPageGeneration(prompt, elementId)
+                : await leonardoService.startStoryIllustrationGeneration(prompt, elementId);
+
+            let finalImageUrl = null;
+            const MAX_POLLS = 30;
+            for (let poll = 0; poll < MAX_POLLS; poll++) {
+                await sleep(5000);
+                const result = await leonardoService.checkGenerationStatus(generationId);
+                if (result.isComplete) {
+                    finalImageUrl = result.imageUrl;
+                    break;
+                }
+            }
+            if (!finalImageUrl) throw new Error('Timeout esperando a imagem do Leonardo.AI.');
+            
+            return await downloadAndSaveImage(finalImageUrl, 'book-pages');
+        } catch (error) {
+            console.error(`Tentativa ${i + 1} de gerar imagem falhou: ${error.message}`);
+            if (i === MAX_RETRIES - 1) throw error;
+        }
+    }
   }
 
   async createColoringBook(userId, { characterIds, theme }) {
     const t = await sequelize.transaction();
     let book;
     try {
-      const setting = await promptService.getPrompt('USER_COLORING_BOOK_GENERATION');
-      const elementId = setting.defaultElementId;
-      const coverElementId = setting.coverElementId;
-      if (!elementId || !coverElementId) {
+      const mioloSetting = await promptService.getPrompt('USER_COLORING_BOOK_STORYLINE');
+      const coverDescriptionSetting = await promptService.getPrompt('BOOK_COVER_DESCRIPTION_GPT');
+
+      const mioloElementId = mioloSetting.defaultElementId;
+      const coverElementId = mioloSetting.coverElementId;
+
+      if (!mioloElementId || !coverElementId) {
         throw new Error('Administrador: Os Elementos de estilo para miolo e capa do livro de colorir não foram configurados.');
+      }
+
+      const mioloLeonardoElement = await LeonardoElement.findByPk(mioloElementId);
+      const capaLeonardoElement = await LeonardoElement.findByPk(coverElementId);
+
+      if (!mioloLeonardoElement || !mioloLeonardoElement.basePromptText || !capaLeonardoElement || !capaLeonardoElement.basePromptText) {
+          throw new Error('Elementos Leonardo.AI (miolo ou capa) não encontrados ou sem prompt base definido. Verifique as configurações de IA.');
       }
 
       const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds }, userId } });
@@ -210,24 +245,31 @@ O objetivo é gerar uma descrição completa e empática que permita que esse de
 
       (async () => {
         try {
-          const coverPrompt = `Capa de livro de colorir com o título "${title}", apresentando ${characterNames}. Arte de linha clara, fundo branco.`;
-          const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
+          const coverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
+          const finalCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', coverGptDescription);
+          const localCoverUrl = await this.generateAndDownloadImage(finalCoverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
           await bookVariation.update({ coverUrl: localCoverUrl });
 
           const pagePrompts = await visionService.generateColoringBookStoryline(characters, theme, innerPageCount);
+          if (!pagePrompts || pagePrompts.length === 0) {
+              throw new Error("A IA (GPT) não retornou nenhum prompt para as páginas de colorir.");
+          }
+
           for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 2;
-            const finalPrompt = `página de livro de colorir, arte de linha, ${pagePrompts[i]}, linhas limpas, fundo branco`;
-            const localPageUrl = await this.generateAndDownloadImage(finalPrompt, elementId, 'coloring');
+            const finalPrompt = mioloLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', pagePrompts[i]);
+            const localPageUrl = await this.generateAndDownloadImage(finalPrompt, mioloElementId, 'coloring');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
           }
 
-          const backCoverPrompt = `Contracapa de livro de colorir. Design simples com um pequeno ícone relacionado ao tema "${theme}".`;
-          const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
+          const backCoverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
+          const finalBackCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', backCoverGptDescription);
+          const localBackCoverUrl = await this.generateAndDownloadImage(finalBackCoverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
 
           await book.update({ status: 'privado' });
+          console.log(`[ContentService] Livro ID ${book.id} ("${book.title}") gerado COM SUCESSO! Status atualizado para 'privado'.`);
         } catch (genError) {
           console.error(`[ContentService] Erro na geração assíncrona do livro ID ${book.id}:`, genError.message);
           await book.update({ status: 'falha_geracao' });
@@ -246,11 +288,21 @@ O objetivo é gerar uma descrição completa e empática que permita que esse de
     const t = await sequelize.transaction();
     let book;
     try {
-      const setting = await promptService.getPrompt('USER_STORY_BOOK_GENERATION');
-      const elementId = setting.defaultElementId;
-      const coverElementId = setting.coverElementId;
-      if (!elementId || !coverElementId) {
+      const mioloSetting = await promptService.getPrompt('USER_STORY_BOOK_STORYLINE');
+      const coverDescriptionSetting = await promptService.getPrompt('BOOK_COVER_DESCRIPTION_GPT');
+
+      const mioloElementId = mioloSetting.defaultElementId;
+      const coverElementId = mioloSetting.coverElementId;
+
+      if (!mioloElementId || !coverElementId) {
         throw new Error('Administrador: Os Elementos de estilo para miolo e capa do livro de história não foram configurados.');
+      }
+
+      const mioloLeonardoElement = await LeonardoElement.findByPk(mioloElementId);
+      const capaLeonardoElement = await LeonardoElement.findByPk(coverElementId);
+
+      if (!mioloLeonardoElement || !mioloLeonardoElement.basePromptText || !capaLeonardoElement || !capaLeonardoElement.basePromptText) {
+          throw new Error('Elementos Leonardo.AI (miolo ou capa) não encontrados ou sem prompt base definido. Verifique as configurações de IA.');
       }
       
       const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds }, userId } });
@@ -260,33 +312,40 @@ O objetivo é gerar uma descrição completa e empática que permita que esse de
       const characterNames = characters.map(c => c.name).join(' e ');
       const sceneCount = 10;
       const totalPages = (sceneCount * 2) + 2;
+      const title = `A História de ${characterNames}: ${theme}`;
 
-      book = await Book.create({ authorId: userId, mainCharacterId: mainCharacter.id, title: theme, status: 'gerando', genre: theme, storyPrompt: { theme, summary } }, { transaction: t });
+      book = await Book.create({ authorId: userId, mainCharacterId: mainCharacter.id, title, status: 'gerando', genre: theme, storyPrompt: { theme, summary } }, { transaction: t });
       await book.setCharacters(characters, { transaction: t });
       const bookVariation = await BookVariation.create({ bookId: book.id, type: 'historia', format: 'digital_pdf', price: 0.00, coverUrl: '/placeholders/generating_cover.png', pageCount: totalPages }, { transaction: t });
       await t.commit();
       
       (async () => {
         try {
-          const coverPrompt = `Capa de livro de história infantil, título "${theme}", apresentando ${characterNames}. Ilustração rica e colorida.`;
-          const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
+          const coverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
+          const finalCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', coverGptDescription);
+          const localCoverUrl = await this.generateAndDownloadImage(finalCoverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
           await bookVariation.update({ coverUrl: localCoverUrl });
 
           const storyPages = await visionService.generateStoryBookStoryline(characters, theme, summary, sceneCount);
+          if (!storyPages || storyPages.length === 0) {
+              throw new Error("A IA (GPT) não retornou nenhuma cena para a história.");
+          }
           let currentPageNumber = 2;
           for (const scene of storyPages) {
-            const finalIllustrationPrompt = `ilustração de livro de história, ${scene.illustration_prompt}`;
-            const localIllustrationUrl = await this.generateAndDownloadImage(finalIllustrationPrompt, elementId, 'illustration');
+            const finalIllustrationPrompt = mioloLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', scene.illustration_prompt);
+            const localIllustrationUrl = await this.generateAndDownloadImage(finalIllustrationPrompt, mioloElementId, 'illustration');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'illustration', imageUrl: localIllustrationUrl, status: 'completed' });
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'text', content: scene.page_text, status: 'completed' });
           }
 
-          const backCoverPrompt = `Contracapa de livro de história. Design elegante com uma imagem de ${mainCharacter.name} acenando adeus.`;
-          const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
+          const backCoverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
+          const finalBackCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', backCoverGptDescription);
+          const localBackCoverUrl = await this.generateAndDownloadImage(finalBackCoverPrompt, coverElementId, 'illustration');
           await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
 
           await book.update({ status: 'privado' });
+          console.log(`[ContentService] Livro ID ${book.id} ("${book.title}") gerado COM SUCESSO! Status atualizado para 'privado'.`);
         } catch (genError) {
           console.error(`[ContentService] Erro na geração assíncrona do livro ID ${book.id}:`, genError.message);
           await book.update({ status: 'falha_geracao' });

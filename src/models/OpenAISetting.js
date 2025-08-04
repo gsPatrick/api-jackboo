@@ -11,35 +11,39 @@ module.exports = (sequelize, DataTypes) => {
 
   OpenAISetting.init({
     purpose: {
-      // ✅ OPÇÃO REMOVIDA
+      // ✅ ATUALIZADO: Valores do ENUM para refletir os propósitos específicos de cada prompt GPT.
       type: DataTypes.ENUM(
-        'USER_CHARACTER_DRAWING',
-        'USER_COLORING_BOOK_GENERATION',
-        'USER_STORY_BOOK_GENERATION'
+        'USER_CHARACTER_DRAWING',         // Para o GPT descrever o desenho do personagem do usuário
+        'USER_COLORING_BOOK_STORYLINE',   // Para o GPT gerar o roteiro do livro de colorir
+        'USER_STORY_BOOK_STORYLINE',      // Para o GPT gerar o roteiro do livro de história
+        'BOOK_COVER_DESCRIPTION_GPT'      // Para o GPT gerar a descrição textual de capas/contracapas
       ),
       allowNull: false,
       unique: true,
-      comment: 'Identificador único do propósito do template.'
+      comment: 'Identificador único do propósito do template. Define a função do prompt do SISTEMA GPT.'
     },
     basePromptText: {
       type: DataTypes.TEXT,
       allowNull: false,
-      comment: 'O texto principal do prompt a ser enviado para a IA.'
+      // ✅ ATUALIZADO: Comentário para clareza
+      comment: 'O texto principal do prompt do SISTEMA GPT para este propósito. Pode conter placeholders como [CHARACTER_DETAILS], [BOOK_TITLE], etc.'
     },
     defaultElementId: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // IDs do Leonardo são strings
       allowNull: true,
-      comment: 'ID do Element (LoRA) principal, usado para o miolo ou geração.'
+      // ✅ ATUALIZADO: Comentário para clareza
+      comment: 'ID do LeonardoElement (LoRA) principal, usado para o miolo do livro ou geração de personagem. Define o ESTILO da imagem.'
     },
     coverElementId: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING, // IDs do Leonardo são strings
       allowNull: true,
-      comment: 'ID do Element (LoRA) da capa, usado para capa e contracapa.'
+      // ✅ ATUALIZADO: Comentário para clareza
+      comment: 'ID do LeonardoElement (LoRA) para capa e contracapa. Define o ESTILO da imagem da capa.'
     },
     isActive: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
-      comment: 'Controla se este template pode ser usado pelo sistema.'
+      comment: 'Controla se esta configuração de IA está ativa e pode ser usada.'
     }
   }, {
     sequelize,
