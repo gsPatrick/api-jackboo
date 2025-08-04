@@ -1,8 +1,8 @@
 // src/Features-Admin/BookGenerator/AdminBookGenerator.service.js
-const { Book, BookVariation, BookContentPage, Character, LeonardoElement, sequelize } = require('../../models'); // ✅ Importar LeonardoElement
+const { Book, BookVariation, BookContentPage, Character, LeonardoElement, sequelize } = require('../../models');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
-const promptService = require('../../OpenAI/services/prompt.service'); // ✅ Importar promptService
+const promptService = require('../../OpenAI/services/prompt.service');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const { Op } = require('sequelize');
 
@@ -19,7 +19,7 @@ class AdminBookGeneratorService {
             
             console.log(`[AdminGenerator] Recebido pedido para gerar livro. Miolo Element ID: ${elementId}, Capa Element ID: ${coverElementId}`);
 
-            if (!characterIds?.length || !theme || !title || !printFormatId || !elementId || !coverElementId) {
+            if (!characterIds?.length || !title || !theme || !printFormatId || !elementId || !coverElementId) {
                 throw new Error("Dados insuficientes. Todos os campos, incluindo os Elements de IA, são obrigatórios.");
             }
             if (bookType === 'story' && !summary) {
@@ -29,22 +29,22 @@ class AdminBookGeneratorService {
                 throw new Error("A contagem de páginas é inválida.");
             }
 
-            // ✅ ATUALIZADO: Verifica se os LeonardoElements existem e têm prompt base
-            const mioloLeonardoElement = await LeonardoElement.findByPk(elementId);
-            const capaLeonardoElement = await LeonardoElement.findByPk(coverElementId);
+            // ✅ CORREÇÃO AQUI: Buscar LeonardoElement por leonardoElementId
+            const mioloLeonardoElement = await LeonardoElement.findOne({ where: { leonardoElementId: elementId } });
+            const capaLeonardoElement = await LeonardoElement.findOne({ where: { leonardoElementId: coverElementId } });
 
-            if (!mioloLeonardoElement || !mioloLeonardoElement.basePromptText) {
-                throw new Error(`O Element de miolo (ID: ${elementId}) não foi encontrado ou não tem um prompt base definido.`);
+            if (!mioloLeonardoElement || mioloLeonardoElement.status !== 'COMPLETE' || !mioloLeonardoElement.basePromptText) {
+                throw new Error(`O Element de miolo (ID: ${elementId}) não foi encontrado, não está COMPLETO ou não tem um prompt base definido.`);
             }
-            if (!capaLeonardoElement || !capaLeonardoElement.basePromptText) {
-                throw new Error(`O Element de capa (ID: ${coverElementId}) não foi encontrado ou não tem um prompt base definido.`);
+            if (!capaLeonardoElement || capaLeonardoElement.status !== 'COMPLETE' || !capaLeonardoElement.basePromptText) {
+                throw new Error(`O Element de capa (ID: ${coverElementId}) não foi encontrado, não está COMPLETO ou não tem um prompt base definido.`);
             }
 
             const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds } } });
             if (characters.length !== characterIds.length) throw new Error('Um ou mais personagens são inválidos.');
             
             const mainCharacter = characters[0];
-            const totalPages = bookType === 'colorir' ? (pageCount + 2) : (pageCount * 2) + 2; // Capa + Miolo + Contracapa (colorir: 10 paginas + 2 capas; historia: 10 cenas = 20 paginas + 2 capas)
+            const totalPages = bookType === 'colorir' ? (pageCount + 2) : (pageCount * 2) + 2;
 
             book = await Book.create({
                 authorId: ADMIN_USER_ID,
@@ -97,10 +97,9 @@ class AdminBookGeneratorService {
 
     async generateColoringBookContent(book, characters, mioloLeonardoElement, capaLeonardoElement, innerPageCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        const totalPages = innerPageCount + 2; // Capa + Miolo + Contracapa
+        const totalPages = innerPageCount + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${innerPageCount} páginas de colorir...`);
-        // ✅ ATUALIZADO: visionService.generateColoringBookStoryline já busca seu prompt do DB
         const pagePrompts = await visionService.generateColoringBookStoryline(characters, book.genre, innerPageCount);
 
         if (!pagePrompts || pagePrompts.length === 0) {
@@ -108,7 +107,6 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
-        // ✅ ATUALIZADO: GPT gera a descrição da capa, que é combinada com o prompt base do LeonardoElement da capa
         const coverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
         const finalCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', coverGptDescription);
         const localCoverUrl = await this.generateAndDownloadImage(finalCoverPrompt, capaLeonardoElement.leonardoElementId, 'illustration');
@@ -118,14 +116,12 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo...`);
         for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 2;
-            // ✅ ATUALIZADO: Combina o prompt do GPT com o prompt base do LeonardoElement do miolo
             const finalPrompt = mioloLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', pagePrompts[i]);
             const localPageUrl = await this.generateAndDownloadImage(finalPrompt, mioloLeonardoElement.leonardoElementId, 'coloring');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        // ✅ ATUALIZADO: Mesma lógica da capa para a contracapa
         const backCoverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
         const finalBackCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', backCoverGptDescription);
         const localBackCoverUrl = await this.generateAndDownloadImage(finalBackCoverPrompt, capaLeonardoElement.leonardoElementId, 'illustration');
@@ -134,10 +130,9 @@ class AdminBookGeneratorService {
 
     async generateStoryBookContent(book, characters, summary, mioloLeonardoElement, capaLeonardoElement, sceneCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        const totalPages = (sceneCount * 2) + 2; // Capa + Cenas (ilustração + texto) + Contracapa
+        const totalPages = (sceneCount * 2) + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${sceneCount} cenas...`);
-        // ✅ ATUALIZADO: visionService.generateStoryBookStoryline já busca seu prompt do DB
         const storyPages = await visionService.generateStoryBookStoryline(characters, book.genre, summary, sceneCount);
 
         if (!storyPages || storyPages.length === 0) {
@@ -145,7 +140,6 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
-        // ✅ ATUALIZADO: GPT gera a descrição da capa, que é combinada com o prompt base do LeonardoElement da capa
         const coverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
         const finalCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', coverGptDescription);
         const localCoverUrl = await this.generateAndDownloadImage(finalCoverPrompt, capaLeonardoElement.leonardoElementId, 'illustration');
@@ -155,7 +149,6 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${storyPages.length} cenas do miolo...`);
         let currentPageNumber = 2;
         for (const scene of storyPages) {
-            // ✅ ATUALIZADO: Combina o prompt do GPT com o prompt base do LeonardoElement do miolo
             const finalIllustrationPrompt = mioloLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', scene.illustration_prompt);
             const illustrationUrl = await this.generateAndDownloadImage(finalIllustrationPrompt, mioloLeonardoElement.leonardoElementId, 'illustration');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'illustration', imageUrl: illustrationUrl, status: 'completed' });
@@ -163,7 +156,6 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        // ✅ ATUALIZADO: Mesma lógica da capa para a contracapa
         const backCoverGptDescription = await visionService.generateCoverDescription(book.title, book.genre, characters);
         const finalBackCoverPrompt = capaLeonardoElement.basePromptText.replace('{{GPT_OUTPUT}}', backCoverGptDescription);
         const localBackCoverUrl = await this.generateAndDownloadImage(finalBackCoverPrompt, capaLeonardoElement.leonardoElementId, 'illustration');
@@ -171,7 +163,6 @@ class AdminBookGeneratorService {
     }
 
     async generateAndDownloadImage(prompt, elementId, type) {
-        // Validação básica do elementId antes de prosseguir
         if (!elementId) {
             throw new Error(`O Element ID para a geração do tipo '${type}' não foi fornecido.`);
         }
