@@ -201,18 +201,19 @@ class LeonardoAdminService {
       throw new Error('Dataset de origem não encontrado em nossa base de dados.');
     }
 
-    const payload = {
+   const payload = {
       name,
       description: description || "",
       datasetId: localDataset.leonardoDatasetId,
-      instance_prompt: instance_prompt || "", // Já corrigido para string vazia
+      instance_prompt: instance_prompt || "",
       
-      lora_focus: 'Style', // Mantido como lora_focus
+      lora_focus: 'Style', // Ou lora_type, dependendo da sua versão de API
       sd_version: 'FLUX_DEV',
       resolution: 1024,
 
       num_train_epochs: 135,
-      learning_rate: 0.0005,
+      // ESTA LINHA DEVE SER AJUSTADA:
+      learning_rate: 0.00003, // Certifique-se de que este valor está EXATAMENTE assim ou menor, como 0.00001, 0.00002
       train_text_encoder: true,
     };
 
