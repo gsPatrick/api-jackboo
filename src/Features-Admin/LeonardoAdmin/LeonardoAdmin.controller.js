@@ -115,11 +115,11 @@ class LeonardoAdminController {
         }
     }
 
-    async updateElement(req, res, next) {
+  async updateElement(req, res, next) {
         try {
             const { id } = req.params;
-            const { basePrompt } = req.body; 
-            const updatedElement = await leonardoAdminService.updateElement(id, { basePrompt });
+            const { name, description, basePromptText } = req.body; // ✅ CORREÇÃO CRÍTICA AQUI: Desestruturar basePromptText
+            const updatedElement = await leonardoAdminService.updateElement(id, { name, description, basePromptText }); // ✅ CORREÇÃO: Passar o objeto completo
             res.status(200).json(updatedElement);
         } catch (error) {
             next(error);
