@@ -2,7 +2,7 @@
 
 const OpenAI = require('openai');
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const promptService = require('./prompt.service'); // ✅ NOVO: Importar o promptService
+const promptService = require('./prompt.service');
 
 class VisionService {
   constructor() {
@@ -32,7 +32,7 @@ class VisionService {
           role: "user",
           content: [{
             type: "text",
-            text: promptTemplate // ✅ AGORA USA O PROMPT TEMPLATE PASSADO (que vem do DB)
+            text: promptTemplate
           }, {
             type: "image_url",
             image_url: { url: imageUrl },
@@ -42,7 +42,7 @@ class VisionService {
         const response = await this.openai.chat.completions.create({
           model: "gpt-4o",
           messages: messages,
-          max_tokens: 350, // Aumentado para descrições mais detalhadas
+          max_tokens: 350,
         });
 
         const description = response.choices[0].message.content.trim();
@@ -70,17 +70,20 @@ class VisionService {
    */
   async generateColoringBookStoryline(characters, theme, pageCount) {
     try {
-      // ✅ PEGA O PROMPT DO SISTEMA DO BANCO DE DADOS
       const setting = await promptService.getPrompt('USER_COLORING_BOOK_STORYLINE');
       let systemPrompt = setting.basePromptText;
 
       const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
       console.log(`[VisionService] Gerando roteiro de colorir. Personagens: ${characters.map(c => c.name).join(', ')}, Tema: ${theme}`);
 
-      // ✅ SUBSTITUIÇÃO DE PLACEHOLDERS NO PROMPT DO SISTEMA
+      // Substituição de placeholders no prompt do sistema
       systemPrompt = systemPrompt
         .replace(/\[CHARACTER_DETAILS\]/g, characterDetails)
         .replace(/\[PAGE_COUNT\]/g, pageCount.toString());
+
+      // ✅ HARDCODED: Adiciona a instrução JSON ao final do prompt do sistema
+      // Isso garante que a API da OpenAI retorne um JSON válido.
+      systemPrompt += `\n\nSua resposta DEVE ser um objeto JSON com a chave "pages", contendo um array de strings, com exatamente ${pageCount} descrições visuais. Exemplo: {"pages": ["Descrição 1", "Descrição 2"]}`;
 
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
@@ -105,7 +108,7 @@ class VisionService {
 
   /**
    * Gera um tema e título para um livro usando um template de prompt do sistema.
-   * ✅ SEM ALTERAÇÃO: Este método pode continuar com um prompt hardcoded ou ser movido para o DB se necessário.
+   * SEM ALTERAÇÃO: Este método pode continuar com um prompt hardcoded ou ser movido para o DB se necessário.
    */
   async generateBookThemeAndTitle(characterDescription) {
     try {
@@ -144,25 +147,28 @@ class VisionService {
   }
 
   /**
-   * ✅ ATUALIZADO: Gera o roteiro de um livro de HISTÓRIA ILUSTRADO. 
+   * ATUALIZADO: Gera o roteiro de um livro de HISTÓRIA ILUSTRADO. 
    * O prompt do sistema agora é dinâmico, vindo da configuração OpenAISetting 'USER_STORY_BOOK_STORYLINE'.
    */
   async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
     try {
-      // ✅ PEGA O PROMPT DO SISTEMA DO BANCO DE DADOS
       const setting = await promptService.getPrompt('USER_STORY_BOOK_STORYLINE');
       let systemPrompt = setting.basePromptText;
       
       const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
       console.log(`[VisionService] Gerando roteiro de história. Personagens: ${characters.map(c=>c.name).join(', ')}`);
 
-      // ✅ SUBSTITUIÇÃO DE PLACEHOLDERS NO PROMPT DO SISTEMA
+      // Substituição de placeholders no prompt do sistema
       systemPrompt = systemPrompt
         .replace(/\[CHARACTER_DETAILS\]/g, characterDetails)
         .replace(/\[THEME\]/g, theme)
         .replace(/\[SUMMARY\]/g, summary)
         .replace(/\[SCENE_COUNT\]/g, sceneCount.toString());
       
+      // ✅ HARDCODED: Adiciona a instrução JSON ao final do prompt do sistema
+      // Isso garante que a API da OpenAI retorne um JSON válido.
+      systemPrompt += `\n\nSua resposta DEVE ser um objeto JSON com a chave "story_pages", um array de objetos. Cada objeto deve ter duas chaves: "page_text" (o texto da página) e "illustration_prompt" (o prompt para a imagem).`;
+
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
@@ -182,19 +188,18 @@ class VisionService {
   }
 
   /**
-   * ✅ NOVO MÉTODO: Gera uma descrição textual para a capa/contracapa do livro.
+   * NOVO MÉTODO: Gera uma descrição textual para a capa/contracapa do livro.
    * O prompt do sistema agora é dinâmico, vindo da configuração OpenAISetting 'BOOK_COVER_DESCRIPTION_GPT'.
    */
   async generateCoverDescription(bookTitle, bookGenre, characters) {
     try {
-      // ✅ PEGA O PROMPT DO SISTEMA DO BANCO DE DADOS
       const setting = await promptService.getPrompt('BOOK_COVER_DESCRIPTION_GPT');
       let systemPrompt = setting.basePromptText;
 
       const characterNames = characters.map(c => c.name).join(' e ');
       console.log(`[VisionService] Gerando descrição para capa. Título: "${bookTitle}", Gênero: "${bookGenre}", Personagens: ${characterNames}`);
 
-      // ✅ SUBSTITUIÇÃO DE PLACEHOLDERS NO PROMPT DO SISTEMA
+      // Substituição de placeholders no prompt do sistema
       systemPrompt = systemPrompt
         .replace(/\[BOOK_TITLE\]/g, bookTitle || '')
         .replace(/\[BOOK_GENRE\]/g, bookGenre || '')
@@ -206,7 +211,7 @@ class VisionService {
           { role: "system", content: systemPrompt },
           { role: "user", content: `Crie uma descrição detalhada e cativante para a capa do livro "${bookTitle}".` }
         ],
-        max_tokens: 150, // Suficiente para uma descrição de capa
+        max_tokens: 150,
       });
 
       const description = response.choices[0].message.content.trim();
