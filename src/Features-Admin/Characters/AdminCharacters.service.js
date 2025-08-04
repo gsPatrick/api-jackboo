@@ -1,7 +1,7 @@
 // src/Features-Admin/Characters/AdminCharacter.service.js
-const { Character, LeonardoElement } = require('../../models'); // ✅ Importar LeonardoElement
+const { Character, LeonardoElement } = require('../../models');
 const contentService = require('../../Features/Content/Content.service');
-const promptService = require('../../OpenAI/services/prompt.service'); // ✅ Importar promptService
+const promptService = require('../../OpenAI/services/prompt.service');
 
 const fs = require('fs/promises');
 const path = require('path');
@@ -24,19 +24,12 @@ class AdminCharacterService {
             throw new Error("Imagem, nome e descrição são obrigatórios para o upload direto.");
         }
         
-        // 1. Define o diretório de destino final para as imagens geradas.
         const targetDir = path.join(process.cwd(), 'uploads', 'ai-generated');
-
-        // 2. Define o caminho completo do novo local do arquivo.
         const newPath = path.join(targetDir, file.filename);
-
-        // 3. Define a URL que será acessível pela web e salva no banco de dados.
         const finalImageUrl = `/uploads/ai-generated/${file.filename}`;
 
         try {
-            // Garante que o diretório de destino exista, criando-o se necessário.
             await fs.mkdir(targetDir, { recursive: true });
-            // Move o arquivo da sua localização original (em admin-assets) para o novo local.
             await fs.rename(file.path, newPath);
         } catch (error) {
             console.error("Erro ao mover o arquivo de personagem de upload direto:", error);
@@ -53,22 +46,22 @@ class AdminCharacterService {
     }
 
     /**
-     * ✅ ATUALIZADO: A função agora aceita o nome e passa o prompt do sistema do DB para o serviço de conteúdo.
+     * ATUALIZADO: Corrige a busca do LeonardoElement para usar leonardoElementId.
      */
     async createCharacterWithIA(file, name) {
         if (!file) throw new Error('A imagem do desenho é obrigatória.');
         if (!name) throw new Error('O nome do personagem é obrigatório.');
         
-        // ✅ ATUALIZADO: Busca a configuração de IA para a descrição do personagem
         const characterDescriptionSetting = await promptService.getPrompt('USER_CHARACTER_DRAWING');
-        const defaultElementId = characterDescriptionSetting.defaultElementId;
+        const defaultElementId = characterDescriptionSetting.defaultElementId; // Este é o leonardoElementId (string)
 
         if (!defaultElementId) {
             throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
         }
 
-        // ✅ ATUALIZADO: Busca o LeonardoElement para obter seu prompt base
-        const defaultElement = await LeonardoElement.findByPk(defaultElementId);
+        // ✅ CORREÇÃO AQUI: Usar findOne com where para buscar pelo leonardoElementId
+        const defaultElement = await LeonardoElement.findOne({ where: { leonardoElementId: defaultElementId } });
+        
         if (!defaultElement || !defaultElement.basePromptText) {
             throw new Error(`O Element padrão (ID: ${defaultElementId}) não foi encontrado ou não tem um prompt base definido.`);
         }
@@ -80,7 +73,7 @@ class AdminCharacterService {
             file, 
             name, 
             characterDescriptionSetting.basePromptText, // Prompt do sistema GPT para descrição
-            defaultElement.leonardoElementId,           // ID do Element Leonardo
+            defaultElement.leonardoElementId,           // ID do Element Leonardo (string)
             defaultElement.basePromptText               // Prompt base do Element Leonardo
         );
     }
