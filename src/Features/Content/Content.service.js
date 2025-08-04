@@ -1,6 +1,6 @@
 // src/Features/Content/Content.service.js
 
-const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize, User } = require('../../models'); // Importar User e LeonardoElement
+const { Character, Book, BookVariation, BookContentPage, LeonardoElement, sequelize, User } = require('../../models');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
@@ -71,9 +71,12 @@ class ContentService {
         if (!actualLeonardoElementId) {
             throw new Error('Administrador: Nenhum Element padrão foi definido para "Geração de Personagem (Usuário)".');
         }
-        const defaultElement = await LeonardoElement.findByPk(actualLeonardoElementId);
-        if (!defaultElement || !defaultElement.basePromptText) {
-            throw new Error(`O Element padrão (ID: ${actualLeonardoElementId}) não foi encontrado ou não tem um prompt base definido.`);
+        // ✅ CORREÇÃO AQUI: Usar findOne com where para buscar pelo leonardoElementId
+        const defaultElement = await LeonardoElement.findOne({ where: { leonardoElementId: actualLeonardoElementId } });
+        
+        // A linha que está falhando é esta (linha 76 no código de referência):
+        if (!defaultElement || defaultElement.status !== 'COMPLETE' || !defaultElement.basePromptText) {
+            throw new Error(`O Element padrão (ID: ${actualLeonardoElementId}) não foi encontrado, não está COMPLETO ou não tem um prompt base definido.`);
         }
         actualLeonardoBasePromptText = defaultElement.basePromptText;
       }
@@ -183,29 +186,29 @@ class ContentService {
     console.log(`[LeonardoService] Solicitando imagem do tipo '${generationType}' com element '${elementId}'...`);
     const MAX_RETRIES = 3;
     for (let i = 0; i < MAX_RETRIES; i++) {
-        try {
-            const generationId = generationType === 'coloring'
-                ? await leonardoService.startColoringPageGeneration(prompt, elementId)
-                : await leonardoService.startStoryIllustrationGeneration(prompt, elementId);
+            try {
+                const generationId = generationType === 'coloring'
+                    ? await leonardoService.startColoringPageGeneration(prompt, elementId)
+                    : await leonardoService.startStoryIllustrationGeneration(prompt, elementId);
 
-            let finalImageUrl = null;
-            const MAX_POLLS = 30;
-            for (let poll = 0; poll < MAX_POLLS; poll++) {
-                await sleep(5000);
-                const result = await leonardoService.checkGenerationStatus(generationId);
-                if (result.isComplete) {
-                    finalImageUrl = result.imageUrl;
-                    break;
+                let finalImageUrl = null;
+                const MAX_POLLS = 30;
+                for (let poll = 0; poll < MAX_POLLS; poll++) {
+                    await sleep(5000);
+                    const result = await leonardoService.checkGenerationStatus(generationId);
+                    if (result.isComplete) {
+                        finalImageUrl = result.imageUrl;
+                        break;
+                    }
                 }
+                if (!finalImageUrl) throw new Error('Timeout esperando a imagem do Leonardo.AI.');
+                
+                return await downloadAndSaveImage(finalImageUrl, 'book-pages');
+            } catch (error) {
+                console.error(`Tentativa ${i + 1} de gerar imagem falhou: ${error.message}`);
+                if (i === MAX_RETRIES - 1) throw error;
             }
-            if (!finalImageUrl) throw new Error('Timeout esperando a imagem do Leonardo.AI.');
-            
-            return await downloadAndSaveImage(finalImageUrl, 'book-pages');
-        } catch (error) {
-            console.error(`Tentativa ${i + 1} de gerar imagem falhou: ${error.message}`);
-            if (i === MAX_RETRIES - 1) throw error;
         }
-    }
   }
 
   async createColoringBook(userId, { characterIds, theme }) {
@@ -222,11 +225,12 @@ class ContentService {
         throw new Error('Administrador: Os Elementos de estilo para miolo e capa do livro de colorir não foram configurados.');
       }
 
-      const mioloLeonardoElement = await LeonardoElement.findByPk(mioloElementId);
-      const capaLeonardoElement = await LeonardoElement.findByPk(coverElementId);
+      // ✅ CORREÇÃO AQUI: Buscar LeonardoElement por leonardoElementId
+      const mioloLeonardoElement = await LeonardoElement.findOne({ where: { leonardoElementId: mioloElementId } });
+      const capaLeonardoElement = await LeonardoElement.findOne({ where: { leonardoElementId: coverElementId } });
 
-      if (!mioloLeonardoElement || !mioloLeonardoElement.basePromptText || !capaLeonardoElement || !capaLeonardoElement.basePromptText) {
-          throw new Error('Elementos Leonardo.AI (miolo ou capa) não encontrados ou sem prompt base definido. Verifique as configurações de IA.');
+      if (!mioloLeonardoElement || mioloLeonardoElement.status !== 'COMPLETE' || !mioloLeonardoElement.basePromptText || !capaLeonardoElement || capaLeonardoElement.status !== 'COMPLETE' || !capaLeonardoElement.basePromptText) {
+          throw new Error('Elementos Leonardo.AI (miolo ou capa) não encontrados, não estão COMPLETOS ou sem prompt base definido. Verifique as configurações de IA.');
       }
 
       const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds }, userId } });
@@ -298,11 +302,12 @@ class ContentService {
         throw new Error('Administrador: Os Elementos de estilo para miolo e capa do livro de história não foram configurados.');
       }
 
-      const mioloLeonardoElement = await LeonardoElement.findByPk(mioloElementId);
-      const capaLeonardoElement = await LeonardoElement.findByPk(coverElementId);
+      // ✅ CORREÇÃO AQUI: Buscar LeonardoElement por leonardoElementId
+      const mioloLeonardoElement = await LeonardoElement.findOne({ where: { leonardoElementId: mioloElementId } });
+      const capaLeonardoElement = await LeonardoElement.findOne({ where: { leonardoElementId: coverElementId } });
 
-      if (!mioloLeonardoElement || !mioloLeonardoElement.basePromptText || !capaLeonardoElement || !capaLeonardoElement.basePromptText) {
-          throw new Error('Elementos Leonardo.AI (miolo ou capa) não encontrados ou sem prompt base definido. Verifique as configurações de IA.');
+      if (!mioloLeonardoElement || mioloLeonardoElement.status !== 'COMPLETE' || !mioloLeonardoElement.basePromptText || !capaLeonardoElement || capaLeonardoElement.status !== 'COMPLETE' || !capaLeonardoElement.basePromptText) {
+          throw new Error('Elementos Leonardo.AI (miolo ou capa) não encontrados, não estão COMPLETOS ou sem prompt base definido. Verifique as configurações de IA.');
       }
       
       const characters = await Character.findAll({ where: { id: { [Op.in]: characterIds }, userId } });
