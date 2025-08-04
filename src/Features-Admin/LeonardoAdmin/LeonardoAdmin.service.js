@@ -3,7 +3,7 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const { LeonardoDataset, LeonardoElement, DatasetImage } = require('../../models');
+const { LeonardoDataset, LeonardoElement, DatasetImage } = require('../../models'); // Adicionado DatasetImage
 
 class LeonardoAdminService {
   /**
@@ -115,6 +115,7 @@ class LeonardoAdminService {
     }
   }
 
+  // --- NOVA FUNÇÃO PARA DELETAR IMAGEM ---
   async deleteImageFromDataset(localDatasetId, leonardoImageId) {
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
@@ -138,6 +139,7 @@ class LeonardoAdminService {
         throw new Error(`Falha ao deletar a imagem: ${apiError.error || JSON.stringify(apiError)}`);
     }
   }
+  // --- FIM DA NOVA FUNÇÃO ---
 
 
   // ======================================================
@@ -201,13 +203,11 @@ class LeonardoAdminService {
 
     const payload = {
       name,
-      // --- INÍCIO DA MODIFICAÇÃO CHAVE AQUI ---
-      description: description || "", // Garante que seja string vazia, não null
+      description: description || "",
       datasetId: localDataset.leonardoDatasetId,
-      instance_prompt: instance_prompt || "", // Garante que seja string vazia, não null (MESMO SE O FRONT JÁ ENVIA)
-      // --- FIM DA MODIFICAÇÃO CHAVE ---
+      instance_prompt: instance_prompt || "", // Já corrigido para string vazia
       
-      lora_focus: 'Style', // Mantido como lora_focus, conforme seu Código 2
+      lora_focus: 'Style', // Mantido como lora_focus
       sd_version: 'FLUX_DEV',
       resolution: 1024,
 
