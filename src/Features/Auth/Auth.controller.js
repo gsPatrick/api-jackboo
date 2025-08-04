@@ -2,9 +2,15 @@ const authService = require('./Auth.services');
 
 class AuthController {
   // --- Controllers de Registro e Login ---
-  async register(req, res) {
+ async register(req, res) {
     try {
-      const user = await authService.registerUser(req.body);
+      // MODIFICAÇÃO AQUI:
+      // Pega a 'role' do corpo da requisição.
+      // Se 'role' não for fornecida, 'authService.registerUser' usará seu default 'user'.
+      // Se 'role' for fornecida (ex: {..., "role": "admin"}), ela será usada.
+      const user = await authService.registerUser(req.body, req.body.role);
+      // FIM DA MODIFICAÇÃO
+
       res.status(201).json(user);
     } catch (error) {
       res.status(400).json({ message: error.message });
