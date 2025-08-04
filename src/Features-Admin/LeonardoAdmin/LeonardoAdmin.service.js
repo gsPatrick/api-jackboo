@@ -211,7 +211,7 @@ class LeonardoAdminService {
       sd_version: 'FLUX_DEV',
       resolution: 1024,
 
-      num_train_epochs: 135,
+      num_train_epochs: 120,
       // ESTA LINHA DEVE SER AJUSTADA:
       learning_rate: 0.00003, // Certifique-se de que este valor está EXATAMENTE assim ou menor, como 0.00001, 0.00002
       train_text_encoder: true,
