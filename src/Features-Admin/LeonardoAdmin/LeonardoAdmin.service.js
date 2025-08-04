@@ -3,7 +3,7 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const { LeonardoDataset, LeonardoElement, DatasetImage } = require('../../models');
+const { LeonardoDataset, LeonardoElement, DatasetImage } = require('../../models'); // Adicionado DatasetImage
 
 class LeonardoAdminService {
   /**
@@ -13,15 +13,14 @@ class LeonardoAdminService {
     this.token = process.env.LEONARDO_API_KEY;
     this.apiUrl = 'https://cloud.leonardo.ai/api/rest/v1';
     
-    // ✅ ATUALIZADO: Removido o userId hardcoded, pois não é mais necessário para listar elements (a API mudou).
-    // this.userId = 'bd50f328-6afd-4493-8b75-9bfe21beab8d'; 
+    this.userId = 'bd50f328-6afd-4493-8b75-9bfe21beab8d'; 
 
     if (!this.token) {
       throw new Error('LEONARDO_API_KEY deve estar configurada no seu arquivo .env.');
     }
-    // if (this.userId === 'SEU_ID_DE_USUARIO_LEONARDO_AQUI' || !this.userId) {
-    //     console.warn('[LeonardoAdminService] AVISO: O ID de usuário do Leonardo não foi configurado.');
-    // }
+    if (this.userId === 'SEU_ID_DE_USUARIO_LEONARDO_AQUI' || !this.userId) {
+        console.warn('[LeonardoAdminService] AVISO: O ID de usuário do Leonardo não foi configurado.');
+    }
 
     this.headers = {
       'Authorization': `Bearer ${this.token}`,
@@ -116,6 +115,7 @@ class LeonardoAdminService {
     }
   }
 
+  // --- NOVA FUNÇÃO PARA DELETAR IMAGEM ---
   async deleteImageFromDataset(localDatasetId, leonardoImageId) {
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
@@ -139,18 +139,17 @@ class LeonardoAdminService {
         throw new Error(`Falha ao deletar a imagem: ${apiError.error || JSON.stringify(apiError)}`);
     }
   }
+  // --- FIM DA NOVA FUNÇÃO ---
 
 
   // ======================================================
   // MÉTODOS PARA GERENCIAMENTO DE ELEMENTS (LoRAs)
   // ======================================================
 
-  // ✅ ATUALIZADO: Método para listar todos os elementos (agora não precisa de userId)
-  async listAllElements() {
+ async listAllElements() {
     try {
-      // A API do Leonardo agora tem um endpoint /elements que lista todos os seus elementos
-      const response = await axios.get(`${this.apiUrl}/elements`, { headers: this.headers });
-      const leonardoElements = response.data?.user_loras || []; // A resposta pode variar, ajuste conforme a doc da API
+      const response = await axios.get(`${this.apiUrl}/elements/user/${this.userId}`, { headers: this.headers });
+      const leonardoElements = response.data?.user_loras || [];
 
       for (const element of leonardoElements) {
         const sourceLeonardoDatasetId = element.datasetId;
@@ -180,7 +179,7 @@ class LeonardoAdminService {
             description: element.description,
             status: element.status,
             sourceDatasetId: localDataset ? localDataset.id : null,
-            basePromptText: '{{GPT_OUTPUT}}' // ✅ ATUALIZADO: Usar basePromptText para o prompt do Element
+            basePrompt: '{{GPT_OUTPUT}}'
           });
         }
       }
@@ -190,13 +189,13 @@ class LeonardoAdminService {
         order: [['createdAt', 'DESC']],
       });
     } catch (error) {
-      console.error('Erro ao listar elements:', error.response ? error.response.data : error.message);
+      console.error('Erro ao listar elements:', error.message);
       throw new Error('Falha ao buscar a lista de Elements no Leonardo.AI.');
     }
   }
 
   async trainNewElement(trainingData) {
-    const { name, localDatasetId, description, instance_prompt, basePromptText } = trainingData; // ✅ Renomeado basePrompt para basePromptText
+    const { name, localDatasetId, description, instance_prompt, basePrompt } = trainingData;
     const localDataset = await LeonardoDataset.findByPk(localDatasetId);
     if (!localDataset) {
       throw new Error('Dataset de origem não encontrado em nossa base de dados.');
@@ -208,7 +207,7 @@ class LeonardoAdminService {
       datasetId: localDataset.leonardoDatasetId,
       instance_prompt: instance_prompt || null,
       
-      lora_focus: 'Style', // ✅ Ajustado para lora_type (ex: Style, Character, Object)
+      lora_focus: 'Style',
       sd_version: 'FLUX_DEV',
       resolution: 1024,
 
@@ -232,7 +231,7 @@ class LeonardoAdminService {
         description: description,
         status: 'PENDING',
         sourceDatasetId: localDataset.id,
-        basePromptText: basePromptText ? `${basePromptText}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}', // ✅ Usar basePromptText
+        basePrompt: basePrompt ? `${basePrompt}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}',
       });
 
       return newElement;
@@ -271,14 +270,14 @@ class LeonardoAdminService {
     if (!element) {
         throw new Error('Elemento não encontrado na base de dados local.');
     }
-    const { basePromptText } = updateData; // ✅ Renomeado basePrompt para basePromptText
+    const { basePrompt } = updateData;
     
-    let finalBasePromptText = basePromptText || ''; // ✅ Usar finalBasePromptText
-    if (!finalBasePromptText.includes('{{GPT_OUTPUT}}')) {
-        finalBasePromptText = finalBasePromptText ? `${finalBasePromptText.replace(/,?\s*\{\{GPT_OUTPUT\}\}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
+    let finalBasePrompt = basePrompt || '';
+    if (!finalBasePrompt.includes('{{GPT_OUTPUT}}')) {
+        finalBasePrompt = finalBasePrompt ? `${finalBasePrompt.replace(/,?\s*\{\{GPT_OUTPUT\}\}\s*/g, '')}, {{GPT_OUTPUT}}` : '{{GPT_OUTPUT}}';
     }
 
-    await element.update({ basePromptText: finalBasePromptText }); // ✅ Usar basePromptText
+    await element.update({ basePrompt: finalBasePrompt });
     return element;
   }
 }
