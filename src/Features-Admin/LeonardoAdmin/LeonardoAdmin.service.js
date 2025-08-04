@@ -208,7 +208,7 @@ class LeonardoAdminService {
       datasetId: localDataset.leonardoDatasetId,
       instance_prompt: instance_prompt || null,
       
-      lora_type: 'Style', // ✅ Ajustado para lora_type (ex: Style, Character, Object)
+      lora_focus: 'Style', // ✅ Ajustado para lora_type (ex: Style, Character, Object)
       sd_version: 'FLUX_DEV',
       resolution: 1024,
 
