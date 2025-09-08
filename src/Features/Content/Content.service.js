@@ -199,7 +199,7 @@ class ContentService {
 
   async createColoringBook(userId, { characterIds, theme }) {
     const MIOLO_ELEMENT_ID = "15371556"; // SUBSTITUA PELO SEU ID REAL
-    const CAPA_ELEMENT_ID = "15371536";   // SUBSTITUA PELO SEU ID REAL
+    const CAPA_ELEMENT_ID = "133022";   // SUBSTITUA PELO SEU ID REAL
     if (MIOLO_ELEMENT_ID.startsWith("SEU_ID") || CAPA_ELEMENT_ID.startsWith("SEU_ID")) {
         throw new Error("ADMIN: Configure os IDs dos Elementos Leonardo para geração de livros de usuário.");
     }
@@ -215,8 +215,8 @@ class ContentService {
   }
 
   async createStoryBook(userId, { characterIds, theme, summary }) {
-    const MIOLO_ELEMENT_ID = "15371536"; // SUBSTITUA PELO SEU ID REAL
-    const CAPA_ELEMENT_ID = "15371536";   // SUBSTITUA PELO SEU ID REAL
+    const MIOLO_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
+    const CAPA_ELEMENT_ID = "133022";   // SUBSTITUA PELO SEU ID REAL
     if (MIOLO_ELEMENT_ID.startsWith("SEU_ID") || CAPA_ELEMENT_ID.startsWith("SEU_ID")) {
         throw new Error("ADMIN: Configure os IDs dos Elementos Leonardo para geração de livros de usuário.");
     }
