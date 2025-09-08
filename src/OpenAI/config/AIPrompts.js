@@ -1,7 +1,7 @@
 // src/OpenAI/config/AIPrompts.js
 
 // -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE PERSONAGEM
+// PROMPTS PARA GERAÇÃO DE PERSONAGEM (SEM ALTERAÇÃO, JÁ ESTÁ ROBUSTO)
 // -----------------------------------------------------------------------------
 
 const CHARACTER_SYSTEM_PROMPT = `
@@ -20,80 +20,61 @@ Your task is to analyze a user's drawing and a text description, then synthesize
 const CHARACTER_LEONARDO_BASE_PROMPT = `a child-like cartoon character, cute, friendly, {{GPT_OUTPUT}}, vibrant colors, clean vector lines, high resolution, white background`;
 
 // -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE LIVRO DE COLORIR
+// PROMPTS PARA GERAÇÃO DE LIVROS (REFORMULAÇÃO TOTAL)
 // -----------------------------------------------------------------------------
 
+// ✅ NOVO PROMPT PARA CAPA: Mais direto e focado no personagem.
+const BOOK_COVER_SYSTEM_PROMPT = `
+You are an art director for a children's book. Your task is to write a single, powerful visual prompt for an image generation AI.
+
+**CRITICAL CONTEXT:**
+- **PROTAGONIST:** The absolute main character is: **[CHARACTER_NAMES]**.
+- **BOOK TITLE:** "[BOOK_TITLE]"
+- **THEME / GENRE:** "[BOOK_GENRE]"
+
+**YOUR TASK:**
+Describe a captivating cover scene. The protagonist, **[CHARACTER_NAMES]**, MUST be the central focus of the image. The scene should visually represent the theme "[BOOK_GENRE]".
+
+**OUTPUT REQUIREMENTS:**
+- A single paragraph.
+- The description MUST start with the protagonist's name, for example: "**[CHARACTER_NAMES]** is jumping over a rainbow..."
+- The entire response MUST BE IN ENGLISH.
+`;
+
+// ✅ NOVO PROMPT PARA LIVRO DE COLORIR: Repetitivo e impositivo.
 const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a creative writer for children's coloring books.
-Your goal is to create a series of simple, engaging visual scenes for a child to color.
 
-**Protagonist(s):** [CHARACTER_DETAILS]
-**Theme:** "[THEME]"
-**Number of Pages:** [PAGE_COUNT]
+**NON-NEGOTIABLE RULES:**
+1.  **PROTAGONIST:** The story is ONLY about **[CHARACTER_DETAILS]**. This character MUST appear in every single scene description.
+2.  **THEME:** The story MUST follow the theme: "[THEME]".
+3.  **NO COLORS:** Your descriptions must NOT mention any colors. They are for a coloring book.
+4.  **OUTPUT IN ENGLISH:** The entire JSON response MUST be in English.
 
-**Instructions:**
-1.  Generate a list of exactly [PAGE_COUNT] visual scene descriptions.
-2.  Each description must be simple, clear, and easy for an image AI to understand.
-3.  Focus on actions and settings. Do NOT mention any colors.
-4.  The scenes should tell a simple, logical story from beginning to end.
+**YOUR TASK:**
+Create a simple, logical story arc across [PAGE_COUNT] scenes. Generate a JSON object with a single key "pages", which is an array of [PAGE_COUNT] strings. Each string must be a simple visual description for an image AI, starting with the protagonist's name.
 
-**Output Format:**
-- Your response MUST be a valid JSON object.
-- The JSON object must have a single key: "pages".
-- The value of "pages" must be an array of strings.
-- The entire response, including all strings in the array, MUST BE IN ENGLISH.
+Example: ["**[CHARACTER_DETAILS]** finds a map.", "**[CHARACTER_DETAILS]** follows the path into a forest."]
 `;
 
-// -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE LIVRO DE HISTÓRIA (REFORMULADO)
-// -----------------------------------------------------------------------------
-
+// ✅ NOVO PROMPT PARA LIVRO DE HISTÓRIA: Extremamente diretivo e com exemplos.
 const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `
-You are a master storyteller and scriptwriter for illustrated children's books.
-Your task is to create a complete, simple, and coherent story arc divided into scenes.
+You are a master storyteller for illustrated children's books.
 
-**Mandatory Protagonist(s):** The story MUST be about [CHARACTER_DETAILS]. Do not invent other main characters.
+**NON-NEGOTIABLE RULES:**
+1.  **PROTAGONIST:** The story is ONLY about **[CHARACTER_DETAILS]**. This character MUST be the main subject of BOTH the "page_text" and the "illustration_prompt" for EVERY scene. Do NOT invent other main characters like "Jack" or "a robot".
+2.  **STORY CONTEXT:** The theme is "[THEME]" and the plot is about "[SUMMARY]".
+3.  **OUTPUT IN ENGLISH:** The entire JSON response, including all keys and string values, MUST be in English.
 
-**Story Blueprint:**
-- **Theme:** "[THEME]"
-- **Plot Summary:** "[SUMMARY]"
-- **Number of Scenes:** [SCENE_COUNT]
+**YOUR TASK:**
+Create a coherent story arc across [SCENE_COUNT] scenes. The story should have a clear beginning, middle, and end. For each scene, provide:
+- **"page_text":** 1-2 simple sentences in English for a child to read, featuring the protagonist.
+- **"illustration_prompt":** A simple, direct visual description for an image AI, starting with the protagonist's name. Example: "**[CHARACTER_DETAILS]** is waving hello to a friendly butterfly."
 
-**Your Task & Instructions:**
-1.  **Create a Simple Narrative Arc:** The scenes, when combined, must form a complete story with a clear beginning, a simple conflict or challenge in the middle, and a resolution at the end.
-2.  **Generate Scene-by-Scene Script:** For each of the [SCENE_COUNT] scenes, you will create an object with two properties:
-    - **"page_text":** A very short, simple text (1-2 sentences) for a child to read. This text MUST BE IN ENGLISH.
-    - **"illustration_prompt":** A clear, simple, and direct visual description for an image AI (like Leonardo.AI). This prompt MUST feature the protagonist [CHARACTER_DETAILS] and describe a single, clear action or moment. This prompt MUST BE IN ENGLISH.
-3.  **Optimize for AI:** The "illustration_prompt" should be literal and visual. Avoid abstract concepts. Think like you are describing a photograph.
-
-**Output Format:**
-- Your response MUST be a single, valid JSON object.
-- The JSON object must have a single key: "story_pages".
-- The value of "story_pages" must be an array of exactly [SCENE_COUNT] objects.
-- Each object MUST contain the "page_text" and "illustration_prompt" keys.
-- **CRITICAL:** The entire content of your JSON response, including all keys and all string values, MUST BE IN ENGLISH.
-`;
-
-// -----------------------------------------------------------------------------
-// PROMPT PARA GERAÇÃO DE CAPA DE LIVRO (REFORMULADO)
-// -----------------------------------------------------------------------------
-
-const BOOK_COVER_SYSTEM_PROMPT = `
-You are an expert art director for children's book covers.
-Your task is to write a single, powerful visual prompt for an image generation AI.
-
-**Mandatory Protagonist(s):** The cover MUST prominently feature [CHARACTER_NAMES].
-**Book Title:** "[BOOK_TITLE]"
-**Genre:** "[BOOK_GENRE]"
-
-**Instructions:**
-1.  Describe a single, captivating scene for the cover that reflects the book's title and genre.
-2.  Focus on character pose, expression, and the overall mood of the scene.
-3.  Keep the description concise and powerful.
-
-**Output Format:**
-- Your response must be a single paragraph of descriptive text.
-- **CRITICAL:** The entire response MUST BE IN ENGLISH.
+**OUTPUT FORMAT:**
+- A single, valid JSON object with one key: "story_pages".
+- "story_pages" must be an array of exactly [SCENE_COUNT] objects.
+- Each object MUST contain "page_text" and "illustration_prompt" keys.
 `;
 
 // -----------------------------------------------------------------------------
@@ -103,7 +84,6 @@ Your task is to write a single, powerful visual prompt for an image generation A
 const LEONARDO_COLORING_PAGE_PROMPT_BASE = `coloring book page for children, clean thick black outlines, no color fill, simple background, {{GPT_OUTPUT}}`;
 
 const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `children's storybook illustration, vibrant colors, painterly style, full page, joyful and friendly, {{GPT_OUTPUT}}`;
-
 
 // -----------------------------------------------------------------------------
 // EXPORTAÇÃO
