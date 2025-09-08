@@ -192,16 +192,34 @@ class VisionService {
   /**
    * Remove palavras sensíveis de um prompt para evitar bloqueios da API de imagem.
    */
-  sanitizePromptForSafety(prompt) {
+ sanitizePromptForSafety(prompt) {
     if (!prompt) return '';
-    const forbiddenWords = [
-      'criança', 'crianças', 'menino', 'menina', 'bebê', 'infantil', 'garoto', 'garota',
-      'child', 'children', 'kid', 'kids', 'boy', 'girl', 'baby', 'infant', 'toddler',
-      // Adicionar outras palavras sensíveis de acordo com as políticas da API de imagem
-    ];
-    const regex = new RegExp('\\b(' + forbiddenWords.join('|') + ')\\b', 'gi');
-    // Substitui por um termo neutro e seguro
-    return prompt.replace(regex, 'friendly figures');
+    let sanitizedPrompt = prompt;
+
+    const forbiddenMap = {
+      'child': 'young character',
+      'children': 'young characters',
+      'kid': 'youngster',
+      'kids': 'youngsters',
+      'boy': 'young male character',
+      'girl': 'young female character',
+      'baby': 'toddler',
+      'infant': 'toddler',
+      'shooting': 'streaking' // Ex: "shooting star" -> "streaking star"
+    };
+
+    // Aplica as substituições seguras
+    for (const [key, value] of Object.entries(forbiddenMap)) {
+        const regex = new RegExp(`\\b${key}\\b`, 'gi');
+        sanitizedPrompt = sanitizedPrompt.replace(regex, value);
+    }
+    
+    // Remove palavras realmente perigosas que não têm substituto seguro
+    const dangerousWords = ['sexy', 'nude', 'violence', 'blood', 'gun', 'kill', 'shot'];
+    const dangerousRegex = new RegExp('\\b(' + dangerousWords.join('|') + ')\\b', 'gi');
+    sanitizedPrompt = sanitizedPrompt.replace(dangerousRegex, 'happy scene');
+
+    return sanitizedPrompt;
   }
 }
 module.exports = new VisionService();

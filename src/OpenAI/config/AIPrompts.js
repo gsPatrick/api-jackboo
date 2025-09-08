@@ -1,7 +1,7 @@
 // src/OpenAI/config/AIPrompts.js
 
 // -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE PERSONAGEM (SEM ALTERAÇÃO, JÁ ESTÁ ROBUSTO)
+// PROMPTS PARA GERAÇÃO DE PERSONAGEM
 // -----------------------------------------------------------------------------
 
 const CHARACTER_SYSTEM_PROMPT = `
@@ -20,28 +20,27 @@ Your task is to analyze a user's drawing and a text description, then synthesize
 const CHARACTER_LEONARDO_BASE_PROMPT = `a child-like cartoon character, cute, friendly, {{GPT_OUTPUT}}, vibrant colors, clean vector lines, high resolution, white background`;
 
 // -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE LIVROS (REFORMULAÇÃO TOTAL)
+// PROMPTS PARA GERAÇÃO DE LIVROS
 // -----------------------------------------------------------------------------
 
-// ✅ NOVO PROMPT PARA CAPA: Mais direto e focado no personagem.
 const BOOK_COVER_SYSTEM_PROMPT = `
 You are an art director for a children's book. Your task is to write a single, powerful visual prompt for an image generation AI.
 
 **CRITICAL CONTEXT:**
-- **PROTAGONIST:** The absolute main character is: **[CHARACTER_NAMES]**.
+- **PROTAGONIST:** The absolute main character is: **[PROTAGONIST_NAME]**.
+- **This is [PROTAGONIST_NAME]'s visual description:** **[PROTAGONIST_DESCRIPTION]**.
 - **BOOK TITLE:** "[BOOK_TITLE]"
 - **THEME / GENRE:** "[BOOK_GENRE]"
 
 **YOUR TASK:**
-Describe a captivating cover scene. The protagonist, **[CHARACTER_NAMES]**, MUST be the central focus of the image. The scene should visually represent the theme "[BOOK_GENRE]".
+Describe a captivating cover scene. The protagonist, **[PROTAGONIST_NAME]**, MUST be the central focus of the image. The scene should visually represent the theme "[BOOK_GENRE]".
 
 **OUTPUT REQUIREMENTS:**
 - A single paragraph.
-- The description MUST start with the protagonist's name, for example: "**[CHARACTER_NAMES]** is jumping over a rainbow..."
+- The description MUST start with the protagonist's name, for example: "**[PROTAGONIST_NAME]** is jumping over a rainbow..."
 - The entire response MUST BE IN ENGLISH.
 `;
 
-// ✅ NOVO PROMPT PARA LIVRO DE COLORIR: Repetitivo e impositivo.
 const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a creative writer for children's coloring books.
 
@@ -57,28 +56,31 @@ Create a simple, logical story arc across [PAGE_COUNT] scenes. Generate a JSON o
 Example: ["**[CHARACTER_DETAILS]** finds a map.", "**[CHARACTER_DETAILS]** follows the path into a forest."]
 `;
 
-// ✅ NOVO PROMPT PARA LIVRO DE HISTÓRIA: Extremamente diretivo e com exemplos.
+// ✅ PROMPT DE HISTÓRIA COM INSTRUÇÃO MULTILÍNGUE
 const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `
-You are a master storyteller for illustrated children's books.
+You are a master storyteller and scriptwriter for illustrated children's books.
 
-**NON-NEGOTIABLE RULES:**
-1.  **PROTAGONIST:** The story is ONLY about **[CHARACTER_DETAILS]**. This character MUST be the main subject of BOTH the "page_text" and the "illustration_prompt" for EVERY scene. Do NOT invent other main characters like "Jack" or "a robot".
-2.  **STORY CONTEXT:** The theme is "[THEME]" and the plot is about "[SUMMARY]".
-3.  **OUTPUT IN ENGLISH:** The entire JSON response, including all keys and string values, MUST be in English.
+**NON-NEGOTIABLE CORE DIRECTIVE:**
+1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST be the subject of every "page_text" and every "illustration_prompt". Do NOT deviate from this description. Do NOT invent other characters unless specified in the summary.
+2.  **CONTEXT:** The story theme is "[THEME]" and the plot is about "[SUMMARY]".
+3.  **LANGUAGE REQUIREMENTS (CRITICAL):**
+    - The "page_text" MUST be in **BRAZILIAN PORTUGUESE**.
+    - The "illustration_prompt" MUST be in **ENGLISH**.
 
 **YOUR TASK:**
-Create a coherent story arc across [SCENE_COUNT] scenes. The story should have a clear beginning, middle, and end. For each scene, provide:
-- **"page_text":** 1-2 simple sentences in English for a child to read, featuring the protagonist.
-- **"illustration_prompt":** A simple, direct visual description for an image AI, starting with the protagonist's name. Example: "**[CHARACTER_DETAILS]** is waving hello to a friendly butterfly."
+Create a coherent story arc across [SCENE_COUNT] scenes (beginning, middle, end).
+For each scene, provide:
+- **"page_text":** 1-2 simple sentences in **Brazilian Portuguese** for a child to read, featuring the protagonist.
+- **"illustration_prompt":** A simple, direct visual description in **English** for an image AI, starting with "**[PROTAGONIST_NAME]**, who is [PROTAGONIST_DESCRIPTION], is...".
 
 **OUTPUT FORMAT:**
 - A single, valid JSON object with one key: "story_pages".
 - "story_pages" must be an array of exactly [SCENE_COUNT] objects.
-- Each object MUST contain "page_text" and "illustration_prompt" keys.
+- Each object MUST contain the "page_text" (in Portuguese) and "illustration_prompt" (in English) keys.
 `;
 
 // -----------------------------------------------------------------------------
-// PROMPTS BASE PARA LEONARDO.AI (SEM ALTERAÇÃO)
+// PROMPTS BASE PARA LEONARDO.AI
 // -----------------------------------------------------------------------------
 
 const LEONARDO_COLORING_PAGE_PROMPT_BASE = `coloring book page for children, clean thick black outlines, no color fill, simple background, {{GPT_OUTPUT}}`;
