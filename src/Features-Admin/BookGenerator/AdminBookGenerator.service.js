@@ -66,8 +66,9 @@ class AdminBookGeneratorService {
                         await this.generateStoryBookContent(book, characters, summary, elementId, coverElementId, pageCount);
                     }
                     
-                    await book.update({ status: 'privado' });
-                    console.log(`[AdminGenerator] Livro ID ${book.id} ("${book.title}") gerado COM SUCESSO! Status atualizado para 'privado'.`);
+                    // ✅ ALTERAÇÃO AQUI: O status final agora é 'publicado'
+                    await book.update({ status: 'publicado' });
+                    console.log(`[AdminGenerator] Livro ID ${book.id} ("${book.title}") gerado e PUBLICADO COM SUCESSO!`);
 
                 } catch (error) {
                     console.error(`[AdminGenerator] Erro fatal na geração assíncrona do livro ID ${book.id}:`, error.message);
@@ -85,7 +86,6 @@ class AdminBookGeneratorService {
 
     async generateColoringBookContent(book, characters, elementId, coverElementId, innerPageCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        // const characterNames = characters.map(c => c.name).join(' e '); // Não usado no prompt atual
         const totalPages = innerPageCount + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${innerPageCount} páginas de colorir...`);
@@ -97,7 +97,6 @@ class AdminBookGeneratorService {
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
         
-        // Prompt da capa simplificado para evitar limite de caracteres
         const coverPrompt = `A vibrant 2D children's book cover illustration. Theme: ${book.genre || 'adventure'}. Featuring characters: ${characters.map(c => c.name).join(' and ')}. Style: clean line art, simple shapes, white background, joyful and friendly. Title: "${book.title}".`;
 
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
@@ -107,14 +106,12 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo...`);
         for (let i = 0; i < pagePrompts.length; i++) {
             const pageNumber = i + 2;
-            // Prompt mais direto para as páginas de colorir
             const finalPrompt = `coloring book page, clean line art, simple shapes, white background, ${pagePrompts[i]}`;
             const localPageUrl = await this.generateAndDownloadImage(finalPrompt, elementId, 'coloring');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        // Prompt da contracapa também simplificado
         const backCoverPrompt = `Children's book back cover for "${book.title}". Simple illustration related to the theme "${book.genre || 'adventure'}", featuring characters ${characters.map(c => c.name).join(' and ')}. Clean style. Small "Jackboo" logo in the corner.`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
@@ -122,7 +119,6 @@ class AdminBookGeneratorService {
 
     async generateStoryBookContent(book, characters, summary, elementId, coverElementId, sceneCount) {
         const bookVariation = (await this.findBookById(book.id)).variations[0];
-        // const characterNames = characters.map(c => c.name).join(' e '); // Não usado no prompt atual
         const totalPages = (sceneCount * 2) + 2;
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando roteiro para ${sceneCount} cenas...`);
@@ -133,7 +129,6 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando capa...`);
-        // Prompt da capa simplificado para livros de história
         const coverPrompt = `A vibrant 2D children's book cover illustration for "${book.title}". Theme: ${book.genre || 'adventure'}. Featuring characters: ${characters.map(c => c.name).join(' and ')}. Style: colorful, painterly, joyful.`;
         const localCoverUrl = await this.generateAndDownloadImage(coverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
@@ -142,7 +137,6 @@ class AdminBookGeneratorService {
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando ${storyPages.length} cenas do miolo...`);
         let currentPageNumber = 2;
         for (const scene of storyPages) {
-            // Prompt de ilustração simplificado, focando nos elementos essenciais
             const finalIllustrationPrompt = `Children's story illustration: ${scene.illustration_prompt}`;
             const illustrationUrl = await this.generateAndDownloadImage(finalIllustrationPrompt, elementId, 'illustration');
             await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: currentPageNumber++, pageType: 'illustration', imageUrl: illustrationUrl, status: 'completed' });
@@ -150,14 +144,12 @@ class AdminBookGeneratorService {
         }
 
         console.log(`[AdminGenerator] Livro ${book.id}: Gerando contracapa...`);
-        // Prompt da contracapa simplificado
         const backCoverPrompt = `Children's book back cover for "${book.title}". Simple illustration related to the theme "${book.genre || 'adventure'}". Clean style. Small "Jackboo" logo in the corner.`;
         const localBackCoverUrl = await this.generateAndDownloadImage(backCoverPrompt, coverElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: bookVariation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
     }
 
     async generateAndDownloadImage(prompt, elementId, type) {
-        // Validação básica do elementId antes de prosseguir
         if (!elementId) {
             throw new Error(`O Element ID para a geração do tipo '${type}' não foi fornecido.`);
         }

@@ -2,7 +2,13 @@
 
 const OpenAI = require('openai');
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const promptService = require('./prompt.service');
+// NOVO: Importa os prompts hardcoded, removendo a dependência do prompt.service.
+const {
+  CHARACTER_SYSTEM_PROMPT,
+  COLORING_BOOK_STORYLINE_SYSTEM_PROMPT,
+  STORY_BOOK_STORYLINE_SYSTEM_PROMPT,
+  BOOK_COVER_SYSTEM_PROMPT
+} = require('../config/AIPrompts');
 
 class VisionService {
   constructor() {
@@ -13,13 +19,15 @@ class VisionService {
   }
 
   /**
-   * Descreve uma imagem usando um template de prompt dinâmico.
-   * O promptTemplate agora vem do OpenAISetting.basePromptText.
+   * ATUALIZADO: Descreve uma imagem com base na descrição fornecida pelo usuário.
+   * O template de prompt agora é hardcoded e combina a análise da imagem com o texto do usuário.
    */
-  async describeImage(imageUrl, promptTemplate) {
-    if (!promptTemplate) {
-      throw new Error('[VisionService] O template de prompt para descrição da imagem não foi fornecido.');
+  async describeImage(imageUrl, userCharacterDescription) {
+    if (!userCharacterDescription) {
+      throw new Error('[VisionService] A descrição do usuário é obrigatória para a análise da imagem.');
     }
+    // LÓGICA ALTERADA: Usa o prompt hardcoded e injeta a descrição do usuário.
+    const systemPrompt = CHARACTER_SYSTEM_PROMPT.replace('[USER_DESCRIPTION]', userCharacterDescription);
 
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
@@ -32,7 +40,7 @@ class VisionService {
           role: "user",
           content: [{
             type: "text",
-            text: promptTemplate
+            text: systemPrompt // Usa o prompt do sistema construído
           }, {
             type: "image_url",
             image_url: { url: imageUrl },
@@ -48,7 +56,7 @@ class VisionService {
         const description = response.choices[0].message.content.trim();
         console.log("[VisionService] Descrição detalhada recebida com sucesso:", description);
 
-        // ✅ APLICA SANITIZAÇÃO À DESCRIÇÃO DA IMAGEM
+        // Aplica sanitização de segurança ao resultado
         return this.sanitizePromptForSafety(description);
 
       } catch (error) {
@@ -66,25 +74,20 @@ class VisionService {
   }
 
   /**
-   * REATORADO: Gera o roteiro de um livro de colorir. O prompt do sistema agora é dinâmico,
-   * vindo da configuração OpenAISetting 'USER_COLORING_BOOK_STORYLINE'.
+   * ATUALIZADO: Gera o roteiro de um livro de colorir com prompt hardcoded.
    */
   async generateColoringBookStoryline(characters, theme, pageCount) {
     try {
-      const setting = await promptService.getPrompt('USER_COLORING_BOOK_STORYLINE');
-      let systemPrompt = setting.basePromptText;
+      let systemPrompt = COLORING_BOOK_STORYLINE_SYSTEM_PROMPT;
 
-      const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
+      const characterDetails = characters.map(c => `- ${c.name}: ${c.description || 'um personagem amigável'}`).join('\n');
       console.log(`[VisionService] Gerando roteiro de colorir. Personagens: ${characters.map(c => c.name).join(', ')}, Tema: ${theme}`);
 
       // Substituição de placeholders no prompt do sistema
       systemPrompt = systemPrompt
         .replace(/\[CHARACTER_DETAILS\]/g, characterDetails)
+        .replace(/\[THEME\]/g, theme)
         .replace(/\[PAGE_COUNT\]/g, pageCount.toString());
-
-      // ✅ HARDCODED: Adiciona a instrução JSON ao final do prompt do sistema
-      // Isso garante que a API da OpenAI retorne um JSON válido.
-      systemPrompt += `\n\nSua resposta DEVE ser um objeto JSON com a chave "pages", contendo um array de strings, com exatamente ${pageCount} descrições visuais.`;
 
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
@@ -99,7 +102,7 @@ class VisionService {
       const result = JSON.parse(response.choices[0].message.content);
       if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
       
-      // ✅ APLICA SANITIZAÇÃO ÀS DESCRIÇÕES DAS PÁGINAS
+      // Aplica sanitização a cada descrição de página
       return result.pages.map(p => this.sanitizePromptForSafety(p));
     } catch (error) {
       console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
@@ -108,55 +111,13 @@ class VisionService {
   }
 
   /**
-   * Gera um tema e título para um livro usando um template de prompt do sistema.
-   * SEM ALTERAÇÃO: Este método pode continuar com um prompt hardcoded ou ser movido para o DB se necessário.
-   */
-  async generateBookThemeAndTitle(characterDescription) {
-    try {
-      console.log(`[VisionService] Gerando TEMA e TÍTULO aleatórios para o livro...`);
-      
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [{
-            role: "system",
-            content: `Você é um autor de livros infantis. Sua tarefa é criar um tema e um título para um novo livro baseado na descrição de um personagem. A resposta deve ser um JSON com as chaves "theme" e "title". O tema deve ser uma frase curta (ex: "Aventura na Floresta Mágica") e o título deve ser cativante (ex: "Leo e o Segredo da Árvore Falante").`
-          },
-          {
-            role: "user",
-            content: `Gere o tema e o título para um personagem descrito como: "${characterDescription}"`
-          }
-        ],
-        max_tokens: 100,
-      });
-
-      const result = JSON.parse(response.choices[0].message.content);
-      if (!result.theme || !result.title) {
-        throw new Error('A IA não retornou o tema e o título no formato JSON esperado.');
-      }
-
-      console.log(`[VisionService] Tema e Título gerados:`, result);
-      return result;
-
-    } catch (error) {
-      console.error('[VisionService] Erro ao gerar tema e título do livro:', error.message);
-      return {
-        theme: 'Um Dia Divertido de Aventuras',
-        title: 'O Livro Mágico de Aventuras'
-      };
-    }
-  }
-
-  /**
-   * ATUALIZADO: Gera o roteiro de um livro de HISTÓRIA ILUSTRADO. 
-   * O prompt do sistema agora é dinâmico, vindo da configuração OpenAISetting 'USER_STORY_BOOK_STORYLINE'.
+   * ATUALIZADO: Gera o roteiro de um livro de história ilustrado com prompt hardcoded.
    */
   async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
     try {
-      const setting = await promptService.getPrompt('USER_STORY_BOOK_STORYLINE');
-      let systemPrompt = setting.basePromptText;
+      let systemPrompt = STORY_BOOK_STORYLINE_SYSTEM_PROMPT;
       
-      const characterDetails = characters.map(c => `- ${c.name}: ${c.description}`).join('\n');
+      const characterDetails = characters.map(c => `- ${c.name}: ${c.description || 'um personagem amigável'}`).join('\n');
       console.log(`[VisionService] Gerando roteiro de história. Personagens: ${characters.map(c=>c.name).join(', ')}`);
 
       // Substituição de placeholders no prompt do sistema
@@ -166,10 +127,6 @@ class VisionService {
         .replace(/\[SUMMARY\]/g, summary)
         .replace(/\[SCENE_COUNT\]/g, sceneCount.toString());
       
-      // ✅ HARDCODED: Adiciona a instrução JSON ao final do prompt do sistema
-      // Isso garante que a API da OpenAI retorne um JSON válido.
-      systemPrompt += `\n\nSua resposta DEVE ser um objeto JSON com a chave "story_pages", um array de objetos. Cada objeto deve ter duas chaves: "page_text" (o texto da página) e "illustration_prompt" (o prompt para a imagem).`;
-
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
@@ -180,7 +137,7 @@ class VisionService {
       const result = JSON.parse(response.choices[0].message.content);
       if (!result.story_pages || !Array.isArray(result.story_pages)) throw new Error('A IA não retornou "story_pages" como um array de objetos.');
       
-      // ✅ APLICA SANITIZAÇÃO ÀS DESCRIÇÕES DAS ILUSTRAÇÕES
+      // Aplica sanitização apenas nos prompts de ilustração
       return result.story_pages.map(page => ({ ...page, illustration_prompt: this.sanitizePromptForSafety(page.illustration_prompt) }));
     } catch (error) {
       console.error(`[VisionService] Erro ao gerar o roteiro do livro de história: ${error.message}`);
@@ -189,13 +146,11 @@ class VisionService {
   }
 
   /**
-   * NOVO MÉTODO: Gera uma descrição textual para a capa/contracapa do livro.
-   * O prompt do sistema agora é dinâmico, vindo da configuração OpenAISetting 'BOOK_COVER_DESCRIPTION_GPT'.
+   * ATUALIZADO: Gera uma descrição textual para a capa/contracapa do livro com prompt hardcoded.
    */
   async generateCoverDescription(bookTitle, bookGenre, characters) {
     try {
-      const setting = await promptService.getPrompt('BOOK_COVER_DESCRIPTION_GPT');
-      let systemPrompt = setting.basePromptText;
+      let systemPrompt = BOOK_COVER_SYSTEM_PROMPT;
 
       const characterNames = characters.map(c => c.name).join(' e ');
       console.log(`[VisionService] Gerando descrição para capa. Título: "${bookTitle}", Gênero: "${bookGenre}", Personagens: ${characterNames}`);
@@ -212,12 +167,11 @@ class VisionService {
           { role: "system", content: systemPrompt },
           { role: "user", content: `Crie uma descrição detalhada e cativante para a capa do livro "${bookTitle}".` }
         ],
-        max_tokens: 150,
+        max_tokens: 250,
       });
 
       const description = response.choices[0].message.content.trim();
       console.log("[VisionService] Descrição da capa recebida:", description);
-      // ✅ APLICA SANITIZAÇÃO À DESCRIÇÃO DA CAPA
       return this.sanitizePromptForSafety(description);
 
     } catch (error) {
@@ -243,7 +197,7 @@ class VisionService {
   /**
    * Remove palavras sensíveis de um prompt para evitar bloqueios da API de imagem.
    */
- sanitizePromptForSafety(prompt) {
+  sanitizePromptForSafety(prompt) {
     if (!prompt) return '';
     const forbiddenWords = [
       'criança', 'crianças', 'menino', 'menina', 'bebê', 'infantil', 'garoto', 'garota',

@@ -3,12 +3,26 @@ const contentService = require('./Content.service');
 
 class ContentController {
 
+  /**
+   * ATUALIZADO: Agora recebe 'name' e 'description' do corpo da requisição.
+   */
   async createCharacter(req, res, next) {
     try {
       if (!req.file) {
         throw new Error("O servidor não recebeu o arquivo. Verifique a configuração do middleware de upload.");
       }
-      const character = await contentService.createCharacter(req.user.id, req.file);
+      
+      // Extrai 'name' e 'description' do corpo do formulário
+      const { name, description } = req.body;
+      
+      // Valida se a descrição, que agora é obrigatória para o prompt, foi enviada
+      if (!description) {
+        return res.status(400).json({ message: 'A descrição do personagem é obrigatória.' });
+      }
+
+      // Passa os novos parâmetros para o serviço
+      const character = await contentService.createCharacter(req.user.id, req.file, name, description);
+      
       res.status(201).json(character);
     } catch (error) {
       next(error);
