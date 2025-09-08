@@ -1,20 +1,17 @@
 // src/OpenAI/config/AIPrompts.js
 
 // Usado pelo GPT para analisar a imagem do usuário e combiná-la com a descrição textual.
-const CHARACTER_SYSTEM_PROMPT = `Analise a imagem de referência fornecida e leia a descrição do usuário. Sua tarefa é criar uma descrição detalhada para uma IA de geração de imagem (Estilo Leonardo.AI), fundindo as duas fontes. A descrição final deve ser rica, focada em atributos visuais (forma, estilo, cores, expressão) e seguir o estilo 'cartoon infantil, amigável e vibrante'. A descrição do usuário é a principal diretriz. Descrição do usuário: '[USER_DESCRIPTION]'.`;
-
+const CHARACTER_SYSTEM_PROMPT = `Analyze the provided reference image and read the user's description. Your task is to create a detailed description for an image generation AI (Leonardo.AI style). Merge both sources of information. The final description must be rich, focused on visual attributes (shape, style, colors, expression), and follow a 'child-like cartoon, friendly, and vibrant' style. The user's description is the main guideline. User's description: '[USER_DESCRIPTION]'. YOUR ENTIRE RESPONSE MUST BE IN ENGLISH.`;
 // Usado pelo Leonardo.AI para gerar o personagem. O placeholder será preenchido pelo resultado do GPT.
 const CHARACTER_LEONARDO_BASE_PROMPT = `a child-like cartoon character, cute, friendly, {{GPT_OUTPUT}}, vibrant colors, clean vector lines, high resolution, white background`;
 
 // Usado pelo GPT para criar o roteiro (descrições visuais) do livro de colorir.
-const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `Você é um roteirista de livros de colorir infantis. Crie uma lista de [PAGE_COUNT] cenas visuais, sem mencionar cores, para um livro com o tema "[THEME]". Os personagens são: [CHARACTER_DETAILS]. Sua resposta DEVE ser um objeto JSON com a chave "pages", contendo um array de strings com exatamente [PAGE_COUNT] descrições.`;
-
+const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `You are a scriptwriter for children's coloring books. Create a list of [PAGE_COUNT] visual scenes, without mentioning any colors, for a book with the theme "[THEME]". The characters are: [CHARACTER_DETAILS]. Your response MUST be a JSON object with the key "pages", containing an array of strings with exactly [PAGE_COUNT] descriptions. YOUR ENTIRE RESPONSE MUST BE IN ENGLISH.`;
 // Usado pelo GPT para criar o roteiro (texto da página + prompt de ilustração) do livro de história.
-const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `Você é um autor de livros infantis. Crie um roteiro para um livro de [SCENE_COUNT] cenas. O tema é "[THEME]" e o resumo é "[SUMMARY]". Os personagens são: [CHARACTER_DETAILS]. Sua resposta DEVE ser um objeto JSON com a chave "story_pages", um array de objetos. Cada objeto deve ter as chaves: "page_text" (o texto curto e simples para a criança ler) e "illustration_prompt" (uma descrição visual detalhada da cena para a IA de imagem).`;
+const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `You are a children's book author. Create a script for a book with [SCENE_COUNT] scenes. The theme is "[THEME]" and the summary is "[SUMMARY]". The characters are: [CHARACTER_DETAILS]. Your response MUST be a JSON object with the key "story_pages", an array of objects. Each object must have two keys: "page_text" (the short, simple text for the child to read) and "illustration_prompt" (a detailed visual description of the scene for the image AI). YOUR ENTIRE RESPONSE, INCLUDING page_text AND illustration_prompt, MUST BE IN ENGLISH.`;
 
 // Usado pelo GPT para gerar a descrição da capa/contracapa.
-const BOOK_COVER_SYSTEM_PROMPT = `Você é um diretor de arte. Crie uma descrição visual detalhada para a capa de um livro infantil intitulado "[BOOK_TITLE]". O gênero é "[BOOK_GENRE]" e os personagens principais são [CHARACTER_NAMES]. A descrição deve ser inspiradora e rica em detalhes para uma IA de imagem.`;
-
+const BOOK_COVER_SYSTEM_PROMPT = `You are an art director. Create a detailed visual description for the cover of a children's book titled "[BOOK_TITLE]". The genre is "[BOOK_GENRE]" and the main characters are [CHARACTER_NAMES]. The description should be inspiring and rich in detail for an image AI. YOUR ENTIRE RESPONSE MUST BE IN ENGLISH.`;
 // Usado pelo Leonardo.AI para gerar páginas de colorir. O placeholder será preenchido pela descrição de cada cena do GPT.
 const LEONARDO_COLORING_PAGE_PROMPT_BASE = `coloring book page for children, clean thick black outlines, no color fill, simple background, {{GPT_OUTPUT}}`;
 
