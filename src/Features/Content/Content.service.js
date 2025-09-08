@@ -50,7 +50,7 @@ class ContentService {
       }
 
       // IDs de Elementos são hardcoded aqui.
-      const CHARACTER_ELEMENT_ID = "15371510"; // SUBSTITUA PELO SEU ID REAL
+      const CHARACTER_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
       if (CHARACTER_ELEMENT_ID === "SEU_ID_DE_ELEMENT_PARA_PERSONAGENS") {
           throw new Error("ADMIN: Configure o ID do Elemento Leonardo para geração de personagens no Content.service.js");
       }
