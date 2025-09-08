@@ -59,7 +59,7 @@ class VisionService {
   }
 
   /**
-   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, garantindo o protagonista.
+   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, com pós-processamento para garantir o protagonista.
    */
   async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
     try {
@@ -68,13 +68,11 @@ class VisionService {
       const mainCharacter = characters[0];
       const translatedTheme = await translationService.translateToEnglish(theme);
       const translatedSummary = await translationService.translateToEnglish(summary);
-      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
 
-      console.log(`[VisionService] Gerando roteiro de história (em inglês). Personagem: ${mainCharacter.name}`);
+      console.log(`[VisionService] Gerando roteiro de história. Personagem: ${mainCharacter.name}`);
 
       systemPrompt = systemPrompt
         .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
-        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription)
         .replace(/\[THEME\]/g, translatedTheme)
         .replace(/\[SUMMARY\]/g, translatedSummary)
         .replace(/\[SCENE_COUNT\]/g, sceneCount.toString());
@@ -82,26 +80,26 @@ class VisionService {
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Generate the story in ${sceneCount} scenes.` }],
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Generate the story.` }],
         max_tokens: 400 * sceneCount,
       });
 
-      let resultText = response.choices[0].message.content;
-
-      resultText = resultText
-        .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
-        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription);
-        
-      const result = JSON.parse(resultText);
+      const result = JSON.parse(response.choices[0].message.content);
 
       if (!result.story_pages || !Array.isArray(result.story_pages)) {
           throw new Error('A IA não retornou "story_pages" como um array de objetos.');
       }
       
-      return result.story_pages.map(page => ({ 
-          ...page, 
-          illustration_prompt: this.sanitizePromptForSafety(page.illustration_prompt) 
-      }));
+      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
+      
+      return result.story_pages.map(page => {
+          const finalIllustrationPrompt = `${mainCharacter.name}, a ${translatedProtagonistDescription}, ${page.illustration_prompt}`;
+          
+          return { 
+              ...page, 
+              illustration_prompt: this.sanitizePromptForSafety(finalIllustrationPrompt) 
+          };
+      });
     } catch (error) {
       console.error(`[VisionService] Erro ao gerar o roteiro do livro de história: ${error.message}`);
       throw new Error(`Falha na geração do roteiro da história: ${error.message}`);
@@ -109,7 +107,7 @@ class VisionService {
   }
 
   /**
-   * Gera o roteiro de um livro de COLORIR, garantindo o protagonista.
+   * Gera o roteiro de um livro de COLORIR, com pós-processamento para garantir o protagonista.
    */
   async generateColoringBookStoryline(characters, theme, pageCount) {
     try {
@@ -117,13 +115,11 @@ class VisionService {
       
       const mainCharacter = characters[0];
       const translatedTheme = await translationService.translateToEnglish(theme);
-      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
-
-      console.log(`[VisionService] Gerando roteiro de colorir (em inglês). Personagem: ${mainCharacter.name}, Tema: ${theme}`);
+      
+      console.log(`[VisionService] Gerando roteiro de colorir. Personagem: ${mainCharacter.name}, Tema: ${theme}`);
 
       systemPrompt = systemPrompt
         .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
-        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription)
         .replace(/\[THEME\]/g, translatedTheme)
         .replace(/\[PAGE_COUNT\]/g, pageCount.toString());
 
@@ -132,7 +128,7 @@ class VisionService {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Create the story in ${pageCount} scenes for the theme "${translatedTheme}".` }
+          { role: "user", content: `Create the story in ${pageCount} scenes.` }
         ],
         max_tokens: 200 * pageCount,
       });
@@ -140,7 +136,12 @@ class VisionService {
       const result = JSON.parse(response.choices[0].message.content);
       if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
       
-      return result.pages.map(p => this.sanitizePromptForSafety(p));
+      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
+      
+      return result.pages.map(sceneDescription => {
+          const finalPrompt = `${mainCharacter.name}, a ${translatedProtagonistDescription}, ${sceneDescription}`;
+          return this.sanitizePromptForSafety(finalPrompt);
+      });
     } catch (error) {
       console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
       throw new Error(`Falha na geração do roteiro: ${error.message}`);
@@ -199,7 +200,9 @@ class VisionService {
     const forbiddenMap = {
       'child': 'young character', 'children': 'young characters', 'kid': 'youngster', 'kids': 'youngsters',
       'boy': 'young male character', 'girl': 'young female character', 'baby': 'toddler', 'infant': 'toddler',
-      'shooting': 'streaking'
+      'shooting': 'streaking',
+      'nudges': 'gently pushes',
+      'shot': 'picture'
     };
 
     for (const [key, value] of Object.entries(forbiddenMap)) {
@@ -207,7 +210,7 @@ class VisionService {
         sanitizedPrompt = sanitizedPrompt.replace(regex, value);
     }
     
-    const dangerousWords = ['sexy', 'nude', 'violence', 'blood', 'gun', 'kill', 'shot'];
+    const dangerousWords = ['sexy', 'nude', 'violence', 'blood', 'gun', 'kill'];
     const dangerousRegex = new RegExp('\\b(' + dangerousWords.join('|') + ')\\b', 'gi');
     sanitizedPrompt = sanitizedPrompt.replace(dangerousRegex, 'happy scene');
 

@@ -44,44 +44,32 @@ Describe a captivating cover scene. The protagonist, **[PROTAGONIST_NAME]**, MUS
 const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a creative writer for children's coloring books.
 
-**NON-NEGOTIABLE CORE DIRECTIVE:**
-1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST appear in every single scene description. Do not invent other main characters.
+**NON-NEGOTIABLE RULES:**
+1.  **PROTAGONIST:** The story is ONLY about **[PROTAGONIST_NAME]**. This character MUST appear in every scene description.
 2.  **THEME:** The story MUST follow the theme: "[THEME]".
-3.  **STRICTLY NO COLORS:** Your descriptions must be purely visual outlines for a coloring page. Do NOT mention any colors, shades, shadows, or lighting (e.g., "golden fur", "blue sky", "dappled sunlight"). Focus only on objects, actions, and shapes with clear lines.
+3.  **NO COLORS:** Descriptions must be visual outlines, with NO mention of colors or shadows.
 4.  **OUTPUT IN ENGLISH:** The entire JSON response MUST be in English.
 
 **YOUR TASK:**
-Create a simple, logical story arc across [PAGE_COUNT] scenes. Generate a JSON object with a single key "pages", which is an array of [PAGE_COUNT] strings. Each string must be a simple visual description for an image AI, starting with the protagonist's name.
-
-**Example of a good description:** "**[PROTAGONIST_NAME]** finds a treasure map on a wooden table."
-**Example of a BAD description:** "**[PROTAGONIST_NAME]** with his golden fur finds a map under the bright blue sky."
-
-**OUTPUT FORMAT:**
-- A single, valid JSON object with one key: "pages".
-- The value of "pages" must be an array of exactly [PAGE_COUNT] strings.
-- The entire response, including all strings, MUST BE IN ENGLISH.
+Create a story arc across [PAGE_COUNT] scenes. Generate a JSON object with a key "pages", an array of [PAGE_COUNT] strings. Each string must start with the protagonist's name.
 `;
 
 const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `
-You are a master storyteller and scriptwriter for illustrated children's books.
+You are a master storyteller for children's books.
 
 **NON-NEGOTIABLE CORE DIRECTIVE:**
-1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST be the subject of every "page_text" and every "illustration_prompt". Do NOT deviate from this description. Do NOT invent other main characters like "Jack" or "a robot".
-2.  **CONTEXT:** The story theme is "[THEME]" and the plot is about "[SUMMARY]".
-3.  **LANGUAGE REQUIREMENTS (CRITICAL):**
-    - The "page_text" MUST be in **BRAZILIAN PORTUGUESE**.
-    - The "illustration_prompt" MUST be in **ENGLISH**.
+1.  **PROTAGONIST:** The story is ONLY about **[PROTAGONIST_NAME]**. This character MUST be the subject of every "page_text" and "illustration_prompt".
+2.  **CONTEXT:** The theme is "[THEME]" and the plot is about "[SUMMARY]".
+3.  **LANGUAGE REQUIREMENTS:** "page_text" MUST be in **BRAZILIAN PORTUGUESE**. "illustration_prompt" MUST be in **ENGLISH**.
 
 **YOUR TASK:**
-Create a coherent story arc across [SCENE_COUNT] scenes (beginning, middle, end).
+Create a coherent story arc across [SCENE_COUNT] scenes.
 For each scene, provide:
-- **"page_text":** 1-2 simple sentences in **Brazilian Portuguese** for a child to read, featuring the protagonist.
-- **"illustration_prompt":** A simple, direct visual description in **English** for an image AI, starting with "**[PROTAGONIST_NAME]**, who is [PROTAGONIST_DESCRIPTION], is...".
+- **"page_text":** 1-2 simple sentences in Portuguese.
+- **"illustration_prompt":** A simple visual description in English, starting with the protagonist's name. Example: "**Kripto** is waving hello to a friendly butterfly."
 
 **OUTPUT FORMAT:**
-- A single, valid JSON object with one key: "story_pages".
-- "story_pages" must be an array of exactly [SCENE_COUNT] objects.
-- Each object MUST contain the "page_text" (in Portuguese) and "illustration_prompt" (in English) keys.
+A single, valid JSON object with one key "story_pages", containing an array of exactly [SCENE_COUNT] objects.
 `;
 
 // -----------------------------------------------------------------------------
@@ -99,9 +87,9 @@ const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `children's storybook illustrati
 module.exports = {
   CHARACTER_SYSTEM_PROMPT,
   CHARACTER_LEONARDO_BASE_PROMPT,
-  BOOK_COVER_SYSTEM_PROMPT,
   COLORING_BOOK_STORYLINE_SYSTEM_PROMPT,
   STORY_BOOK_STORYLINE_SYSTEM_PROMPT,
+  BOOK_COVER_SYSTEM_PROMPT,
   LEONARDO_COLORING_PAGE_PROMPT_BASE,
   LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE,
 };

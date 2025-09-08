@@ -12,17 +12,23 @@ class TranslationService {
 
   /**
    * Traduz um texto para inglês usando o GPT.
+   * Evita traduzir textos curtos (provavelmente nomes) ou textos sem letras.
    * @param {string} text - O texto a ser traduzido.
    * @returns {Promise<string>} O texto traduzido para inglês.
    */
   async translateToEnglish(text) {
-    if (!text || typeof text !== 'string' || !/[a-zA-Z]/.test(text)) {
-        return text; // Retorna o texto original se for vazio, não for string ou não contiver letras
+    // Verificação para evitar traduções desnecessárias
+    if (!text || typeof text !== 'string' || !/[a-zA-Z]/.test(text) || text.trim().split(' ').length <= 2) {
+        // Não traduz se for:
+        // - Nulo ou não for uma string
+        // - Não contiver nenhuma letra do alfabeto (ex: "123")
+        // - Tiver 2 palavras ou menos (para evitar traduzir nomes como "Kripto, o cachorro")
+        return text;
     }
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo", // Um modelo mais rápido e barato é suficiente para tradução
+        model: "gpt-3.5-turbo", // Modelo rápido e eficiente para tradução
         messages: [
           {
             role: "system",
@@ -33,14 +39,18 @@ class TranslationService {
             content: text
           }
         ],
-        temperature: 0, // Baixa temperatura para traduções mais literais
+        temperature: 0.1, // Temperatura baixa para tradução mais precisa
         max_tokens: 1000,
       });
 
-      return response.choices[0].message.content.trim();
+      const translatedText = response.choices[0].message.content.trim();
+      console.log(`[TranslationService] Traduzido: "${text}" -> "${translatedText}"`);
+      return translatedText;
+      
     } catch (error) {
       console.error(`[TranslationService] Erro ao traduzir texto: "${text}"`, error.message);
-      return text; // Em caso de erro, retorna o texto original para não quebrar o fluxo
+      // Em caso de erro na API de tradução, retorna o texto original para não quebrar o fluxo principal.
+      return text;
     }
   }
 }
