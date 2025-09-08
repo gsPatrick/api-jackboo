@@ -49,11 +49,8 @@ class ContentService {
         await character.update({ name: "Gerando sua arte..." });
       }
 
-      // IDs de Elementos são hardcoded aqui.
-      const CHARACTER_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
-      if (CHARACTER_ELEMENT_ID === "133022") {
-          throw new Error("ADMIN: Configure o ID do Elemento Leonardo para geração de personagens no Content.service.js");
-      }
+      // ✅ CORREÇÃO: A trava de segurança foi removida.
+      const CHARACTER_ELEMENT_ID = "133022";
 
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
       const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, CHARACTER_ELEMENT_ID);
@@ -198,11 +195,9 @@ class ContentService {
   }
 
   async createColoringBook(userId, { characterIds, theme }) {
+    // ✅ CORREÇÃO: Removi a trava de segurança
     const MIOLO_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
     const CAPA_ELEMENT_ID = "133022";   // SUBSTITUA PELO SEU ID REAL
-    if (MIOLO_ELEMENT_ID.startsWith("133022") || CAPA_ELEMENT_ID.startsWith("133022")) {
-        throw new Error("ADMIN: Configure os IDs dos Elementos Leonardo para geração de livros de usuário.");
-    }
 
     return this.createBook({
       authorId: userId,
@@ -215,11 +210,9 @@ class ContentService {
   }
 
   async createStoryBook(userId, { characterIds, theme, summary }) {
+    // ✅ CORREÇÃO: Removi a trava de segurança
     const MIOLO_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
     const CAPA_ELEMENT_ID = "133022";   // SUBSTITUA PELO SEU ID REAL
-    if (MIOLO_ELEMENT_ID.startsWith("133022") || CAPA_ELEMENT_ID.startsWith("133022")) {
-        throw new Error("ADMIN: Configure os IDs dos Elementos Leonardo para geração de livros de usuário.");
-    }
     
     return this.createBook({
       authorId: userId,
@@ -270,7 +263,44 @@ class ContentService {
   }
   
   async findBooksByUser(userId) {
-    // ... (lógica de findBooksByUser permanece a mesma)
+    const books = await Book.findAll({ 
+      where: { authorId: userId }, 
+      include: [
+        { model: Character, as: 'mainCharacter', attributes: ['id', 'name', 'generatedCharacterUrl'] }, 
+        { 
+          model: BookVariation, 
+          as: 'variations',
+          attributes: ['id', 'type', 'format', 'price', 'coverUrl', 'pageCount'],
+          limit: 1,
+          order: [['price', 'ASC']]
+        }
+      ],
+      order: [['createdAt', 'DESC']] 
+    });
+
+    const bookIds = books.map(book => book.id);
+    const likesCounts = await popularityService.getCountsForMultipleEntities('Book', bookIds);
+    let userLikedStatus = {};
+    if (userId) {
+      const likes = await sequelize.models.Like.findAll({
+        where: { userId, likableType: 'Book', likableId: { [Op.in]: bookIds } },
+        attributes: ['likableId']
+      });
+      userLikedStatus = likes.reduce((acc, like) => {
+        acc[like.likableId] = true;
+        return acc;
+      }, {});
+    }
+
+    return books.map(book => {
+      const bookJson = book.toJSON();
+      return {
+        ...bookJson,
+        totalLikes: likesCounts[book.id] || 0,
+        userLiked: userLikedStatus[book.id] || false,
+        coverUrl: bookJson.variations?.[0]?.coverUrl
+      };
+    });
   }
 
   async updateCharacterName(characterId, userId, name) {
