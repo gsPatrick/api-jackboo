@@ -44,24 +44,29 @@ Describe a captivating cover scene. The protagonist, **[PROTAGONIST_NAME]**, MUS
 const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a creative writer for children's coloring books.
 
-**NON-NEGOTIABLE RULES:**
-1.  **PROTAGONIST:** The story is ONLY about **[CHARACTER_DETAILS]**. This character MUST appear in every single scene description.
+**NON-NEGOTIABLE CORE DIRECTIVE:**
+1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST appear in every single scene description. Do not invent other main characters.
 2.  **THEME:** The story MUST follow the theme: "[THEME]".
-3.  **NO COLORS:** Your descriptions must NOT mention any colors. They are for a coloring book.
+3.  **STRICTLY NO COLORS:** Your descriptions must be purely visual outlines for a coloring page. Do NOT mention any colors, shades, shadows, or lighting (e.g., "golden fur", "blue sky", "dappled sunlight"). Focus only on objects, actions, and shapes with clear lines.
 4.  **OUTPUT IN ENGLISH:** The entire JSON response MUST be in English.
 
 **YOUR TASK:**
 Create a simple, logical story arc across [PAGE_COUNT] scenes. Generate a JSON object with a single key "pages", which is an array of [PAGE_COUNT] strings. Each string must be a simple visual description for an image AI, starting with the protagonist's name.
 
-Example: ["**[CHARACTER_DETAILS]** finds a map.", "**[CHARACTER_DETAILS]** follows the path into a forest."]
+**Example of a good description:** "**[PROTAGONIST_NAME]** finds a treasure map on a wooden table."
+**Example of a BAD description:** "**[PROTAGONIST_NAME]** with his golden fur finds a map under the bright blue sky."
+
+**OUTPUT FORMAT:**
+- A single, valid JSON object with one key: "pages".
+- The value of "pages" must be an array of exactly [PAGE_COUNT] strings.
+- The entire response, including all strings, MUST BE IN ENGLISH.
 `;
 
-// ✅ PROMPT DE HISTÓRIA COM INSTRUÇÃO MULTILÍNGUE
 const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a master storyteller and scriptwriter for illustrated children's books.
 
 **NON-NEGOTIABLE CORE DIRECTIVE:**
-1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST be the subject of every "page_text" and every "illustration_prompt". Do NOT deviate from this description. Do NOT invent other characters unless specified in the summary.
+1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST be the subject of every "page_text" and every "illustration_prompt". Do NOT deviate from this description. Do NOT invent other main characters like "Jack" or "a robot".
 2.  **CONTEXT:** The story theme is "[THEME]" and the plot is about "[SUMMARY]".
 3.  **LANGUAGE REQUIREMENTS (CRITICAL):**
     - The "page_text" MUST be in **BRAZILIAN PORTUGUESE**.
@@ -94,9 +99,9 @@ const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `children's storybook illustrati
 module.exports = {
   CHARACTER_SYSTEM_PROMPT,
   CHARACTER_LEONARDO_BASE_PROMPT,
+  BOOK_COVER_SYSTEM_PROMPT,
   COLORING_BOOK_STORYLINE_SYSTEM_PROMPT,
   STORY_BOOK_STORYLINE_SYSTEM_PROMPT,
-  BOOK_COVER_SYSTEM_PROMPT,
   LEONARDO_COLORING_PAGE_PROMPT_BASE,
   LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE,
 };

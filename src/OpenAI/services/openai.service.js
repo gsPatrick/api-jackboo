@@ -59,7 +59,7 @@ class VisionService {
   }
 
   /**
-   * ✅ CORRIGIDO: Garante que o nome e a descrição do protagonista sejam substituídos no ROTEIRO.
+   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, garantindo o protagonista.
    */
   async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
     try {
@@ -70,7 +70,7 @@ class VisionService {
       const translatedSummary = await translationService.translateToEnglish(summary);
       const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
 
-      console.log(`[VisionService] Gerando roteiro de história (em inglês). Personagens: ${mainCharacter.name}`);
+      console.log(`[VisionService] Gerando roteiro de história (em inglês). Personagem: ${mainCharacter.name}`);
 
       systemPrompt = systemPrompt
         .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
@@ -88,8 +88,6 @@ class VisionService {
 
       let resultText = response.choices[0].message.content;
 
-      // ✅ ADIÇÃO CRÍTICA: Substitui os placeholders no resultado JSON bruto do GPT.
-      // Isso corrige o bug onde "[PROTAGONIST_NAME]" aparecia no prompt final do Leonardo.
       resultText = resultText
         .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
         .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription);
@@ -111,7 +109,46 @@ class VisionService {
   }
 
   /**
-   * ✅ CORRIGIDO: Garante que o nome e a descrição do protagonista sejam substituídos na CAPA.
+   * Gera o roteiro de um livro de COLORIR, garantindo o protagonista.
+   */
+  async generateColoringBookStoryline(characters, theme, pageCount) {
+    try {
+      let systemPrompt = prompts.COLORING_BOOK_STORYLINE_SYSTEM_PROMPT;
+      
+      const mainCharacter = characters[0];
+      const translatedTheme = await translationService.translateToEnglish(theme);
+      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
+
+      console.log(`[VisionService] Gerando roteiro de colorir (em inglês). Personagem: ${mainCharacter.name}, Tema: ${theme}`);
+
+      systemPrompt = systemPrompt
+        .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
+        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription)
+        .replace(/\[THEME\]/g, translatedTheme)
+        .replace(/\[PAGE_COUNT\]/g, pageCount.toString());
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Create the story in ${pageCount} scenes for the theme "${translatedTheme}".` }
+        ],
+        max_tokens: 200 * pageCount,
+      });
+      
+      const result = JSON.parse(response.choices[0].message.content);
+      if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
+      
+      return result.pages.map(p => this.sanitizePromptForSafety(p));
+    } catch (error) {
+      console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
+      throw new Error(`Falha na geração do roteiro: ${error.message}`);
+    }
+  }
+
+  /**
+   * Gera uma descrição textual para a CAPA/CONTRACAPA, garantindo o protagonista.
    */
   async generateCoverDescription(bookTitle, bookGenre, characters) {
     try {
@@ -126,11 +163,11 @@ class VisionService {
       console.log(`[VisionService] Gerando descrição para capa (em inglês). Título: "${bookTitle}", Gênero: "${bookGenre}", Personagens: ${characterNames}`);
 
       systemPrompt = systemPrompt
-        .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name) // Substitui o nome
-        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription) // Substitui a descrição
+        .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
+        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription)
         .replace(/\[BOOK_TITLE\]/g, translatedTitle || '')
         .replace(/\[BOOK_GENRE\]/g, translatedGenre || '')
-        .replace(/\[CHARACTER_NAMES\]/g, characterNames || ''); // Mantém para o caso do prompt precisar
+        .replace(/\[CHARACTER_NAMES\]/g, characterNames || '');
 
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
@@ -149,41 +186,6 @@ class VisionService {
     } catch (error) {
       console.error('[VisionService] Erro ao gerar descrição da capa:', error.message);
       throw new Error(`Falha ao gerar descrição da capa: ${error.message}`);
-    }
-  }
-
-  // A função de roteiro para livro de colorir não precisa ser alterada, pois não usa a descrição complexa do personagem.
-  async generateColoringBookStoryline(characters, theme, pageCount) {
-    try {
-      let systemPrompt = prompts.COLORING_BOOK_STORYLINE_SYSTEM_PROMPT;
-      
-      const translatedTheme = await translationService.translateToEnglish(theme);
-      const characterDetails = characters.map(c => c.name).join(' and ');
-
-      console.log(`[VisionService] Gerando roteiro de colorir (em inglês). Personagens: ${characterDetails}, Tema: ${theme}`);
-
-      systemPrompt = systemPrompt
-        .replace(/\[CHARACTER_DETAILS\]/g, characterDetails)
-        .replace(/\[THEME\]/g, translatedTheme)
-        .replace(/\[PAGE_COUNT\]/g, pageCount.toString());
-
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Create the story in ${pageCount} scenes for the theme "${translatedTheme}".` }
-        ],
-        max_tokens: 350 * pageCount,
-      });
-
-      const result = JSON.parse(response.choices[0].message.content);
-      if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
-      
-      return result.pages.map(p => this.sanitizePromptForSafety(p));
-    } catch (error) {
-      console.error(`[VisionService] Erro ao gerar o roteiro do livro de colorir: ${error.message}`);
-      throw new Error(`Falha na geração do roteiro: ${error.message}`);
     }
   }
 
@@ -212,4 +214,5 @@ class VisionService {
     return sanitizedPrompt;
   }
 }
+
 module.exports = new VisionService();
