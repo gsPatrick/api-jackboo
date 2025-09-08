@@ -1,65 +1,74 @@
 // src/Utils/TextToImageService.js
 const sharp = require('sharp');
 const path = require('path');
-const fs = require('fs/promises'); // Usando fs/promises
+const fs = require('fs/promises');
 const { v4: uuidv4 } = require('uuid');
 
 const TEXT_IMAGE_DIR = path.join(__dirname, '../../uploads/text-images');
 
 class TextToImageService {
   /**
-   * Gera uma imagem a partir de um texto.
+   * Gera uma imagem PNG a partir de um bloco de texto.
    * @param {object} options
-   * @param {string} options.text - O texto a ser renderizado.
-   * @param {string} [options.backgroundColor='#FFFFFF'] - Cor de fundo da imagem.
-   * @param {string} [options.textColor='#000000'] - Cor do texto.
-   * @param {number} [options.width=1024] - Largura da imagem em pixels.
-   * @param {number} [options.height=1024] - Altura da imagem em pixels.
-   * @param {string} [options.font='Arial'] - Fonte do texto.
-   * @returns {string} O caminho relativo da imagem salva.
+   * @param {string} options.text - O texto a ser renderizado na imagem.
+   * @param {number} [options.width=1024] - Largura da imagem.
+   * @param {number} [options.height=1024] - Altura da imagem.
+   * @returns {string} O caminho relativo da imagem salva (ex: /uploads/text-images/...).
    */
-  static async generateImage({
-    text,
-    backgroundColor = '#FFFFFF',
-    textColor = '#000000',
-    width = 1024,
-    height = 1024,
-    font = 'Arial'
-  }) {
+  static async generateImage({ text, width = 1024, height = 1024 }) {
     try {
       await fs.mkdir(TEXT_IMAGE_DIR, { recursive: true });
 
-      // Dividir o texto em linhas para caber na imagem
-      const words = text.split(' ');
-      const lines = [];
-      let currentLine = words[0];
-      const maxLineWidth = width * 0.8; // 80% da largura da imagem
+      // Configurações de estilo para o texto
+      const fontFamily = 'Mali, cursive'; // Uma fonte amigável e legível
+      const fontSize = 48;
+      const textColor = '#2F4A6E'; // Azul escuro
+      const backgroundColor = '#FEF8F0'; // Bege ultra claro
+      const lineHeight = 1.4;
+      const padding = 80; // Espaço das bordas
 
-      // Lógica simples de quebra de linha (pode ser melhorada com medição de texto real)
-      for (let i = 1; i < words.length; i++) {
-        // Esta é uma estimativa. Bibliotecas mais avançadas podem medir o texto.
-        if (currentLine.length + words[i].length < 40) { // Limite de caracteres por linha
-          currentLine += ` ${words[i]}`;
+      // Quebra o texto em palavras para calcular as linhas
+      const words = text.split(' ');
+      let line = '';
+      const lines = [];
+      const maxWidth = width - (padding * 2);
+
+      // Lógica de quebra de linha usando uma estimativa de largura de caractere
+      // Para precisão máxima, uma biblioteca como 'canvas' seria necessária, mas 'sharp' com SVG é mais leve.
+      for (const word of words) {
+        const testLine = line + (line ? ' ' : '') + word;
+        // Estimativa: cada caractere tem em média 0.6 * fontSize de largura
+        if (testLine.length * (fontSize * 0.55) > maxWidth) {
+          lines.push(line);
+          line = word;
         } else {
-          lines.push(currentLine);
-          currentLine = words[i];
+          line = testLine;
         }
       }
-      lines.push(currentLine);
+      lines.push(line);
 
-      const fontSize = 60;
-      const lineHeight = fontSize * 1.2;
-      const totalTextHeight = lines.length * lineHeight;
-      const startY = (height - totalTextHeight) / 2 + fontSize; // Centraliza verticalmente
-
-      const svgTextElements = lines.map((line, index) =>
-        `<text x="${width / 2}" y="${startY + index * lineHeight}" font-family="${font}" font-size="${fontSize}" fill="${textColor}" text-anchor="middle">${line}</text>`
+      // Constrói os elementos <tspan> para o SVG, permitindo o alinhamento central de cada linha.
+      const svgTextElements = lines.map((lineText, index) => 
+        `<tspan x="50%" dy="${index === 0 ? 0 : fontSize * lineHeight}">${lineText}</tspan>`
       ).join('');
+      
+      const totalTextHeight = lines.length * (fontSize * lineHeight);
+      const startY = (height - totalTextHeight) / 2 + (fontSize * 0.8); // Ajuste fino para centralização vertical
 
       const svgImage = `
         <svg width="${width}" height="${height}">
           <rect x="0" y="0" width="${width}" height="${height}" fill="${backgroundColor}"></rect>
-          ${svgTextElements}
+          <text 
+            x="50%" 
+            y="${startY}" 
+            font-family="${fontFamily}" 
+            font-size="${fontSize}" 
+            fill="${textColor}" 
+            text-anchor="middle"
+            style="line-height: ${lineHeight};"
+          >
+            ${svgTextElements}
+          </text>
         </svg>
       `;
 
@@ -68,13 +77,14 @@ class TextToImageService {
 
       await sharp(Buffer.from(svgImage)).png().toFile(filePath);
 
-      console.log(`[TextToImage] Imagem de texto salva em: ${filePath}`);
+      console.log(`[TextToImage] Imagem de texto para a página gerada com sucesso: ${filename}`);
       return `/uploads/text-images/${filename}`;
+
     } catch (error) {
       console.error('[TextToImage] Erro ao gerar imagem de texto:', error);
-      throw new Error('Falha ao gerar página de texto.');
+      throw new Error('Falha ao gerar a página de texto como imagem.');
     }
   }
 }
 
-module.exports = TextToImageService;    
+module.exports = TextToImageService;

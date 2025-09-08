@@ -5,7 +5,10 @@ const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const visionService = require('../../OpenAI/services/openai.service');
 const leonardoService = require('../../OpenAI/services/leonardo.service');
 const prompts = require('../../OpenAI/config/AIPrompts');
+const TextToImageService = require('../../Utils/TextToImageService'); // Reativado
 const { Op } = require('sequelize');
+const popularityService = require('../Popularity/Popularity.service');
+
 
 if (!process.env.APP_URL) {
   throw new Error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida.");
@@ -49,7 +52,6 @@ class ContentService {
         await character.update({ name: "Gerando sua arte..." });
       }
 
-      // ✅ CORREÇÃO: A trava de segurança foi removida.
       const CHARACTER_ELEMENT_ID = "133022";
 
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
@@ -186,7 +188,10 @@ class ContentService {
         const finalIllustrationPrompt = prompts.LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE.replace('{{GPT_OUTPUT}}', scene.illustration_prompt);
         const localIllustrationUrl = await this.generateAndDownloadImage(finalIllustrationPrompt, mioloElementId, 'illustration');
         await BookContentPage.create({ bookVariationId: variation.id, pageNumber: currentPageNumber++, pageType: 'illustration', imageUrl: localIllustrationUrl, status: 'completed' });
-        await BookContentPage.create({ bookVariationId: variation.id, pageNumber: currentPageNumber++, pageType: 'text', content: scene.page_text, status: 'completed' });
+        
+        // Gera a página de texto como uma imagem
+        const textImageUrl = await TextToImageService.generateImage({ text: scene.page_text });
+        await BookContentPage.create({ bookVariationId: variation.id, pageNumber: currentPageNumber++, pageType: 'text', imageUrl: textImageUrl, content: scene.page_text, status: 'completed' });
     }
 
     const finalBackCoverPrompt = prompts.LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE.replace('{{GPT_OUTPUT}}', `night time, starry sky, peaceful scene, ${coverGptDescription}`);
@@ -195,9 +200,8 @@ class ContentService {
   }
 
   async createColoringBook(userId, { characterIds, theme }) {
-    // ✅ CORREÇÃO: Removi a trava de segurança
-    const MIOLO_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
-    const CAPA_ELEMENT_ID = "133022";   // SUBSTITUA PELO SEU ID REAL
+    const MIOLO_ELEMENT_ID = "133022";
+    const CAPA_ELEMENT_ID = "133022";
 
     return this.createBook({
       authorId: userId,
@@ -210,9 +214,8 @@ class ContentService {
   }
 
   async createStoryBook(userId, { characterIds, theme, summary }) {
-    // ✅ CORREÇÃO: Removi a trava de segurança
-    const MIOLO_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
-    const CAPA_ELEMENT_ID = "133022";   // SUBSTITUA PELO SEU ID REAL
+    const MIOLO_ELEMENT_ID = "133022";
+    const CAPA_ELEMENT_ID = "133022";
     
     return this.createBook({
       authorId: userId,
