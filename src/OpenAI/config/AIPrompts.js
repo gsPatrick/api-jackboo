@@ -11,10 +11,10 @@ Your task is to analyze a user's drawing and a text description, then synthesize
 **User's Description:** '[USER_DESCRIPTION]'
 
 **Instructions:**
-1.  Prioritize the user's text description. The drawing is a structural reference.
-2.  Describe the character's appearance, style, colors, and expression.
-3.  The final style must be 'child-like cartoon, friendly, vibrant'.
-4.  Your entire response MUST BE IN ENGLISH and must be a single paragraph of descriptive text.
+1. Prioritize the user's text description. The drawing is a structural reference.
+2. Describe the character's appearance, style, and expression.
+3. The final style must be 'child-like cartoon, friendly, vibrant'.
+4. Your entire response MUST BE IN ENGLISH and must be a single paragraph of descriptive text.
 `;
 
 const CHARACTER_LEONARDO_BASE_PROMPT = `a child-like cartoon character, cute, friendly, {{GPT_OUTPUT}}, vibrant colors, clean vector lines, high resolution, white background`;
@@ -27,8 +27,9 @@ You are an expert character designer describing a character for a coloring book 
 
 **YOUR TASK:**
 Rewrite the "Original Visual Description" into a new description suitable for creating black and white line art.
-- Focus ONLY on shapes, outlines, and key features (e.g., "fluffy tail", "large round eyes", "floppy ears").
-- Do NOT mention any colors, shading, lighting, or textures.
+- Focus ONLY on very simple shapes, outlines, and key features (e.g., "fluffy tail", "large round eyes", "floppy ears").
+- The character must look like a coloring book page: only thick black outlines, no colors, no shading, no textures, no details beyond the main cartoon shape.
+- Use large empty white spaces so children can color inside easily.
 - The output must be a concise, single paragraph in ENGLISH.
 `;
 
@@ -51,20 +52,21 @@ Describe a captivating cover scene. The protagonist, **[PROTAGONIST_NAME]**, MUS
 **OUTPUT REQUIREMENTS:**
 - A single paragraph.
 - The description MUST start with the protagonist's name, for example: "**[PROTAGONIST_NAME]** is jumping over a rainbow..."
-- The entire response MUST BE IN ENGLISH.
+- The entire response MUST be IN ENGLISH.
 `;
 
 const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a master storyteller for children's coloring books. Your goal is to create a visual story.
 
 **NON-NEGOTIABLE CORE DIRECTIVE:**
-1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description (for line art) is: **[PROTAGONIST_DESCRIPTION]**. This character MUST appear in every single scene description. Do not deviate from this description.
-2.  **STRICTLY FOR COLORING:** All descriptions MUST be for a coloring page. This means:
-    - **NO COLORS:** Do not mention any colors, shades, or lighting (e.g., "golden fur", "blue sky").
-    - **NO SHADOWS OR DETAILS:** Describe simple scenes with clear objects and actions.
-    - **FOCUS ON LINES:** The output should be suitable for creating black and white line art.
-3.  **IA-DRIVEN STORY:** The user has provided a general theme: "[THEME]". Based on this, create your OWN simple, coherent story arc across [PAGE_COUNT] scenes (beginning, middle, end).
-4.  **ENGLISH ONLY:** Your entire JSON response MUST be in English.
+1. **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description (for line art) is: **[PROTAGONIST_DESCRIPTION]**. This character MUST appear in every single scene description. Do not deviate from this description.
+2. **STRICTLY FOR COLORING:** All descriptions MUST be for a coloring page. This means:
+    - **NO COLORS:** Do not mention any colors.
+    - **NO SHADING OR TEXTURES:** Do not describe shadows, fur details, or textures.
+    - **FOCUS ON SIMPLE LINES:** Only clear, bold outlines with large empty spaces suitable for coloring.
+    - **NO SMALL DETAILS:** Keep everything minimal, cartoon-like, and easy for kids to color.
+3. **IA-DRIVEN STORY:** The user has provided a general theme: "[THEME]". Based on this, create your OWN simple, coherent story arc across [PAGE_COUNT] scenes (beginning, middle, end).
+4. **ENGLISH ONLY:** Your entire JSON response MUST be in English.
 
 **YOUR TASK:**
 Generate a JSON object with a single key "pages". This key must be an array of exactly [PAGE_COUNT] strings. Each string must be a simple visual scene description for an image AI, starting with the protagonist's name.
@@ -80,9 +82,9 @@ const STORY_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a master storyteller for illustrated children's books.
 
 **NON-NEGOTIABLE CORE DIRECTIVE:**
-1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST be the subject of every "page_text" and every "illustration_prompt".
-2.  **CONTEXT:** The theme is "[THEME]" and the plot is about "[SUMMARY]".
-3.  **LANGUAGE REQUIREMENTS (CRITICAL):**
+1. **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST be the subject of every "page_text" and every "illustration_prompt".
+2. **CONTEXT:** The theme is "[THEME]" and the plot is about "[SUMMARY]".
+3. **LANGUAGE REQUIREMENTS (CRITICAL):**
     - The "page_text" MUST be in **BRAZILIAN PORTUGUESE**.
     - The "illustration_prompt" MUST be in **ENGLISH**.
 
@@ -100,9 +102,15 @@ A single, valid JSON object with one key "story_pages", containing an array of e
 // PROMPTS BASE PARA LEONARDO.AI
 // -----------------------------------------------------------------------------
 
-const LEONARDO_COLORING_PAGE_PROMPT_BASE = `coloring book page for children, clean thick black outlines, no color fill, simple background, {{GPT_OUTPUT}}`;
+const LEONARDO_COLORING_PAGE_PROMPT_BASE = `
+children's coloring book page, simple cartoon character,
+thick clean black outlines only, no colors, no shading, no textures,
+large empty white spaces, minimal background, {{GPT_OUTPUT}}
+`;
 
-const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `children's storybook illustration, vibrant colors, painterly style, full page, joyful and friendly, {{GPT_OUTPUT}}`;
+const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `
+children's storybook illustration, vibrant colors, painterly style, full page, joyful and friendly, {{GPT_OUTPUT}}
+`;
 
 // -----------------------------------------------------------------------------
 // EXPORTAÇÃO
