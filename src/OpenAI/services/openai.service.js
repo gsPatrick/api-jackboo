@@ -57,9 +57,36 @@ class VisionService {
       }
     }
   }
+  
+  /**
+   * Gera uma descrição de contorno (sem cor) de um personagem.
+   */
+  async generateCharacterLineArtDescription(character) {
+      try {
+          let systemPrompt = prompts.CHARACTER_LINE_ART_DESCRIPTION_PROMPT;
+          
+          const translatedDescription = await translationService.translateToEnglish(character.description);
+
+          systemPrompt = systemPrompt
+              .replace(/\[CHARACTER_NAME\]/g, character.name)
+              .replace(/\[CHARACTER_DESCRIPTION\]/g, translatedDescription);
+
+          const response = await this.openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [{ role: "system", content: "You are a helpful assistant." }, { role: "user", content: systemPrompt }],
+              max_tokens: 150,
+          });
+          
+          return response.choices[0].message.content.trim();
+      } catch (error) {
+          console.error(`[VisionService] Erro ao gerar descrição de contorno para ${character.name}:`, error.message);
+          // Em caso de falha, retorna uma descrição genérica segura
+          return `a cartoon character with big eyes and a friendly smile`;
+      }
+  }
 
   /**
-   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, com pós-processamento para garantir o protagonista.
+   * Gera o roteiro de um livro de HISTÓRIA ILUSTRADO, garantindo o protagonista.
    */
   async generateStoryBookStoryline(characters, theme, summary, sceneCount) {
     try {
@@ -68,11 +95,13 @@ class VisionService {
       const mainCharacter = characters[0];
       const translatedTheme = await translationService.translateToEnglish(theme);
       const translatedSummary = await translationService.translateToEnglish(summary);
+      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
 
-      console.log(`[VisionService] Gerando roteiro de história. Personagem: ${mainCharacter.name}`);
+      console.log(`[VisionService] Gerando roteiro de história (em inglês). Personagem: ${mainCharacter.name}`);
 
       systemPrompt = systemPrompt
         .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
+        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, translatedProtagonistDescription)
         .replace(/\[THEME\]/g, translatedTheme)
         .replace(/\[SUMMARY\]/g, translatedSummary)
         .replace(/\[SCENE_COUNT\]/g, sceneCount.toString());
@@ -80,21 +109,20 @@ class VisionService {
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         response_format: { type: "json_object" },
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Generate the story.` }],
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Generate the story in ${sceneCount} scenes.` }],
         max_tokens: 400 * sceneCount,
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
+      let resultText = response.choices[0].message.content;
+        
+      const result = JSON.parse(resultText);
 
       if (!result.story_pages || !Array.isArray(result.story_pages)) {
           throw new Error('A IA não retornou "story_pages" como um array de objetos.');
       }
       
-      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
-      
       return result.story_pages.map(page => {
           const finalIllustrationPrompt = `${mainCharacter.name}, a ${translatedProtagonistDescription}, ${page.illustration_prompt}`;
-          
           return { 
               ...page, 
               illustration_prompt: this.sanitizePromptForSafety(finalIllustrationPrompt) 
@@ -107,7 +135,7 @@ class VisionService {
   }
 
   /**
-   * Gera o roteiro de um livro de COLORIR, com pós-processamento para garantir o protagonista.
+   * Gera o roteiro de um livro de COLORIR, garantindo o protagonista e a ausência de cores.
    */
   async generateColoringBookStoryline(characters, theme, pageCount) {
     try {
@@ -116,10 +144,14 @@ class VisionService {
       const mainCharacter = characters[0];
       const translatedTheme = await translationService.translateToEnglish(theme);
       
-      console.log(`[VisionService] Gerando roteiro de colorir. Personagem: ${mainCharacter.name}, Tema: ${theme}`);
+      // Gera a descrição de contorno, sem cor, para o miolo
+      const lineArtDescription = await this.generateCharacterLineArtDescription(mainCharacter);
+
+      console.log(`[VisionService] Gerando roteiro de colorir (em inglês). Personagem: ${mainCharacter.name}, Tema: ${theme}`);
 
       systemPrompt = systemPrompt
         .replace(/\[PROTAGONIST_NAME\]/g, mainCharacter.name)
+        .replace(/\[PROTAGONIST_DESCRIPTION\]/g, lineArtDescription)
         .replace(/\[THEME\]/g, translatedTheme)
         .replace(/\[PAGE_COUNT\]/g, pageCount.toString());
 
@@ -128,7 +160,7 @@ class VisionService {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Create the story in ${pageCount} scenes.` }
+          { role: "user", content: `Create the story in ${pageCount} scenes for the theme "${translatedTheme}".` }
         ],
         max_tokens: 200 * pageCount,
       });
@@ -136,10 +168,9 @@ class VisionService {
       const result = JSON.parse(response.choices[0].message.content);
       if (!result.pages || !Array.isArray(result.pages)) throw new Error('A IA não retornou "pages" como um array.');
       
-      const translatedProtagonistDescription = await translationService.translateToEnglish(mainCharacter.description);
-      
+      // Injeta a descrição de contorno em cada prompt de cena
       return result.pages.map(sceneDescription => {
-          const finalPrompt = `${mainCharacter.name}, a ${translatedProtagonistDescription}, ${sceneDescription}`;
+          const finalPrompt = `${mainCharacter.name}, ${lineArtDescription}, ${sceneDescription}`;
           return this.sanitizePromptForSafety(finalPrompt);
       });
     } catch (error) {
@@ -186,7 +217,7 @@ class VisionService {
 
     } catch (error) {
       console.error('[VisionService] Erro ao gerar descrição da capa:', error.message);
-      throw new Error(`Falha ao gerar descrição da capa: ${error.message}`);
+      throw new Error(`Falha na geração da capa: ${error.message}`);
     }
   }
 

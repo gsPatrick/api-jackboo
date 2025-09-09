@@ -19,6 +19,19 @@ Your task is to analyze a user's drawing and a text description, then synthesize
 
 const CHARACTER_LEONARDO_BASE_PROMPT = `a child-like cartoon character, cute, friendly, {{GPT_OUTPUT}}, vibrant colors, clean vector lines, high resolution, white background`;
 
+// NOVO: Prompt para criar uma descrição de contornos do personagem para livros de colorir
+const CHARACTER_LINE_ART_DESCRIPTION_PROMPT = `
+You are an expert character designer describing a character for a coloring book page.
+**Character Name:** '[CHARACTER_NAME]'
+**Original Visual Description (with colors):** '[CHARACTER_DESCRIPTION]'
+
+**YOUR TASK:**
+Rewrite the "Original Visual Description" into a new description suitable for creating black and white line art.
+- Focus ONLY on shapes, outlines, and key features (e.g., "fluffy tail", "large round eyes", "floppy ears").
+- Do NOT mention any colors, shading, lighting, or textures.
+- The output must be a concise, single paragraph in ENGLISH.
+`;
+
 // -----------------------------------------------------------------------------
 // PROMPTS PARA GERAÇÃO DE LIVROS
 // -----------------------------------------------------------------------------
@@ -45,7 +58,7 @@ const COLORING_BOOK_STORYLINE_SYSTEM_PROMPT = `
 You are a master storyteller for children's coloring books. Your goal is to create a visual story.
 
 **NON-NEGOTIABLE CORE DIRECTIVE:**
-1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description is: **[PROTAGONIST_DESCRIPTION]**. This character MUST appear in every single scene description. Do not deviate from this description.
+1.  **THE PROTAGONIST IS SACRED:** The story is ONLY about **[PROTAGONIST_NAME]**. His visual description (for line art) is: **[PROTAGONIST_DESCRIPTION]**. This character MUST appear in every single scene description. Do not deviate from this description.
 2.  **STRICTLY FOR COLORING:** All descriptions MUST be for a coloring page. This means:
     - **NO COLORS:** Do not mention any colors, shades, or lighting (e.g., "golden fur", "blue sky").
     - **NO SHADOWS OR DETAILS:** Describe simple scenes with clear objects and actions.
@@ -98,6 +111,7 @@ const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `children's storybook illustrati
 module.exports = {
   CHARACTER_SYSTEM_PROMPT,
   CHARACTER_LEONARDO_BASE_PROMPT,
+  CHARACTER_LINE_ART_DESCRIPTION_PROMPT,
   COLORING_BOOK_STORYLINE_SYSTEM_PROMPT,
   STORY_BOOK_STORYLINE_SYSTEM_PROMPT,
   BOOK_COVER_SYSTEM_PROMPT,
