@@ -33,7 +33,6 @@ async function loadReferenceImage(filePath) {
 
 class ContentService {
 
-  // ✅ CORREÇÃO: Função restaurada para a versão original funcional
   async createCharacter(
     userId,
     file,
@@ -68,7 +67,7 @@ class ContentService {
         await character.update({ name: "Gerando sua arte..." });
       }
 
-      const CHARACTER_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
+      const CHARACTER_ELEMENT_ID = "133022";
 
       const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
       const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, CHARACTER_ELEMENT_ID);
@@ -100,9 +99,6 @@ class ContentService {
     }
   }
 
-  /**
-   * FUNÇÃO UNIFICADA E ATUALIZADA PARA CRIAR QUALQUER LIVRO
-   */
   async createBook(creationData) {
     const {
       authorId,
@@ -161,55 +157,50 @@ class ContentService {
     }
   }
 
-  // ✅ NOVA: Função de geração de livro de colorir com Gemini
+  // ✅ CORREÇÃO APLICADA AQUI
   async _generateColoringBookPagesGemini(book, variation, characters, theme, pageCount) {
     const mainCharacter = characters[0];
-    let tempImagePath = null;
+    
+    console.log('[ContentService] Carregando imagens de referência para o livro de colorir...');
+    const coverBaseImage = await loadReferenceImage('src/assets/ai-references/cover/cover_base.jpg');
+    
+    // CORREÇÃO: Lê o arquivo do personagem diretamente do disco em vez de tentar baixá-lo.
+    const userCharacterPath = path.join(__dirname, '../../../', mainCharacter.generatedCharacterUrl.substring(1));
+    const userCharacterImage = { 
+        imageData: await fs.readFile(userCharacterPath), 
+        mimeType: `image/${path.extname(userCharacterPath).slice(1)}` 
+    };
+    
+    const styleImagePaths = [
+        'src/assets/ai-references/style/style_01.jpg',
+        'src/assets/ai-references/style/style_02.jpg',
+        'src/assets/ai-references/style/style_03.jpg',
+    ];
+    const styleImages = await Promise.all(styleImagePaths.map(p => loadReferenceImage(p)));
 
-    try {
-        console.log('[ContentService] Carregando imagens de referência para o livro de colorir...');
-        const coverBaseImage = await loadReferenceImage('src/assets/ai-references/cover/cover_base.jpg');
-        
-        const tempRelativePath = await downloadAndSaveImage(mainCharacter.generatedCharacterUrl);
-        tempImagePath = path.join(__dirname, '../../../', tempRelativePath.substring(1));
-        const userCharacterImage = { imageData: await fs.readFile(tempImagePath), mimeType: 'image/png' };
-        
-        const styleImagePaths = [
-            'src/assets/ai-references/style/style_01.jpg',
-            'src/assets/ai-references/style/style_02.jpg',
-            'src/assets/ai-references/style/style_03.jpg',
-        ];
-        const styleImages = await Promise.all(styleImagePaths.map(p => loadReferenceImage(p)));
+    console.log(`[ContentService] Livro ${book.id}: Gerando capa e contracapa com Gemini...`);
+    const coverPrompt = prompts.GEMINI_COVER_PROMPT_TEMPLATE.replace('{{THEME}}', theme).replace('{{TIME_OF_DAY}}', 'daytime, bright and cheerful');
+    const localCoverUrl = await geminiService.generateImage({ textPrompt: coverPrompt, baseImages: [coverBaseImage, userCharacterImage] });
+    await BookContentPage.create({ bookVariationId: variation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
+    await variation.update({ coverUrl: localCoverUrl });
 
-        console.log(`[ContentService] Livro ${book.id}: Gerando capa e contracapa com Gemini...`);
-        const coverPrompt = prompts.GEMINI_COVER_PROMPT_TEMPLATE.replace('{{THEME}}', theme).replace('{{TIME_OF_DAY}}', 'daytime, bright and cheerful');
-        const localCoverUrl = await geminiService.generateImage({ textPrompt: coverPrompt, baseImages: [coverBaseImage, userCharacterImage] });
-        await BookContentPage.create({ bookVariationId: variation.id, pageNumber: 1, pageType: 'cover_front', imageUrl: localCoverUrl, status: 'completed' });
-        await variation.update({ coverUrl: localCoverUrl });
+    const backCoverPrompt = prompts.GEMINI_COVER_PROMPT_TEMPLATE.replace('{{THEME}}', theme).replace('{{TIME_OF_DAY}}', 'nighttime, with stars and a moon');
+    const localBackCoverUrl = await geminiService.generateImage({ textPrompt: backCoverPrompt, baseImages: [coverBaseImage, userCharacterImage] });
+    await BookContentPage.create({ bookVariationId: variation.id, pageNumber: pageCount + 2, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
 
-        const backCoverPrompt = prompts.GEMINI_COVER_PROMPT_TEMPLATE.replace('{{THEME}}', theme).replace('{{TIME_OF_DAY}}', 'nighttime, with stars and a moon');
-        const localBackCoverUrl = await geminiService.generateImage({ textPrompt: backCoverPrompt, baseImages: [coverBaseImage, userCharacterImage] });
-        await BookContentPage.create({ bookVariationId: variation.id, pageNumber: pageCount + 2, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
+    console.log(`[ContentService] Livro ${book.id}: Gerando roteiro do miolo...`);
+    const pagePrompts = await visionService.generateColoringBookStoryline(characters, theme, pageCount);
+    if (!pagePrompts || pagePrompts.length === 0) throw new Error("A IA (GPT) não retornou prompts para as páginas de colorir.");
 
-        console.log(`[ContentService] Livro ${book.id}: Gerando roteiro do miolo...`);
-        const pagePrompts = await visionService.generateColoringBookStoryline(characters, theme, pageCount);
-        if (!pagePrompts || pagePrompts.length === 0) throw new Error("A IA (GPT) não retornou prompts para as páginas de colorir.");
-
-        console.log(`[ContentService] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo com Gemini...`);
-        for (let i = 0; i < pagePrompts.length; i++) {
-            const pageNumber = i + 2;
-            const finalPrompt = prompts.GEMINI_COLORING_PAGE_PROMPT_TEMPLATE.replace('{{SCENE_DESCRIPTION}}', pagePrompts[i]);
-            const localPageUrl = await geminiService.generateImage({ textPrompt: finalPrompt, baseImages: [...styleImages, userCharacterImage] });
-            await BookContentPage.create({ bookVariationId: variation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
-        }
-    } finally {
-        if (tempImagePath) {
-            await cleanupFile(tempImagePath);
-        }
+    console.log(`[ContentService] Livro ${book.id}: Gerando ${pagePrompts.length} páginas do miolo com Gemini...`);
+    for (let i = 0; i < pagePrompts.length; i++) {
+        const pageNumber = i + 2;
+        const finalPrompt = prompts.GEMINI_COLORING_PAGE_PROMPT_TEMPLATE.replace('{{SCENE_DESCRIPTION}}', pagePrompts[i]);
+        const localPageUrl = await geminiService.generateImage({ textPrompt: finalPrompt, baseImages: [...styleImages, userCharacterImage] });
+        await BookContentPage.create({ bookVariationId: variation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
     }
   }
 
-  // Função antiga mantida para livros de história
   async _generateStoryBookPages(book, variation, characters, theme, summary, sceneCount, mioloElementId, capaElementId) {
     const totalPages = (sceneCount * 2) + 2;
 
