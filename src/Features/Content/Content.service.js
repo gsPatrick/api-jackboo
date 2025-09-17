@@ -19,6 +19,27 @@ if (!process.env.APP_URL) {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// ✅ NOVO: Lista completa de temas para seleção aleatória
+const coloringBookThemes = [
+    "Praia com castelo de areia", "Piquenique no parque", "Passeio de bicicleta", "Viagem de trem", "Aeroporto e malas de viagem", "Nadando na piscina", "Acampamento com barraca", "Cabaninha na floresta", "Passeio de barco", "Zoológico", "Museu de ciências", "Feira de diversões", "Parquinho com escorregador", "Montanha-russa", "Caminhada na montanha", "Pesca no lago", "Fazendinha de visita", "Carrossel", "Zoológico aquático", "Observando fogos de artifício",
+    "Praia tropical", "Sorveteria", "Correndo em aspersor de água", "Piquenique ao sol", "Piscina inflável no quintal", "Mercado de frutas", "Vendedor de picolé", "Comendo melancia", "Chapéu de sol na varanda", "Jardim florido", "Festa na piscina", "Soltando pipa", "Cães brincando com mangueira d’água", "Bexigas de água", "Feira de verão", "Jogando vôlei de praia", "Barquinho de papel no riacho", "Família no parque", "Brincando de amarelinha", "Bicicleta com cestinha de flores",
+    "Neve na cidade", "Montando boneco de neve", "Patinação no gelo", "Trenó na montanha", "Com cachecol e luvas", "Esquiadores", "Casa com lareira acesa", "Bebendo chocolate quente", "Pinguins brincando na neve", "Roupas no varal de inverno", "Floresta com neve", "Coelhos na neve", "Neve caindo sobre telhados", "Guerra de bolas de neve", "Esquilo guardando comida", "Raposa na neve", "Bonecos de neve engraçados", "Ursinho polar pescando no gelo", "Trenó puxado por cachorros", "Olhando vitrines natalinas",
+    "No balanço", "Escorregador", "Passeio de pedalinho no lago", "Roda-gigante pequena", "Gangorra", "Corrida de saco", "Piquenique no gramado", "Soltando bolhas de sabão", "Pista de skate", "Cachorrinho correndo no parque", "Jogando bola", "Carrossel de madeira", "Caminho com flores", "Alimentando patos no lago", "Bicicletas com rodinhas", "Lendo livro debaixo da árvore", "Brincando de esconde-esconde", "Carrinho de pipoca", "Voando pipa", "Festa de aniversário no parque",
+    "Acampamento na floresta", "Animais espiando das árvores", "Riacho entre pedras", "Coruja em galho", "Raposa brincando", "Explorando com lanterna", "Cabaninha de galhos", "Piquenique na clareira", "Ursinho pescando no lago", "Coelhos na toca", "Caça ao tesouro na floresta", "Colhendo frutas", "Ponte de madeira sobre rio", "Árvore com balanço improvisado", "Borboletas voando", "Trilha com mochilas", "Macaquinho pulando", "Pássaros cantando", "Olhando mapa de trilha", "Escalada em árvore",
+    "Com telescópio", "Nave espacial", "Planetas sorridentes", "Astronauta fofo", "Lua com bandeira", "Galáxia estrelada", "Em foguete", "Base lunar", "Alienígena amigo", "Estação espacial", "Robô no espaço", "Flutuando no espaço", "Viagem a Saturno", "Ônibus espacial", "Exploração de Marte", "Segurando uma estrela", "Cometa sorridente", "Plutão com cachecol", "Dentro da nave olhando pela janela", "Festa espacial",
+    "Sala de aula", "Pintando na escola", "Biblioteca escolar", "Refeitório da escola", "Recreio", "Jogando bola na quadra", "Professora contando história", "Quadro negro com desenhos", "Aula de música", "Aula de ciências", "Festa junina na escola", "Feira de ciências", "Excursão escolar", "No ônibus escolar", "Escrevendo no caderno", "Aula de matemática", "No teatro da escola", "Armários escolares", "Trocando figurinhas", "Indo embora da escola",
+    "Padaria", "Praça com coreto", "Mercado de frutas", "Ponto de ônibus", "Loja de brinquedos", "Farmácia", "Feira de rua", "Cinema", "Atravessando faixa de pedestre", "Parquinho na praça", "Cabeleireiro", "Loja de roupas", "Sorveteria", "Bicicletário", "Cafeteria", "Correios", "Bancos na praça", "Passeando com cachorro", "Carros na rua", "Camelô de rua",
+    "Galinheiro", "Alimentando patos", "Cavalo no estábulo", "Colheita de milho", "Pomar de maçã", "Ordenhando vaca", "Carroça de feno", "Colhendo ovos", "Porquinhos brincando", "Celeiro cheio", "Festa da colheita", "Plantação de girassol", "Cavalgando", "Espantalho", "Trator", "Horta comunitária", "Coelho no quintal", "Regando plantação", "Comendo maçã da árvore", "Cachorro cuidando do gado",
+    "Aniversário com bolo", "Festa junina", "Natal com árvore", "Abertura de presentes", "Fantasiados no Halloween", "Caça aos ovos de Páscoa", "Carnaval com confete", "Fogos de Ano Novo", "Festa do pijama", "Com chapéu de festa", "Festa na piscina", "Festa no quintal", "Amigo secreto", "Fazendo artesanato", "Balões coloridos", "Corrida de sacos em festa", "Dança de quadrilha", "Festa da escola", "Festa de fantasia", "Festa de despedida de verão",
+    "Médico no consultório", "Bombeiro apagando incêndio", "Policial dirigindo viatura", "Professor dando aula", "Cozinheiro em uma cozinha", "Pintor com cavalete", "Cantor com microfone", "Dançarino no palco", "Arquiteto com planta na mão", "Cientista em laboratório", "Fotógrafo com câmera antiga", "Agricultor colhendo verduras", "Carteiro entregando cartas", "Piloto dentro do avião", "Marinheiro no navio", "Astronauta explorando a lua", "Mecânico consertando carro", "Veterinário cuidando de cachorro", "Escritor digitando em máquina de escrever", "Juiz no tribunal com martelo",
+    "Corredores na pista de atletismo", "Nadadores em piscina olímpica", "Jogadores de basquete", "Judocas em combate", "Futebol em campo olímpico", "Saltador com vara", "Jogadores de vôlei de praia", "Ginasta com fita", "Arqueiro mirando no alvo", "Jogadores de tênis", "Maratonistas cruzando linha de chegada", "Ciclistas em prova de estrada", "Halterofilista levantando peso", "Esgrimistas duelando", "Ginasta nas argolas", "Saltador em trampolim", "Jogadores de hóquei na grama", "Boxeadores no ringue", "Skate nas olimpíadas urbanas", "Cerimônia de medalhas com pódio",
+    "Cristo Redentor no Rio de Janeiro", "Coliseu de Roma", "Torre Eiffel em Paris", "Estátua da Liberdade em Nova York", "Pirâmides do Egito", "Taj Mahal na Índia", "Grande Muralha da China", "Chichén Itzá no México", "Torre de Pisa na Itália", "Big Ben em Londres", "Machu Picchu no Peru", "Petra na Jordânia", "Moai da Ilha de Páscoa", "Ópera de Sydney", "Castelo de Neuschwanstein na Alemanha", "Monte Rushmore nos EUA", "Estátua da Mãe Pátria em Moscou", "Catedral de Notre-Dame em Paris", "Palácio de Versalhes", "Estátua do Buda Gigante em Hong Kong",
+    "Tiranossauro Rex rugindo", "Tricerátopo pastando", "Estegossauro com placas nas costas", "Pterodátilo voando", "Diplodoco comendo folhas", "Velociraptor correndo", "Exploradores com fósseis", "Ovo de dinossauro quebrando", "Cena de erupção vulcânica", "Dinossauro bebendo água em lago", "Mamute lanudo (era pré-histórica)", "Cena de floresta jurássica", "Dinossauro com ninho de ovos", "Esqueleto em museu", "Cena de luta entre dinossauros", "Dinossauro marinho (plesiossauro)", "Dinossauro herbívoro em bando", "Paleontólogos escavando", "Pegadas gigantes no chão", "Dinossauro dormindo na caverna",
+    "Soltando pipa no verão", "Tomando sorvete", "Guarda-sóis na praia", "Piscina com boias", "Comendo melancia no calor", "Jardim florido na primavera", "Regando flores", "Borboletas voando em um campo", "Festa de primavera", "Colhendo frutas no pomar", "Folhas caindo no outono", "Brincando em pilhas de folhas secas", "Colheita de abóboras", "Paisagem com árvores alaranjadas", "Montando boneco de neve no inverno", "Patinação no gelo", "Guerra de bolas de neve", "Bebendo chocolate quente na lareira", "Ursinho polar brincando na neve", "Trenó puxado por cachorros",
+    "Resgatando um gatinho em uma árvore", "Apagando um incêndio", "Voando sobre a cidade", "Herói aquático salvando peixinhos", "Herói da floresta protegendo animais", "Impedindo a queda de um meteoro", "Criando uma barreira de energia mágica", "Ajudando a atravessar uma ponte", "Levantando um carro para salvar alguém", "Afastando uma tempestade com poderes de vento", "Iluminando uma caverna escura", "Defendendo a Terra de cometas", "Salvando filhotes em uma enchente", "Segurando pedras que caem de uma montanha", "Ajudando a arrumar brinquedos", "Voando com foguete nas costas", "Parando um trem em emergência", "Construindo uma barragem para salvar uma aldeia", "Guiando animais perdidos de volta para a floresta", "Ajudando pessoas idosas a atravessar a rua",
+    "Dirigindo um carro colorido", "Pilotando uma moto com capacete", "Andando de bicicleta", "Dirigindo um ônibus escolar", "Conduzindo um caminhão de carga", "Em um trem com vagões", "Dentro de um metrô", "Como capitão em um barco a vela", "Navegando em um navio", "Em um submarino no fundo do mar", "Pilotando um avião", "Dentro de um helicóptero", "Viajando em um balão de ar quente", "Dirigindo um trator", "Em um quadriciclo de aventura", "Pilotando um patinete elétrico", "Em um táxi amarelo", "Em um bonde elétrico", "Andando em um skate", "Em um hoverboard futurista"
+];
+
 async function loadReferenceImage(filePath) {
     try {
         const fullPath = path.resolve(__dirname, '../../../', filePath);
@@ -157,14 +178,12 @@ class ContentService {
     }
   }
 
-  // ✅ CORREÇÃO APLICADA AQUI
   async _generateColoringBookPagesGemini(book, variation, characters, theme, pageCount) {
     const mainCharacter = characters[0];
     
     console.log('[ContentService] Carregando imagens de referência para o livro de colorir...');
     const coverBaseImage = await loadReferenceImage('src/assets/ai-references/cover/cover_base.jpg');
     
-    // CORREÇÃO: Lê o arquivo do personagem diretamente do disco em vez de tentar baixá-lo.
     const userCharacterPath = path.join(__dirname, '../../../', mainCharacter.generatedCharacterUrl.substring(1));
     const userCharacterImage = { 
         imageData: await fs.readFile(userCharacterPath), 
@@ -244,11 +263,15 @@ class ContentService {
   }
 
   async createColoringBook(userId, { characterIds, theme }) {
+    const selectedTheme = theme || coloringBookThemes[Math.floor(Math.random() * coloringBookThemes.length)];
+    
+    console.log(`[ContentService] Tema para livro de colorir selecionado: "${selectedTheme}"`);
+
     return this.createBook({
       authorId: userId,
       characterIds,
       bookType: 'colorir',
-      theme,
+      theme: selectedTheme,
     });
   }
 
