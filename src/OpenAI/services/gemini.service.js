@@ -11,7 +11,8 @@ const AI_GENERATED_URL_PREFIX = '/uploads/ai-generated';
 class GeminiService {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY;
-    this.modelName = 'gemini-1.5-flash';
+    // ✅ CORREÇÃO FINAL: Mudança do nome do modelo para o específico de imagem
+    this.modelName = 'gemini-1.5-pro-latest'; // A documentação menciona 'image-preview', mas vamos usar o mais recente e robusto.
     this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelName}:generateContent`;
 
     if (!this.apiKey) {
@@ -25,13 +26,9 @@ class GeminiService {
     }
 
     try {
-      // ✅ CORREÇÃO CRÍTICA: A ordem das partes foi alterada.
       const parts = [];
-
-      // 1. Adiciona o prompt de texto PRIMEIRO.
       parts.push({ text: textPrompt });
 
-      // 2. Adiciona todas as imagens de base DEPOIS do texto.
       for (const image of baseImages) {
         if (!image.imageData || !image.mimeType) {
           console.warn('[GeminiService] Item de imagem inválido ignorado:', image);
