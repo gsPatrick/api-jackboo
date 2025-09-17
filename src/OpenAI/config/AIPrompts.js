@@ -1,7 +1,7 @@
 // src/OpenAI/config/AIPrompts.js
 
 // -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE PERSONAGEM
+// PROMPTS PARA GERAÇÃO DE PERSONAGEM (GPT-4o)
 // -----------------------------------------------------------------------------
 
 const CHARACTER_SYSTEM_PROMPT = `
@@ -19,7 +19,6 @@ Your task is to analyze a user's drawing and a text description, then synthesize
 
 const CHARACTER_LEONARDO_BASE_PROMPT = `a child-like cartoon character, cute, friendly, {{GPT_OUTPUT}}, vibrant colors, clean vector lines, high resolution, white background`;
 
-// NOVO: Prompt para criar uma descrição de contornos do personagem para livros de colorir
 const CHARACTER_LINE_ART_DESCRIPTION_PROMPT = `
 You are an expert character designer describing a character for a coloring book page.
 **Character Name:** '[CHARACTER_NAME]'
@@ -34,7 +33,7 @@ Rewrite the "Original Visual Description" into a new description suitable for cr
 `;
 
 // -----------------------------------------------------------------------------
-// PROMPTS PARA GERAÇÃO DE LIVROS
+// PROMPTS PARA GERAÇÃO DE ROTEIRO (GPT-4o)
 // -----------------------------------------------------------------------------
 
 const BOOK_COVER_SYSTEM_PROMPT = `
@@ -99,15 +98,45 @@ A single, valid JSON object with one key "story_pages", containing an array of e
 `;
 
 // -----------------------------------------------------------------------------
-// PROMPTS BASE PARA LEONARDO.AI
+// PROMPTS BASE PARA GERAÇÃO DE IMAGEM
 // -----------------------------------------------------------------------------
 
-const LEONARDO_COLORING_PAGE_PROMPT_BASE = `
-children's coloring book page, simple cartoon character,
-thick clean black outlines only, no colors, no shading, no textures,
-large empty white spaces, minimal background, {{GPT_OUTPUT}}
+// ✅ NOVO: Prompt template para as páginas de colorir do Gemini, baseado no seu teste.
+const GEMINI_COLORING_PAGE_PROMPT_TEMPLATE = `
+A charming, horizontal (4:3 format), black-and-white coloring book page for children. The art style is minimalist and kawaii, defined by its clean, simple shapes and a very specific hand-drawn quality.
+
+Linework: All lines must be thick, soft, trembling, and imperfect, as if drawn with a felt-tip pen by a young child. Never use straight or perfect lines — every stroke must look organic, wobbly, and childlike. This organic, imperfect line style applies to everything, from the characters to the background and the single border (always one, never double) that frames the entire image.
+
+Scene: {{SCENE_DESCRIPTION}}
+
+Restrictions:
+Always horizontal (never vertical), strictly 4:3 format.
+Always black-and-white only, never color.
+Always a single border, never a double border.
 `;
 
+// ✅ NOVO: Prompt para a capa (colorida) com o Gemini.
+const GEMINI_COVER_PROMPT_TEMPLATE = `
+Use the first image (the base cover art) as the primary reference for the art style, layout, and for the main character, Jackboo.
+Take the character from the second image (the user's character) and add it to the scene, standing next to Jackboo in a friendly, interactive pose.
+Completely replace the original background with a new theme: '{{THEME_DESCRIPTION}}'.
+The added character must be perfectly integrated into the scene, matching the lighting, shadows, and overall art style of the reference image.
+Keep the 'JACKBOO' logo, the bottom text area, and the border exactly as they are in the reference image.
+`;
+
+// ✅ NOVO: Prompt para a contracapa (colorida) com o Gemini.
+const GEMINI_BACK_COVER_PROMPT_TEMPLATE = `
+Use the first image (the base cover art) as the primary reference for the art style, layout, and for the main character, Jackboo.
+Take the character from the second image (the user's character) and add it to the scene, standing next to Jackboo in a friendly, interactive pose.
+Completely replace the original background with a new theme that complements the main cover: '{{THEME_DESCRIPTION}}'. This should be a variation, like night vs. day, or a different but related location.
+The added character must be perfectly integrated, matching the lighting, shadows, and art style.
+Keep the 'JACKBOO' logo, the bottom text area, and the border exactly as they are in the reference image.
+`;
+
+// ❌ REMOVIDO: O prompt base do Leonardo.AI não é mais necessário para livros de colorir.
+// const LEONARDO_COLORING_PAGE_PROMPT_BASE = `...`;
+
+// Mantido para livros de história ilustrados, caso ainda usem o Leonardo.AI
 const LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE = `
 children's storybook illustration, vibrant colors, painterly style, full page, joyful and friendly, {{GPT_OUTPUT}}
 `;
@@ -117,12 +146,19 @@ children's storybook illustration, vibrant colors, painterly style, full page, j
 // -----------------------------------------------------------------------------
 
 module.exports = {
+  // Prompts para GPT-4o
   CHARACTER_SYSTEM_PROMPT,
-  CHARACTER_LEONARDO_BASE_PROMPT,
   CHARACTER_LINE_ART_DESCRIPTION_PROMPT,
   COLORING_BOOK_STORYLINE_SYSTEM_PROMPT,
   STORY_BOOK_STORYLINE_SYSTEM_PROMPT,
   BOOK_COVER_SYSTEM_PROMPT,
-  LEONARDO_COLORING_PAGE_PROMPT_BASE,
-  LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE,
+
+  // Prompts para Geração de Imagem
+  CHARACTER_LEONARDO_BASE_PROMPT, // Mantido para o fluxo de criação de personagem
+  LEONARDO_STORY_ILLUSTRATION_PROMPT_BASE, // Mantido para o fluxo de livro de história
+  
+  // ✅ NOVOS PROMPTS PARA GEMINI
+  GEMINI_COLORING_PAGE_PROMPT_TEMPLATE,
+  GEMINI_COVER_PROMPT_TEMPLATE,
+  GEMINI_BACK_COVER_PROMPT_TEMPLATE,
 };
