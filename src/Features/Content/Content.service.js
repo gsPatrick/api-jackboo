@@ -2,7 +2,7 @@
 
 const { Character, Book, BookVariation, BookContentPage, sequelize, User } = require('../../models');
 const visionService = require('../../OpenAI/services/openai.service');
-// ✅ NOVO: Importa o serviço do Gemini e remove o do Leonardo
+const leonardoService = require('../../OpenAI/services/leonardo.service');
 const geminiService = require('../../OpenAI/services/gemini.service');
 const { downloadAndSaveImage } = require('../../OpenAI/utils/imageDownloader');
 const prompts = require('../../OpenAI/config/AIPrompts');
@@ -19,7 +19,6 @@ if (!process.env.APP_URL) {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ✅ NOVO: Helper para carregar imagens de referência do projeto
 async function loadReferenceImage(filePath) {
     try {
         const fullPath = path.resolve(__dirname, '../../../', filePath);
@@ -32,10 +31,9 @@ async function loadReferenceImage(filePath) {
     }
 }
 
-
 class ContentService {
 
-  // A criação de personagem ainda usa o fluxo antigo. Nenhuma alteração aqui.
+  // ✅ CORREÇÃO: Função restaurada para a versão original funcional
   async createCharacter(
     userId,
     file,
@@ -70,16 +68,28 @@ class ContentService {
         await character.update({ name: "Gerando sua arte..." });
       }
 
-      const CHARACTER_ELEMENT_ID = "133022";
+      const CHARACTER_ELEMENT_ID = "133022"; // SUBSTITUA PELO SEU ID REAL
 
-      // Simulação do serviço antigo do Leonardo
-      console.log("[ContentService] Fluxo antigo de personagem mantido.");
-      await sleep(10000); // Simula tempo de processamento
-      
-      const placeholderGeneratedUrl = '/images/character-placeholder.png'; // Simula uma imagem gerada
+      const leonardoInitImageId = await leonardoService.uploadImageToLeonardo(file.path, file.mimetype);
+      const generationId = await leonardoService.startImageGeneration(finalPrompt, leonardoInitImageId, CHARACTER_ELEMENT_ID);
+      await character.update({ generationJobId: generationId });
+
+      let finalImageUrl = null;
+      const MAX_POLLS = 30;
+      for (let i = 0; i < MAX_POLLS; i++) {
+        await sleep(5000); 
+        const result = await leonardoService.checkGenerationStatus(generationId);
+        if (result.isComplete) {
+          finalImageUrl = result.imageUrl;
+          break;
+        }
+      }
+      if (!finalImageUrl) throw new Error("A geração da imagem demorou muito para responder.");
+
+      const localGeneratedUrl = await downloadAndSaveImage(finalImageUrl);
       
       const finalName = name || 'Novo Personagem';
-      await character.update({ generatedCharacterUrl: placeholderGeneratedUrl, name: finalName });
+      await character.update({ generatedCharacterUrl: localGeneratedUrl, name: finalName });
       
       return character;
 
@@ -102,8 +112,8 @@ class ContentService {
       summary,
       title,
       pageCount,
-      elementId, // Usado apenas por livro de história
-      coverElementId, // Usado apenas por livro de história
+      elementId,
+      coverElementId,
     } = creationData;
 
     const t = await sequelize.transaction();
@@ -151,7 +161,7 @@ class ContentService {
     }
   }
 
-  // ✅ NOVO: Função de geração de livro de colorir com Gemini
+  // ✅ NOVA: Função de geração de livro de colorir com Gemini
   async _generateColoringBookPagesGemini(book, variation, characters, theme, pageCount) {
     const mainCharacter = characters[0];
     let tempImagePath = null;
@@ -160,9 +170,8 @@ class ContentService {
         console.log('[ContentService] Carregando imagens de referência para o livro de colorir...');
         const coverBaseImage = await loadReferenceImage('src/assets/ai-references/cover/cover_base.jpg');
         
-        // Baixa a imagem do personagem para um arquivo temporário para poder ler como buffer
         const tempRelativePath = await downloadAndSaveImage(mainCharacter.generatedCharacterUrl);
-        tempImagePath = path.join(__dirname, '../../../', tempRelativePath.substring(1)); // Caminho absoluto
+        tempImagePath = path.join(__dirname, '../../../', tempRelativePath.substring(1));
         const userCharacterImage = { imageData: await fs.readFile(tempImagePath), mimeType: 'image/png' };
         
         const styleImagePaths = [
@@ -194,7 +203,6 @@ class ContentService {
             await BookContentPage.create({ bookVariationId: variation.id, pageNumber, pageType: 'coloring_page', imageUrl: localPageUrl, status: 'completed' });
         }
     } finally {
-        // Limpa o arquivo temporário da imagem do personagem
         if (tempImagePath) {
             await cleanupFile(tempImagePath);
         }
@@ -244,7 +252,6 @@ class ContentService {
     await BookContentPage.create({ bookVariationId: variation.id, pageNumber: totalPages, pageType: 'cover_back', imageUrl: localBackCoverUrl, status: 'completed' });
   }
 
-  // ✅ ATUALIZADO: createColoringBook agora usa o fluxo unificado sem IDs
   async createColoringBook(userId, { characterIds, theme }) {
     return this.createBook({
       authorId: userId,
@@ -254,10 +261,9 @@ class ContentService {
     });
   }
 
-  // createStoryBook ainda usa o fluxo antigo com IDs
   async createStoryBook(userId, { characterIds, theme, summary }) {
-    const MIOLO_ELEMENT_ID = "133022"; // ID antigo como fallback
-    const CAPA_ELEMENT_ID = "133022";   // ID antigo como fallback
+    const MIOLO_ELEMENT_ID = "133022";
+    const CAPA_ELEMENT_ID = "133022";
     
     return this.createBook({
       authorId: userId,
@@ -270,12 +276,37 @@ class ContentService {
     });
   }
   
-  // Função antiga mantida para o fluxo de livro de história
   async generateAndDownloadImage(prompt, elementId, generationType = 'illustration') {
-      console.warn(`[ContentService] AVISO: A função 'generateAndDownloadImage' foi chamada (fluxo antigo).`);
-      // Simulação para não quebrar o fluxo
-      await sleep(5000);
-      return '/images/placeholder-cover.png';
+    if (!elementId) {
+      throw new Error(`O Element ID para a geração do tipo '${generationType}' não foi fornecido.`);
+    }
+
+    console.log(`[LeonardoService] Solicitando imagem do tipo '${generationType}' com element '${elementId}'...`);
+    const MAX_RETRIES = 3;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            const generationId = generationType === 'coloring'
+                ? await leonardoService.startColoringPageGeneration(prompt, elementId)
+                : await leonardoService.startStoryIllustrationGeneration(prompt, elementId);
+
+            let finalImageUrl = null;
+            const MAX_POLLS = 30;
+            for (let poll = 0; poll < MAX_POLLS; poll++) {
+                await sleep(5000);
+                const result = await leonardoService.checkGenerationStatus(generationId);
+                if (result.isComplete) {
+                    finalImageUrl = result.imageUrl;
+                    break;
+                }
+            }
+            if (!finalImageUrl) throw new Error('Timeout esperando a imagem do Leonardo.AI.');
+            
+            return await downloadAndSaveImage(finalImageUrl, 'book-pages');
+        } catch (error) {
+            console.error(`Tentativa ${i + 1} de gerar imagem falhou: ${error.message}`);
+            if (i === MAX_RETRIES - 1) throw error;
+        }
+    }
   }
 
   async findCharactersByUser(userId) {
