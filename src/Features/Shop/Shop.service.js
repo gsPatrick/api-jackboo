@@ -22,7 +22,6 @@ class ShopService {
     if (categoryId) whereClause.categoryId = categoryId;
     if (ageRatingId) whereClause.ageRatingId = ageRatingId;
 
-    // ✅ LINHA CORRIGIDA (READICIONADA)
     let orderClause = [[sortBy, order]];
 
     const { count, rows } = await Book.findAndCountAll({
@@ -41,7 +40,7 @@ class ShopService {
       ],
       limit: parseInt(limit, 10),
       offset: (parseInt(page, 10) - 1) * parseInt(limit, 10),
-      order: orderClause, // Agora a variável existe
+      order: orderClause,
       distinct: true,
       subQuery: false,
     });
@@ -120,7 +119,7 @@ class ShopService {
       ],
       limit: parseInt(limit, 10),
       order: [['createdAt', 'DESC']],
-      group: ['Book.id', 'author.id', 'variations.id'], 
+      // ✅ A LINHA 'group' FOI REMOVIDA DAQUI PARA CORRIGIR O ERRO 500
     });
     
     const formattedBooks = books.map(book => {
