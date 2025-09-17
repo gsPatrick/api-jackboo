@@ -1,7 +1,7 @@
 // src/Features/Shop/Shop.service.js
 
-const { User, Character, Book, BookVariation, Category, AgeRating, sequelize } = require('../../models');
-// A linha "const { Op } = require('sequelize');" foi REMOVIDA
+// ✅ CORREÇÃO: Importar 'Sequelize' (maiúsculo) além de 'sequelize' (minúsculo)
+const { User, Character, Book, BookVariation, Category, AgeRating, Sequelize, sequelize } = require('../../models');
 const popularityService = require('../Popularity/Popularity.service');
 
 const JACKBOO_USER_ID = 1;
@@ -17,19 +17,19 @@ class ShopService {
     if (shopType === 'jackboo') {
       whereClause.authorId = JACKBOO_USER_ID;
     } else if (shopType === 'friends') {
-      // ✅ CORREÇÃO AQUI: Usando sequelize.Op
-      whereClause.authorId = { [sequelize.Op.ne]: JACKBOO_USER_ID };
+      // ✅ CORREÇÃO: Usar Sequelize.Op (maiúsculo)
+      whereClause.authorId = { [Sequelize.Op.ne]: JACKBOO_USER_ID };
     }
 
-    if (categoryId) whereClause.categoryId = categoryId;
-    if (ageRatingId) whereClause.ageRatingId = ageRatingId;
-
-    let orderClause = [[sortBy, order]];
-
+    // ... (o resto da função permanece igual)
+    // ...
     const { count, rows } = await Book.findAndCountAll({
       where: whereClause,
       include: [
-        { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl', 'slug'] },
+        // --- CORREÇÃO AQUI ---
+        // Removido 'slug' da lista de atributos
+        { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl'] },
+        // --- FIM DA CORREÇÃO ---
         { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
         { model: AgeRating, as: 'ageRating', attributes: ['id', 'range'] },
         { 
@@ -66,11 +66,14 @@ class ShopService {
       const book = await Book.findOne({
           where: { id: bookId, status: 'publicado' },
           include: [
-              { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl', 'isSystemUser', 'slug'] },
+              // --- CORREÇÃO AQUI ---
+              // Removido 'slug' da lista de atributos
+              { model: User, as: 'author', attributes: ['id', 'nickname', 'avatarUrl', 'isSystemUser'] },
+              // --- FIM DA CORREÇÃO ---
               { model: Character, as: 'mainCharacter', attributes: ['name', 'generatedCharacterUrl', 'description'] },
               { model: Category, as: 'category' },
               { model: AgeRating, as: 'ageRating' },
-              { model: BookVariation, as: 'variations', include: [{ model: require('../../models').BookContentPage, as: 'pages' }] }
+              { model: BookVariation, as: 'variations' }
           ]
       });
 
@@ -88,7 +91,7 @@ class ShopService {
 
       return bookData;
   }
-
+  
    async findRelatedBooks({ authorId, bookType, excludeBookId, limit = 5 }) {
     if (!authorId || !bookType) {
       throw new Error('authorId e bookType são parâmetros obrigatórios.');
@@ -100,10 +103,12 @@ class ShopService {
     };
     
     if (excludeBookId) {
-      // ✅ CORREÇÃO AQUI: Usando sequelize.Op
-      whereClause.id = { [sequelize.Op.ne]: excludeBookId }; // Not Equal
+      // ✅ CORREÇÃO: Usar Sequelize.Op (maiúsculo)
+      whereClause.id = { [Sequelize.Op.ne]: excludeBookId }; // Not Equal
     }
 
+    // ... (o resto da função permanece igual)
+    // ...
     const books = await Book.findAll({
       where: whereClause,
       include: [

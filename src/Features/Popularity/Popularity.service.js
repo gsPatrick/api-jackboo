@@ -1,12 +1,8 @@
-const { Like, Book, Character, sequelize } = require('../../models');
+// ✅ CORREÇÃO: Importar 'Sequelize' (maiúsculo) além de 'sequelize' (minúsculo)
+const { Like, Book, Character, Sequelize, sequelize } = require('../../models');
 
 class PopularityService {
-  /**
-   * Adiciona ou remove um like de uma entidade (Livro ou Personagem).
-   * @param {number} userId - ID do usuário dando/tirando o like.
-   * @param {string} likableType - 'Book' ou 'Character'.
-   * @param {number} likableId - ID do livro ou personagem.
-   */
+  // ... (funções toggleLike, getLikesCount, userLiked permanecem iguais) ...
   async toggleLike(userId, likableType, likableId) {
     // 1. Verifica se a entidade existe
     let entity;
@@ -38,11 +34,6 @@ class PopularityService {
     }
   }
 
-  /**
-   * Retorna a contagem de likes para uma entidade específica.
-   * @param {string} likableType - 'Book' ou 'Character'.
-   * @param {number} likableId - ID da entidade.
-   */
   async getLikesCount(likableType, likableId) {
     const count = await Like.count({
       where: { likableType, likableId }
@@ -50,12 +41,6 @@ class PopularityService {
     return count;
   }
 
-  /**
-   * Verifica se um usuário já deu like em uma entidade.
-   * @param {number} userId - ID do usuário.
-   * @param {string} likableType - 'Book' ou 'Character'.
-   * @param {number} likableId - ID da entidade.
-   */
   async userLiked(userId, likableType, likableId) {
     const liked = await Like.findOne({
       where: { userId, likableType, likableId }
@@ -81,7 +66,8 @@ class PopularityService {
       ],
       where: {
         likableType,
-        likableId: { [sequelize.Op.in]: likableIds }
+        // ✅ CORREÇÃO: Usar Sequelize.Op (maiúsculo)
+        likableId: { [Sequelize.Op.in]: likableIds }
       },
       group: ['likableId']
     });
